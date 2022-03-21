@@ -4,8 +4,6 @@ from scipy.integrate import ode
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from functools import partial
-
 sns.set()
 
 # introduce fixed constants
@@ -506,7 +504,7 @@ class PBHInstance:
         # also compute initial temperature for the standard 4D scenario
         self.M_init4 = horizon_mass_fraction_f * engine.M_Hubble4(T_init)
 
-        # map iniial temperature to a length scale corresponding to the perturbation enclosing the initial mass,
+        # map initial temperature to a length scale corresponding to the perturbation enclosing the initial mass,
         # here for Randall-Sundrum
         self.R_init = engine.R_Hubble(T_init)
         self.k_init = Const_2Pi / self.R_init
