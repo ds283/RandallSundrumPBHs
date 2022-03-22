@@ -174,8 +174,10 @@ class ModelParameters:
 # The *CosmologyEngine* class provides methods to compute the Hubble rate, Hubble length, horizon mass, etc.
 class CosmologyEngine:
 
-    def __init__(self, params: ModelParameters):
+    # collapse_fraction_f: determines fraction of horizon mass than is incorporated in the final PBH
+    def __init__(self, params: ModelParameters, collapse_fration_f=0.75):
         self.params = params
+        self.collapse_fraction_f = 0.75
 
     # compute the radiation energy density in GeV^4 from a temperature supplied in GeV
     # currently, we assume there are a fixed number of relativistic species
@@ -223,6 +225,14 @@ class CosmologyEngine:
         M_H = Const_M_H * self.params.M4 * self.params.M4 * self.params.M4 / np.sqrt(rho)
 
         return M_H
+
+    # compute PBH mass (in GeV) from collapse of the horion volume at temperature T, supplied in GeV
+    def PBH_initial_mass(self, T):
+        return self.collapse_fraction_f * self.M_Hubble(T)
+
+    # compute PBH mass (in GeV), in the 4D theory, from collapse of the horizon volume at temperature T, supplied in GeV
+    def PBH_initial_mass4(self, T):
+        return self.collapse_fraction_f * self.M_Hubble4(T)
 
 
 # class PBHState represents the state of a PBH, which involves at least mass but possibly also charge and
@@ -458,8 +468,8 @@ class PBH_lifetime_observer:
             self.T_grid_next = None
 
     # observation step should sample the solution if needed, and check whether the integration should end
-    def obs(self, T_rad, M_PBH_asarray):
-        M_PBH = M_PBH_asarray.item()
+    def obs(self, T_rad, x_asarray):
+        M_PBH = x_asarray.item() * self.engine.M_Hubble(T_rad)
         print('-- observer being called at T_rad = {TradGeV:.5g} GeV = {TradKelvin:.5g} Kelvin, '
               'mass = {MassGeV:.5g} = {MassGrams:.5g} grams'.format(TradGeV=T_rad, TradKelvin=T_rad/Kelvin,
                                                                     MassGeV=M_PBH, MassGrams=M_PBH/Gram))
@@ -490,13 +500,11 @@ class PBH_lifetime_observer:
 # (which we can map to an initial mass and a lengthscale)
 class PBHInstance:
     # capture cosmology engine instance and formation temperature of the PBH, measured in GeV
-    def __init__(self, engine: CosmologyEngine, T_init: float, horizon_mass_fraction_f=1.0,
+    def __init__(self, engine: CosmologyEngine, T_init: float, accretion_efficiency_F=0.7,
                  num_sample_points=NumTSamplePoints):
         self.engine = engine
         self.T_rad_init = T_init
-
-        # fraction of horizon mass that collapses to form the black hole
-        self.horizon_mass_fraction_f = 1.0
+        self.accretion_efficiency_F = accretion_efficiency_F
 
         # map initial temperature to initial mass of the PBH, in this case for Randall-Sundrum
         self.M_init = horizon_mass_fraction_f * engine.M_Hubble(T_init)
@@ -528,7 +536,7 @@ class PBHInstance:
     def compute_PBH_lifetime(self, use_effective_radius=True, use_greybody_factors=True):
         # set up ODE system to integrate, select an integrator, and set initial conditions
         rhs = PBH_lifetime_RHS(self.engine,
-                               accretion_efficiency_F=1.0,
+                               accretion_efficiency_F=self.accretion_efficiency_F,
                                use_effective_radius=use_effective_radius,
                                use_greybody_factors=use_greybody_factors)
 
@@ -625,8 +633,8 @@ def PBHMassPlot(M5, Tlo=1E3, Thi=None, units='gram'):
 
     unit = units_conversion[units]
 
-    M_values = [engine.M_Hubble(T) / unit for T in T_range]
-    M4_values = [engine.M_Hubble4(T) / unit for T in T_range]
+    M_values = [engine.PBH_initial_mass(T) / unit for T in T_range]
+    M4_values = [engine.PBH_initial_mass4(T) / unit for T in T_range]
 
     plt.figure()
     plt.loglog(T_range, M_values, label='Randall-Sundrum')
@@ -695,8 +703,8 @@ def PBHMassScaleRelation(M5, Tlo=4E3, Thi=None, length_units='kilometre', mass_u
     R_values = [engine.R_Hubble(T) / length_unit for T in reversed(T_range)]
     R4_values = [engine.R_Hubble4(T) / length_unit for T in reversed(T_range)]
 
-    M_values = [engine.M_Hubble(T) / mass_unit for T in reversed(T_range)]
-    M4_values = [engine.M_Hubble4(T) / mass_unit for T in reversed(T_range)]
+    M_values = [engine.PBH_initial_mass(T) / mass_unit for T in reversed(T_range)]
+    M4_values = [engine.PBH_initial_mass4(T) / mass_unit for T in reversed(T_range)]
 
     plt.figure()
     plt.loglog(R_values, M_values, label='Randall-Sundrum')
@@ -714,6 +722,7 @@ PBHMassScaleRelation(5E12)
 
 # compute PBH evolution
 params = ModelParameters(1E14)
-engine = CosmologyEngine(params)
+print(params)
+engine = CosmologyEngine(params, collapse_fration_f=0.7)
 sample = PBHInstance(engine, 1E10)
 sample.lifetime_plot('PBH_T1E10_lifetime.pdf')
