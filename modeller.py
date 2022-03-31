@@ -456,7 +456,7 @@ class StefanBoltzmannLifetimeModel:
         rho = self.engine.rho_radiation(T=T_rad)
 
         # first term in evolution equation comes from variation of M_H
-        dlogx_dlogT = - 4.0 * (self._tension + rho) / (2.0 * self._tension + rho)
+        dlogx_dlogT = 12.0 * (self._tension + rho) / (2.0 * self._tension + rho) - 4.0
 
 
         # ACCRETION
