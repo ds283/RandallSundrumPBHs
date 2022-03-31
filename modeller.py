@@ -652,8 +652,8 @@ class PBHLifetimeModel:
 
         # if there was an integration failure, raise an exception
         if not stepper.successful():
-            raise RuntimeError('PBH lifetime calculation failed due to an integration error, '
-                               'code = {code}'.format(code=stepper.get_return_code()))
+            raise RuntimeError('PBH lifetime calculation failed due to an integration error at T = {T:.5g} GeV, '
+                               'code = {code}'.format(T=np.exp(stepper.t), code=stepper.get_return_code()))
 
         # truncate unused sample points at end of x_sample_points
         index = Observer.sample_grid_current_index
