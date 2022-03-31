@@ -393,22 +393,6 @@ class PBHModel:
 
         return Const_4Pi
 
-    # query for value of the dimensionless ratio Hrh in a 4D model
-    def Hrh_4D(self, x, rho):
-        return x / (1.0 + rho/(2.0*self.params.tension))
-
-    # query for value of the dimensionless ratio Hrh in a 5D model
-    def Hrh_5D(self, x, rho):
-        return Const_Hrh_5D * np.sqrt(x) * self._M4_over_M5_sqrt * \
-            np.power(rho / (1.0 + rho/(2.0*self.params.tension)), 1.0/4.0) / self.params.M5
-
-    def Hrh(self, x, rho):
-        if self.is_5D:
-            return self.Hrh_4D(x, rho)
-
-        else:
-            return self.Hrh_5D(x, rho)
-
 
 class StefanBoltzmannLifetimeModel:
     '''
@@ -440,34 +424,31 @@ class StefanBoltzmannLifetimeModel:
         self._use_effective_radius = use_effective_radius
 
     # step the PBH mass, accounting for accretion and evaporation
-    def __call__(self, logT_rad, logx_asarray):
+    def __call__(self, logT_rad, logM_asarray):
         # for some purposes we need the temperature of the radiation bath expressed in GeV
         T_rad = np.exp(logT_rad)
 
-        # also the PBH mass fraction
-        x = np.exp(logx_asarray.item())
+        # also the PBH mass, and reset the PBH model object self._M_PBH to its value
+        M_PBH = np.exp(logM_asarray.item())
+        self._M_PBH.set_value(M_PBH, 'GeV')
 
-        # instantiate a PBHModel object to hold the PBH current state, and also the initial value of the
-        # temperature
-        M_Hubble = self.engine.M_Hubble(T=T_rad)
-        self._M_PBH.set_value(x * M_Hubble, 'GeV')
+        # compute horizon radius in 1/GeV
+        rh = self._M_PBH.radius
+        rh_sq = rh*rh
 
-        # compute radiation energy density
+        # compute current energy density rho(T) at this radiation temperature
         rho = self.engine.rho_radiation(T=T_rad)
 
-        # first term in evolution equation comes from variation of M_H
-        dlogx_dlogT = 12.0 * (self._tension + rho) / (2.0 * self._tension + rho) - 4.0
+        # compute current Hubble rate at this radiation temperature
+        H = self.engine.Hubble(T=T_rad)
 
-
-        # ACCRETION
-
-        Hrh = self._M_PBH.Hrh(x, rho)
-        Hrh_sq = Hrh * Hrh
-
+        # get alpha, the coefficient that turns rh into the effective radius, r_eff = alpha * rh
         alpha = self._M_PBH.alpha if self._use_effective_radius else 1.0
         alpha_sq = alpha*alpha
 
-        dlogx_dlogT -= (3.0/4.0) * self._accretion_efficiency_F * alpha_sq * Hrh_sq / x
+        # ACCRETION
+
+        dlogx_dlogT = -np.pi * self._accretion_efficiency_F * alpha_sq * rh_sq * rho / (self._M_PBH.mass * H)
 
 
         # EVAPORATION
@@ -478,11 +459,13 @@ class StefanBoltzmannLifetimeModel:
         g4_evap = 2.0  # TODO: CURRENTLY APPROXIMATE - ASSUME ONLY RADIATES TO PHOTONS
         g5_evap = 5.0  # TODO: ASSUME ONLY RADIATES TO BULK GRAVITONS
 
-        evap_prefactor = (alpha_sq/3.0) * rho * (1.0 + rho / (2.0 * self._tension)) / (x * t4 * Hrh_sq * self._M4_4)
+        evap_prefactor = Const_4Pi * alpha_sq / (self._M_PBH.mass * H * t4 * rh_sq)
         evap_dof = (g4_evap * self._SB_4D + Const_PiOver2 * alpha * g5_evap * self._SB_5D / t)
 
         dlogx_dlogT += evap_prefactor * evap_dof
-        print('-- integrator called at x = {x:.5g}, M_PBH = {MPBH:.5g} gram, T = {T:.5g} GeV, returning dlogx_dlogT = {out:.5g}'.format(x=x, MPBH=self._M_PBH.mass/Gram, T=T_rad, out=dlogx_dlogT))
+
+        # x = self._M_PBH.mass / self.engine.M_Hubble(T=T_rad)
+        # print('-- integrator called at x = {x:.5g}, M_PBH = {MPBH:.5g} gram, T = {T:.5g} GeV, returning dlogx_dlogT = {out:.5g}'.format(x=x, MPBH=self._M_PBH.mass/Gram, T=T_rad, out=dlogx_dlogT))
 
         return dlogx_dlogT
 
@@ -537,7 +520,7 @@ class LifetimeObserver:
             self.next_sample_point = None
 
     # observation step should sample the solution if needed, and check whether the integration should end
-    def __call__(self, logT_rad, logx_asarray):
+    def __call__(self, logT_rad, logM_asarray):
         '''
         Execute an observation step. This should sample the solution if needed, storing the current value in
         self._mass_grid, and advance self.sample_grid_current_index (and update self.next_sample_point)
@@ -549,14 +532,15 @@ class LifetimeObserver:
         # expressed in GeV
         T_rad = np.exp(logT_rad)
 
-        # we also comtimes need the current value of x
-        x = np.exp(logx_asarray.item())
-
-        # compute current PBH mass
-        M_PBH = x * self._engine.M_Hubble(T=T_rad)
+        # extract current value of PBH mass, in GeV
+        M_PBH = np.exp(logM_asarray.item())
 
         # write solution into M-grid if we have passed an observation point
         if self.next_sample_point is not None and logT_rad < self.next_sample_point:
+            # compute mass as a fraction of the Hubble volume mass
+            x = M_PBH / self._engine.M_Hubble(T=T_rad)
+
+            # store these values
             self._mass_grid[self.sample_grid_current_index] = M_PBH
             self._x_grid[self.sample_grid_current_index] = x
 
@@ -577,7 +561,6 @@ class LifetimeObserver:
 
 
 class PBHLifetimeModel:
-
     # conversion factors into GeV for mass units we understand
     _mass_conversions = {'gram': Gram, 'kilogram': Kilogram, 'GeV': 1.0}
 
@@ -585,24 +568,22 @@ class PBHLifetimeModel:
     _temperature_conversions = {'Kelvin': Kelvin, 'GeV': 1.0}
 
 
-    def __init__(self, x_init, M_init, T_rad_init, LifetimeModel, num_samples=NumTSamplePoints):
+    def __init__(self, M_init, T_rad_init, LifetimeModel, num_samples=NumTSamplePoints):
         '''
-        Capture initial valies
-        :param x_init: initial value of mass fraction x = M/M_H
+        Capture initial values
         :param M_init: initial PBH mass, expressed in GeV
         :param T_rad_init: temperature of radiation bath at formation, expressed in GeV
         :param LifetimeModel: model to use for lifetime calculations
-        :param num_samples: number of samples to take
+        :param num_samples: number of samples to extract
         '''
         # LifetimeModel should include an engine field to which we can refer
         self._engine = LifetimeModel.engine
 
-        self.x_init = x_init
         self.M_init = M_init
         self.T_rad_init = T_rad_init
 
         # integration actually proceeds with log(x)
-        self.log_x_init = np.log(x_init)
+        self.logM_init = np.log(M_init)
 
         # integration is done in terms of log(x) and log(T), where x = M/M_H(T) is the PBH mass expressed
         # as a fraction of the Hubble mass M_H
@@ -610,13 +591,15 @@ class PBHLifetimeModel:
 
         # sample grid runs from initial temperature of the radiation bath at formation,
         # down to current CMB temmperature T_CMB
-        self.T_min = T_CMB * Kelvin
+        # self.T_min = T_CMB * Kelvin
+        self.T_min = 2E5 * Kelvin
         self.logT_min = np.log(self.T_min)
 
         self.T_sample_points = np.geomspace(T_rad_init, self.T_min, num_samples)
         self.logT_sample_points = np.log(self.T_sample_points)
 
-        # reserve space for mass history
+        # reserve space for mass history, expressed as a PBH mass in GeV and as a fraction x of the
+        # currently Hubble mass M_H, x = M/M_H
         self.M_sample_points = np.zeros_like(self.logT_sample_points)
         self.x_sample_points = np.zeros_like(self.logT_sample_points)
 
@@ -641,7 +624,7 @@ class PBHLifetimeModel:
         # set up initial conditions for the PBH and the radiation bath
         # to keep the numerics sensible, we can't run the integration directly in grams; the numbers get too large,
         # making the integrator need a very small stepsize to keep up
-        stepper.set_initial_value(self.log_x_init, self.logT_rad_init)
+        stepper.set_initial_value(self.logM_init, self.logT_rad_init)
 
         # integrate down to the present CMB temperature, or when the observer notices that the PBH
         # mass has decreased below M4
@@ -652,8 +635,10 @@ class PBHLifetimeModel:
 
         # if there was an integration failure, raise an exception
         if not stepper.successful():
-            raise RuntimeError('PBH lifetime calculation failed due to an integration error at T = {T:.5g} GeV, '
-                               'code = {code}'.format(T=np.exp(stepper.t), code=stepper.get_return_code()))
+            raise RuntimeError('PBH lifetime calculation failed due to an integration error at '
+                               'T = {T:.5g} GeV = {TK:.5g} Kelvin, '
+                               'code = {code}'.format(T=np.exp(stepper.t), TK=np.exp(stepper.t)/Kelvin,
+                                                      code=stepper.get_return_code()))
 
         # truncate unused sample points at end of x_sample_points
         index = Observer.sample_grid_current_index
@@ -687,8 +672,8 @@ class PBHLifetimeModel:
         temperature_units_to_GeV = self._temperature_conversions[temperature_units]
 
         T_values = self.T_sample_points / temperature_units_to_GeV
-        # M_values = self.M_sample_points / mass_units_to_GeV
-        M_values = self.x_sample_points
+        M_values = self.M_sample_points / mass_units_to_GeV
+        # M_values = self.x_sample_points
 
         plt.figure()
         plt.loglog(T_values, M_values,
@@ -713,16 +698,20 @@ class PBHInstance:
         self.engine = engine
         self.accretion_efficiency_F = accretion_efficiency_F
 
-        _x_init = collapse_fraction_f * (1.0 + delta)
-        _M_Hubble = engine.M_Hubble(T=T_rad_init)
-        _M_init = _x_init * _M_Hubble
+        # x = f (1+delta) is the fraction of the Hubble volume that initially collapses to form the PBH
+        x_init = collapse_fraction_f * (1.0 + delta)
 
-        self.lifetimes \
-            = {'standard': PBHLifetimeModel(_x_init, _M_init, T_rad_init,
-                                            StefanBoltzmannLifetimeModel(self.engine,
-                                                                         accretion_efficiency_F=accretion_efficiency_F,
-                                                                         use_effective_radius=True),
-                                            num_samples=num_samples)}
+        # get mass of Hubble volume expressed in GeV
+        M_Hubble = engine.M_Hubble(T=T_rad_init)
+
+        # compute initil mass in GeV
+        M_init = x_init * M_Hubble
+
+        # set up different lifetime models - initially we are only using a Stefan-Boltzmann version
+        sb_baseline = StefanBoltzmannLifetimeModel(self.engine, accretion_efficiency_F=accretion_efficiency_F,
+                                                   use_effective_radius=True)
+
+        self.lifetimes = {'standard': PBHLifetimeModel(M_init, T_rad_init, sb_baseline, num_samples=num_samples)}
 
 
 # generate a plot of PBH formation mass vs. formation temperature
