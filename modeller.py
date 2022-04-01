@@ -448,7 +448,7 @@ class StefanBoltzmannLifetimeModel:
 
         # ACCRETION
 
-        dlogx_dlogT = -np.pi * self._accretion_efficiency_F * alpha_sq * rh_sq * rho / (self._M_PBH.mass * H)
+        dlogM_dlogT = -np.pi * self._accretion_efficiency_F * alpha_sq * rh_sq * rho / (self._M_PBH.mass * H)
 
 
         # EVAPORATION
@@ -462,12 +462,13 @@ class StefanBoltzmannLifetimeModel:
         evap_prefactor = Const_4Pi * alpha_sq / (self._M_PBH.mass * H * t4 * rh_sq)
         evap_dof = (g4_evap * self._SB_4D + Const_PiOver2 * alpha * g5_evap * self._SB_5D / t)
 
-        dlogx_dlogT += evap_prefactor * evap_dof
+        dlogM_dlogT += evap_prefactor * evap_dof
 
-        # x = self._M_PBH.mass / self.engine.M_Hubble(T=T_rad)
-        # print('-- integrator called at x = {x:.5g}, M_PBH = {MPBH:.5g} gram, T = {T:.5g} GeV, returning dlogx_dlogT = {out:.5g}'.format(x=x, MPBH=self._M_PBH.mass/Gram, T=T_rad, out=dlogx_dlogT))
+        x = self._M_PBH.mass / self.engine.M_Hubble(T=T_rad)
+        evap_to_accrete = 4.0 / (self._accretion_efficiency_F * t4 * rh_sq * rh_sq * rho)
+        print('-- integrator called at x = {x:.5g}, M_PBH = {MPBHGeV:.5g} GeV = {MPBHgram:.5g} gram, T = {TGeV:.5g} GeV = {TKelvin:.5g} Kelvin, returning dlogM_dlogT = {out:.5g}, dM/dT = {nolog:.5g}, evap/accrete = {ratio:.5g}'.format(x=x, MPBHGeV=self._M_PBH.mass, MPBHgram=self._M_PBH.mass/Gram, TGeV=T_rad, TKelvin=T_rad/Kelvin, out=dlogM_dlogT, nolog=self._M_PBH.mass*dlogM_dlogT/T_rad, ratio=evap_to_accrete))
 
-        return dlogx_dlogT
+        return dlogM_dlogT
 
 
 class LifetimeObserver:
@@ -591,8 +592,8 @@ class PBHLifetimeModel:
 
         # sample grid runs from initial temperature of the radiation bath at formation,
         # down to current CMB temmperature T_CMB
-        # self.T_min = T_CMB * Kelvin
-        self.T_min = 2E5 * Kelvin
+        self.T_min = T_CMB * Kelvin
+        # self.T_min = 2E5 * Kelvin
         self.logT_min = np.log(self.T_min)
 
         self.T_sample_points = np.geomspace(T_rad_init, self.T_min, num_samples)
@@ -604,10 +605,10 @@ class PBHLifetimeModel:
         self.x_sample_points = np.zeros_like(self.logT_sample_points)
 
         # prepare an observer object using these sample points
-        _observer = LifetimeObserver(self._engine, self.logT_sample_points, self.M_sample_points, self.x_sample_points)
+        observer = LifetimeObserver(self._engine, self.logT_sample_points, self.M_sample_points, self.x_sample_points)
 
         # run the integration
-        self._integrate(LifetimeModel, _observer)
+        self._integrate(LifetimeModel, observer)
 
 
     def _integrate(self, LifetimeModel, Observer):
@@ -618,7 +619,7 @@ class PBHLifetimeModel:
         :return:
         '''
         # set up stepper; need to use on that supports solout, which the SUNDIALS ones don't seem to do
-        stepper = ode(LifetimeModel).set_integrator('dopri5', rtol=1E-10, nsteps=5000)
+        stepper = ode(LifetimeModel).set_integrator('dopri5', rtol=1E-8, nsteps=5000)
         stepper.set_solout(Observer)
 
         # set up initial conditions for the PBH and the radiation bath
