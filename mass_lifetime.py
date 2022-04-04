@@ -37,8 +37,8 @@ def map(f, obj):
     return f(obj)
 
 # build soln_grid of M5/Tinit sample points
-M5_grid = np.geomspace(2E8, 1E17, 200)
-Tinit_grid = np.geomspace(4E8, 5E16, 200)
+M5_grid = np.geomspace(2E8, 5E17, 250)
+Tinit_grid = np.geomspace(4E8, 5E17, 250)
 
 # generate serial numbers for M5 & Tinit sample grids and write these out
 M5_grid_size = len(M5_grid)
@@ -68,13 +68,37 @@ Tinit_df.to_csv('Tinit_grid.csv')
 # now combine M5 & Tinit grids into a single large grid
 data_all = itertools.product(enumerate(M5_grid), enumerate(Tinit_grid))
 
-# the soln_grid includes all combinations, even where Tinit is larger than M5 (which should not be allowed)
+# data_grid now includes all combinations, even where Tinit is larger than M5 (which should not be allowed),
+# or the PBH mass that forms would already be a relic
 # so, we need to filter these out
-data = [(M5_serial, T_serial, M5, Tinit) for ((M5_serial, M5), (T_serial, Tinit)) in data_all if Tinit < M5]
+def is_valid(M5: float, Tinit: float, f: float):
+    if Tinit > M5:
+        return False
+
+    params = lkit.ModelParameters(M5)
+    engine = lkit.CosmologyEngine(params)
+
+    try:
+        # get mass of Hubble volume expressed in GeV
+        M_Hubble = engine.M_Hubble(T=Tinit)
+
+        # compute initial mass in GeV
+        M_init = f * M_Hubble
+
+        M_PBH = lkit.PBHModel(params, M_init, units='GeV')
+    except RuntimeError as e:
+        return False
+
+    return True
+
+data = [(M5_serial, T_serial, M5, Tinit) for ((M5_serial, M5), (T_serial, Tinit)) in data_all if is_valid(M5, Tinit, 0.5)]
 
 # assign a serial number to each configuration
 data_grid = [{'serial': serial, 'M5_serial': M5_serial, 'T_serial': T_serial, 'M5': M5, 'Tinit': Tinit,
               'F': 0.1, 'f': 0.5} for serial, (M5_serial, T_serial, M5, Tinit) in enumerate(data)]
+
+# use ray to perform a distributed map of compute_lifetime onto data_grid
+soln_grid = ray.get([map.remote(compute_lifetime, line) for line in data_grid])
 
 # build a data frame indexed by serial numbers
 # we'll use this to store the computed lifetimes and associated metadata
@@ -104,7 +128,6 @@ SB_4D_lifetime_Kelvin = np.zeros(work_size)
 SB_4D_shift = np.zeros(work_size)
 SB_4D_compute = np.zeros(work_size)
 
-soln_grid = ray.get([map.remote(compute_lifetime, line) for line in data_grid])
 for line in soln_grid:
     serial = line['serial']
     M5_serial[serial] = line['M5_serial']
