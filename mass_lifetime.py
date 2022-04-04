@@ -21,10 +21,12 @@ def compute_lifetime(data):
 
     solution = lkit.PBHInstance(engine, Tinit, accretion_efficiency_F=F, collapse_fraction_f=f)
 
-    standard = solution.lifetimes['standard']
+    SB5D = solution.lifetimes['StefanBoltzmann5D']
+    SB4D = solution.lifetimes['StefanBoltzmann4D']
 
     return {'serial': serial, 'Minit': solution.M_init, 'Tinit': Tinit, 'F': F, 'f': f, 'M5': M5,
-            'SB_lifetime': standard.T_lifetime, 'SB_shift': standard.T_shift, 'SB_compute': standard.compute_time}
+            'SB_5D_lifetime': SB5D.T_lifetime, 'SB_5D_shift': SB5D.T_shift, 'SB_5D_compute': SB5D.compute_time,
+            'SB_4D_lifetime': SB4D.T_lifetime, 'SB_4D_shift': SB4D.T_shift, 'SB_4D_compute': SB4D.compute_time}
 
 @ray.remote
 def map(f, obj):
@@ -58,10 +60,14 @@ M_init_GeV = np.zeros(work_size)
 M_init_gram = np.zeros(work_size)
 T_init_GeV = np.zeros(work_size)
 T_init_Kelvin = np.zeros(work_size)
-SB_lifetime_GeV = np.zeros(work_size)
-SB_lifetime_Kelvin = np.zeros(work_size)
-SB_shift = np.zeros(work_size)
-SB_compute = np.zeros(work_size)
+SB_5D_lifetime_GeV = np.zeros(work_size)
+SB_5D_lifetime_Kelvin = np.zeros(work_size)
+SB_5D_shift = np.zeros(work_size)
+SB_5D_compute = np.zeros(work_size)
+SB_4D_lifetime_GeV = np.zeros(work_size)
+SB_4D_lifetime_Kelvin = np.zeros(work_size)
+SB_4D_shift = np.zeros(work_size)
+SB_4D_compute = np.zeros(work_size)
 
 soln_grid = ray.get([map.remote(compute_lifetime, line) for line in data_grid])
 for line in soln_grid:
@@ -73,10 +79,14 @@ for line in soln_grid:
     M_init_gram[serial] = line['Minit'] / lkit.Gram
     T_init_GeV[serial] = line['Tinit']
     T_init_Kelvin[serial] = line['Tinit'] / lkit.Kelvin
-    SB_lifetime_GeV[serial] = line['SB_lifetime']
-    SB_lifetime_Kelvin[serial] = line['SB_lifetime'] / lkit.Kelvin if line['SB_lifetime'] is not None else None
-    SB_shift[serial] = line['SB_shift'] / lkit.Kelvin if line['SB_shift'] is not None else None
-    SB_compute[serial] = line['SB_compute']
+    SB_5D_lifetime_GeV[serial] = line['SB_5D_lifetime']
+    SB_5D_lifetime_Kelvin[serial] = line['SB_5D_lifetime'] / lkit.Kelvin if line['SB_5D_lifetime'] is not None else None
+    SB_5D_shift[serial] = line['SB_5D_shift'] / lkit.Kelvin if line['SB_5D_shift'] is not None else None
+    SB_5D_compute[serial] = line['SB_5D_compute']
+    SB_4D_lifetime_GeV[serial] = line['SB_4D_lifetime']
+    SB_4D_lifetime_Kelvin[serial] = line['SB_4D_lifetime'] / lkit.Kelvin if line['SB_4D_lifetime'] is not None else None
+    SB_4D_shift[serial] = line['SB_4D_shift'] / lkit.Kelvin if line['SB_4D_shift'] is not None else None
+    SB_4D_compute[serial] = line['SB_4D_compute']
 
 
 df = pd.DataFrame(data={'M5_GeV': M5,
@@ -86,8 +96,13 @@ df = pd.DataFrame(data={'M5_GeV': M5,
                         'M_init_gram': M_init_gram,
                         'T_init_GeV': T_init_GeV,
                         'T_init_Kelvin': T_init_Kelvin,
-                        'SB_lifetime_GeV': SB_lifetime_GeV,
-                        'SB_lifetime_Kelvin': SB_lifetime_Kelvin,
-                        'SB_shift_Kelvin': SB_shift,
-                        'SB_compute': SB_compute}, index=df_index)
+                        'SB_5D_lifetime_GeV': SB_5D_lifetime_GeV,
+                        'SB_5D_lifetime_Kelvin': SB_5D_lifetime_Kelvin,
+                        'SB_5D_shift_Kelvin': SB_5D_shift,
+                        'SB_5D_compute': SB_5D_compute,
+                        'SB_4D_lifetime_GeV': SB_4D_lifetime_GeV,
+                        'SB_4D_lifetime_Kelvin': SB_4D_lifetime_Kelvin,
+                        'SB_4D_shift_Kelvin': SB_4D_shift,
+                        'SB_4D_compute': SB_4D_compute
+                        }, index=df_index)
 df.to_csv('mass_lifetime.csv')
