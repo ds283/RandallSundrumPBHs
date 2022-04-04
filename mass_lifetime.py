@@ -40,7 +40,32 @@ def map(f, obj):
 M5_grid = np.geomspace(2E8, 1E17, 200)
 Tinit_grid = np.geomspace(4E8, 5E16, 200)
 
-# combine into a soln_grid
+# generate serial numbers for M5 & Tinit sample grids and write these out
+M5_grid_size = len(M5_grid)
+grid_M5_serials = np.zeros(M5_grid_size)
+grid_M5_values = np.zeros(M5_grid_size)
+for serial, M5 in enumerate(M5_grid):
+    grid_M5_serials[serial] = serial
+    grid_M5_values[serial] = M5
+
+m5_df = pd.DataFrame(data={'serial': grid_M5_serials, 'M5_GeV': grid_M5_values})
+m5_df.set_index('serial', inplace=True)
+m5_df.to_csv('M5_grid.csv')
+
+Tinit_grid_size = len(Tinit_grid)
+grid_Tinit_serials = np.zeros(Tinit_grid_size)
+grid_Tinit_GeV = np.zeros(Tinit_grid_size)
+grid_Tinit_Kelvin = np.zeros(Tinit_grid_size)
+for serial, Tinit in enumerate(Tinit_grid):
+    grid_Tinit_serials[serial] = serial
+    grid_Tinit_GeV[serial] = Tinit
+    grid_Tinit_Kelvin[serial] = Tinit/lkit.Kelvin
+
+Tinit_df = pd.DataFrame(data={'serial': grid_Tinit_serials, 'Tinit_GeV': grid_Tinit_GeV, 'Tinit_Kelvin': grid_Tinit_Kelvin})
+Tinit_df.set_index('serial', inplace=True)
+Tinit_df.to_csv('Tinit_grid.csv')
+
+# now combine M5 & Tinit grids into a single large grid
 data_all = itertools.product(enumerate(M5_grid), enumerate(Tinit_grid))
 
 # the soln_grid includes all combinations, even where Tinit is larger than M5 (which should not be allowed)
@@ -48,9 +73,8 @@ data_all = itertools.product(enumerate(M5_grid), enumerate(Tinit_grid))
 data = [(M5_serial, T_serial, M5, Tinit) for ((M5_serial, M5), (T_serial, Tinit)) in data_all if Tinit < M5]
 
 # assign a serial number to each configuration
-data_serials = enumerate(data)
 data_grid = [{'serial': serial, 'M5_serial': M5_serial, 'T_serial': T_serial, 'M5': M5, 'Tinit': Tinit,
-              'F': 0.1, 'f': 0.5} for serial, (M5_serial, T_serial, M5, Tinit) in data_serials]
+              'F': 0.1, 'f': 0.5} for serial, (M5_serial, T_serial, M5, Tinit) in enumerate(data)]
 
 # build a data frame indexed by serial numbers
 # we'll use this to store the computed lifetimes and associated metadata
