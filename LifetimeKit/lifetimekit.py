@@ -409,7 +409,7 @@ class StefanBoltzmann5DLifetimeModel:
     (i.e. the integrated Hawking flux)
     '''
     def __init__(self, engine: CosmologyEngine, accretion_efficiency_F=0.3,
-                 use_effective_radius=True):
+                 use_effective_radius=True, use_Page_suppression=True):
         '''
         Instantiate a StefanBoltzmann5DLifetimeModel object
         :param engine: a CosmologyEngine instance to use for calculations
@@ -429,6 +429,7 @@ class StefanBoltzmann5DLifetimeModel:
 
         self._accretion_efficiency_F = accretion_efficiency_F
         self._use_effective_radius = use_effective_radius
+        self._use_Page_suppression = use_Page_suppression
 
         self._logM_end = np.log(self._params.M4)
 
@@ -472,7 +473,7 @@ class StefanBoltzmann5DLifetimeModel:
         evap_prefactor = Const_4Pi * alpha_sq / (self._M_PBH.mass * H * t4 * rh_sq)
         evap_dof = (g4_evap * self._SB_4D + Const_PiOver2 * alpha * g5_evap * self._SB_5D / t)
 
-        dlogM_dlogT += evap_prefactor * evap_dof
+        dlogM_dlogT += evap_prefactor * evap_dof / (2.6 if self._use_Page_suppression else 1.0)
 
         # x = self._M_PBH.mass / self.engine.M_Hubble(T=T_rad)
         # evap_to_accrete = 4.0 / (self._accretion_efficiency_F * t4 * rh_sq * rh_sq * rho)
@@ -497,7 +498,7 @@ class StefanBoltzmann4DLifetimeModel:
     (i.e. the integrated Hawking flux)
     '''
     def __init__(self, engine: CosmologyEngine, accretion_efficiency_F=0.3,
-                 use_effective_radius=True):
+                 use_effective_radius=True, use_Page_suppression=True):
         '''
         Instantiate a StefanBoltzmann4DLifetimeModel object
         :param engine: a CosmologyEngine instance to use for calculations
@@ -516,6 +517,7 @@ class StefanBoltzmann4DLifetimeModel:
 
         self._accretion_efficiency_F = accretion_efficiency_F
         self._use_effective_radius = use_effective_radius
+        self._use_Page_suppression = True
 
         self._logM_end = np.log(self._params.M4)
 
@@ -558,7 +560,7 @@ class StefanBoltzmann4DLifetimeModel:
         evap_prefactor = Const_4Pi * alpha_sq / (self._M_PBH.mass * H * t4 * rh_sq)
         evap_dof = g4_evap * self._SB_4D
 
-        dlogM_dlogT += evap_prefactor * evap_dof
+        dlogM_dlogT += evap_prefactor * evap_dof / (2.6 if self._use_Page_suppression else 1.0)
 
         # x = self._M_PBH.mass / self.engine.M_Hubble4(T=T_rad)
         # evap_to_accrete = 4.0 / (self._accretion_efficiency_F * t4 * rh_sq * rh_sq * rho)
@@ -949,9 +951,9 @@ class PBHInstance:
 
         # set up different lifetime models - initially we are only using a Stefan-Boltzmann version
         sb_5D = StefanBoltzmann5DLifetimeModel(self._engine, accretion_efficiency_F=accretion_efficiency_F,
-                                               use_effective_radius=True)
+                                               use_effective_radius=True, use_Page_suppression=True)
         sb_4D = StefanBoltzmann4DLifetimeModel(self._engine, accretion_efficiency_F=accretion_efficiency_F,
-                                               use_effective_radius=True)
+                                               use_effective_radius=True, use_Page_suppression=True)
 
         self.lifetimes = {'StefanBoltzmann5D': PBHLifetimeModel(M_init_5D, T_rad_init, sb_5D, num_samples=num_samples),
                           'StefanBoltzmann4D': PBHLifetimeModel(M_init_4D, T_rad_init, sb_4D, num_samples=num_samples, use_4D=True)}
