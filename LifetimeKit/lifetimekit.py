@@ -929,7 +929,8 @@ class PBHInstance:
     # num_sample_ponts: number of T samples to take
     def __init__(self, engine: CosmologyEngine, T_rad_init: float, accretion_efficiency_F=0.5,
                  collapse_fraction_f=0.5, delta=0.0, num_samples=NumTSamplePoints):
-        self.engine = engine
+        self._engine = engine
+        self._params = engine.params
         self.accretion_efficiency_F = accretion_efficiency_F
 
         # x = f (1+delta) is the fraction of the Hubble volume that initially collapses to form the PBH
@@ -941,11 +942,12 @@ class PBHInstance:
         # compute initial mass in GeV
         M_init = x_init * M_Hubble
         self.M_init = M_init
+        self.M_init_model = PBHModel(self._params, M_init, 'GeV')
 
         # set up different lifetime models - initially we are only using a Stefan-Boltzmann version
-        sb_5D = StefanBoltzmann5DLifetimeModel(self.engine, accretion_efficiency_F=accretion_efficiency_F,
+        sb_5D = StefanBoltzmann5DLifetimeModel(self._engine, accretion_efficiency_F=accretion_efficiency_F,
                                                use_effective_radius=True)
-        sb_4D = StefanBoltzmann4DLifetimeModel(self.engine, accretion_efficiency_F=accretion_efficiency_F,
+        sb_4D = StefanBoltzmann4DLifetimeModel(self._engine, accretion_efficiency_F=accretion_efficiency_F,
                                                use_effective_radius=True)
 
         self.lifetimes = {'StefanBoltzmann5D': PBHLifetimeModel(M_init, T_rad_init, sb_5D, num_samples=num_samples),
