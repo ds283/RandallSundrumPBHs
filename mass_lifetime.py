@@ -28,7 +28,7 @@ def compute_lifetime(data):
     SB4D = solution.lifetimes['StefanBoltzmann4D']
 
     return {'serial': serial, 'M5_serial': M5_serial, 'T_serial': T_serial,
-            'Minit': solution.M_init, 'Tinit': Tinit, 'F': F, 'f': f, 'M5': M5,
+            'Minit_5D': solution.M_init_5D, 'Minit_4D':solution.M_init_4D, 'Tinit': Tinit, 'F': F, 'f': f, 'M5': M5,
             'SB_5D_lifetime': SB5D.T_lifetime, 'SB_5D_shift': SB5D.T_shift, 'SB_5D_compute': SB5D.compute_time,
             'SB_4D_lifetime': SB4D.T_lifetime, 'SB_4D_shift': SB4D.T_shift, 'SB_4D_compute': SB4D.compute_time}
 
@@ -85,6 +85,8 @@ def is_valid(M5: float, Tinit: float, f: float):
         # compute initial mass in GeV
         M_init = f * M_Hubble
 
+        # constructing a PBHModel with this mass will raise an exception if the mass is out of bounds
+        # could possibly just write in the test here, but this way we abstract it into the PBHModel class
         M_PBH = lkit.PBHModel(params, M_init, units='GeV')
     except RuntimeError as e:
         return False
@@ -113,8 +115,12 @@ M5 = np.zeros(work_size)
 F = np.zeros(work_size)
 f = np.zeros(work_size)
 
-M_init_GeV = np.zeros(work_size)
-M_init_gram = np.zeros(work_size)
+M_5D_init_GeV = np.zeros(work_size)
+M_5D_init_gram = np.zeros(work_size)
+
+M_4D_init_GeV = np.zeros(work_size)
+M_4D_init_gram = np.zeros(work_size)
+
 T_init_GeV = np.zeros(work_size)
 T_init_Kelvin = np.zeros(work_size)
 
@@ -137,8 +143,12 @@ for line in soln_grid:
     F[serial] = line['F']
     f[serial] = line['f']
 
-    M_init_GeV[serial] = line['Minit']
-    M_init_gram[serial] = line['Minit'] / lkit.Gram
+    M_5D_init_GeV[serial] = line['Minit_5D']
+    M_5D_init_gram[serial] = line['Minit_5D'] / lkit.Gram if line['Minit_5D'] is not None else None
+
+    M_4D_init_GeV[serial] = line['Minit_4D']
+    M_4D_init_gram[serial] = line['Minit_4D'] / lkit.Gram if line['Minit_4D'] is not None else None
+
     T_init_GeV[serial] = line['Tinit']
     T_init_Kelvin[serial] = line['Tinit'] / lkit.Kelvin
 
@@ -158,8 +168,10 @@ df = pd.DataFrame(data={'M5_serial': M5_serial,
                         'M5_GeV': M5,
                         'accretion_F': F,
                         'collapse_f': f,
-                        'M_init_GeV': M_init_GeV,
-                        'M_init_gram': M_init_gram,
+                        'M_5D_init_GeV': M_5D_init_GeV,
+                        'M_5D_init_gram': M_5D_init_gram,
+                        'M_4D_init_GeV': M_4D_init_GeV,
+                        'M_4D_init_gram': M_4D_init_gram,
                         'T_init_GeV': T_init_GeV,
                         'T_init_Kelvin': T_init_Kelvin,
                         'SB_5D_lifetime_GeV': SB_5D_lifetime_GeV,
@@ -169,7 +181,6 @@ df = pd.DataFrame(data={'M5_serial': M5_serial,
                         'SB_4D_lifetime_GeV': SB_4D_lifetime_GeV,
                         'SB_4D_lifetime_Kelvin': SB_4D_lifetime_Kelvin,
                         'SB_4D_shift_Kelvin': SB_4D_shift,
-                        'SB_4D_compute': SB_4D_compute
-                        }, index=df_index)
+                        'SB_4D_compute': SB_4D_compute}, index=df_index)
 df.index.name = 'index'
 df.to_csv('mass_lifetime.csv')

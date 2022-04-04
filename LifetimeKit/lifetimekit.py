@@ -815,7 +815,7 @@ class PBHLifetimeModel:
             #             stepper.integrate(Observer.next_sample_point - 0.001)
             #     except FloatingPointError as e:
             #         print('Floating point error: {msg}'.format(msg=str(e)))
-            #         print('  -- at Minit = {Minit}, T_rad = {Tinit}, M5={M5}'.format(Minit=self.M_init, Tinit=self.T_rad_init, M5=LifetimeModel._params.M5))
+            #         print('  -- at Minit = {Minit}, T_rad = {Tinit}, M5={M5}'.format(Minit=self.M_init_5D, Tinit=self.T_rad_init, M5=LifetimeModel._params.M5))
             #
             #         # leave lifetime as null to indicate that numerical results were unreliable here
             #         return
@@ -938,11 +938,14 @@ class PBHInstance:
 
         # get mass of Hubble volume expressed in GeV
         M_Hubble = engine.M_Hubble(T=T_rad_init)
+        M_Hubble4 = engine.M_Hubble4(T=T_rad_init)
 
         # compute initial mass in GeV
-        M_init = x_init * M_Hubble
-        self.M_init = M_init
-        self.M_init_model = PBHModel(self._params, M_init, 'GeV')
+        M_init_5D = x_init * M_Hubble
+        self.M_init_5D = M_init_5D
+
+        M_init_4D = x_init * M_Hubble4
+        self.M_init_4D = M_init_4D
 
         # set up different lifetime models - initially we are only using a Stefan-Boltzmann version
         sb_5D = StefanBoltzmann5DLifetimeModel(self._engine, accretion_efficiency_F=accretion_efficiency_F,
@@ -950,8 +953,8 @@ class PBHInstance:
         sb_4D = StefanBoltzmann4DLifetimeModel(self._engine, accretion_efficiency_F=accretion_efficiency_F,
                                                use_effective_radius=True)
 
-        self.lifetimes = {'StefanBoltzmann5D': PBHLifetimeModel(M_init, T_rad_init, sb_5D, num_samples=num_samples),
-                          'StefanBoltzmann4D': PBHLifetimeModel(M_init, T_rad_init, sb_4D, num_samples=num_samples, use_4D=True)}
+        self.lifetimes = {'StefanBoltzmann5D': PBHLifetimeModel(M_init_5D, T_rad_init, sb_5D, num_samples=num_samples),
+                          'StefanBoltzmann4D': PBHLifetimeModel(M_init_4D, T_rad_init, sb_4D, num_samples=num_samples, use_4D=True)}
 
 
     # produce plot of PBH mass over its lifetime, as a function of temperature T
