@@ -514,9 +514,9 @@ class LifetimeObserver:
         '''
         Instantiate a LifetimeObserver instance
         :param engine: CosmologyEngine instance to use for computations
-        :param sample_grid: grid of sample points for independent variable (here log T)
-        :param mass_grid: grid of sample points for dependent variable (here M)
-        :param x_grid: grid of sample points for dependent variable (here x)
+        :param sample_grid: soln_grid of sample points for independent variable (here log T)
+        :param mass_grid: soln_grid of sample points for dependent variable (here M)
+        :param x_grid: soln_grid of sample points for dependent variable (here x)
         '''
         if engine is None or not isinstance(engine, CosmologyEngine):
             raise RuntimeError('LifetimeObserver: supplied CosmologyEngine instance is not usable')
@@ -532,7 +532,7 @@ class LifetimeObserver:
         self.relic_mass = relic_mass
         self.terminated = False
 
-        # capture reference to sample grid and data grid
+        # capture reference to sample soln_grid and data soln_grid
         self._sample_grid = sample_grid
         self._mass_grid = mass_grid
         self._x_grid = x_grid
@@ -540,7 +540,7 @@ class LifetimeObserver:
         self._sample_grid_length = sample_grid.size
 
         # self.sample_grid_current_index is an externally visible data member that exposes our current
-        # position within the same grid
+        # position within the same soln_grid
         self.sample_grid_current_index = 0
 
         # self.next_sample_point is an externally visible data member that exposes the value of the
@@ -566,7 +566,7 @@ class LifetimeObserver:
         # extract current value of PBH mass, in GeV
         M_PBH = np.exp(logM_asarray.item())
 
-        # write solution into M-grid if we have passed an observation point
+        # write solution into M-soln_grid if we have passed an observation point
         if self.next_sample_point is not None and logT_rad < self.next_sample_point:
             # compute mass as a fraction of the Hubble volume mass
             x = M_PBH / self._engine.M_Hubble(T=T_rad)
@@ -621,7 +621,7 @@ class PBHLifetimeModel:
         # as a fraction of the Hubble mass M_H
         self.logT_rad_init = np.log(T_rad_init)
 
-        # sample grid runs from initial temperature of the radiation bath at formation,
+        # sample soln_grid runs from initial temperature of the radiation bath at formation,
         # down to current CMB temmperature T_CMB
         self.T_min = T_CMB * Kelvin
         # self.T_min = 2E5 * Kelvin
@@ -634,6 +634,17 @@ class PBHLifetimeModel:
         # currently Hubble mass M_H, x = M/M_H
         self.M_sample_points = np.zeros_like(self.logT_sample_points)
         self.x_sample_points = np.zeros_like(self.logT_sample_points)
+
+        # set lifetime to default value of None, indicating that we could not compute it; we'll overwrite
+        # this value later
+        self.T_lifetime = None
+
+        # if we have to use an analytic solution to get all the way down to the relic scale,
+        # keep track of how much we needed to shift by
+        self.T_shift = None
+
+        # set compute time to None; will be overwritten later
+        self.compute_time = None
 
         # prepare an observer object using these sample points, using a relic scale set at the
         self._relic_scale = self._params.M4
@@ -659,14 +670,6 @@ class PBHLifetimeModel:
         # to keep the numerics sensible, we can't run the integration directly in grams; the numbers get too large,
         # making the integrator need a very small stepsize to keep up
         stepper.set_initial_value(self.logM_init, self.logT_rad_init)
-
-        # set lifetime to default value of None, indicating that we could not compute it; we'll overwrite
-        # this value later
-        self.T_lifetime = None
-
-        # if we have to use an analytic solution to get all the way down to the relic scale,
-        # keep track of how much we needed to shift by
-        self.T_shift = None
 
         with Timer() as timer:
             # integrate down to the present CMB temperature, or when the observer notices that the PBH
@@ -794,6 +797,9 @@ class PBHLifetimeModel:
                 np.append(self.M_sample_points, self._relic_scale)
                 np.append(self.x_sample_points, self._relic_scale / self._engine.M_Hubble(T=T_final))
 
+                self.T_lifetime = T_final
+                self.T_shift = DeltaT
+
             else:
                 raise RuntimeError('PBH lifetime calculation failed due to an integration error at '
                                    'T = {T:.5g} GeV = {TK:.5g} Kelvin, '
@@ -850,8 +856,9 @@ class PBHInstance:
         # get mass of Hubble volume expressed in GeV
         M_Hubble = engine.M_Hubble(T=T_rad_init)
 
-        # compute initil mass in GeV
+        # compute initial mass in GeV
         M_init = x_init * M_Hubble
+        self.M_init = M_init
 
         # set up different lifetime models - initially we are only using a Stefan-Boltzmann version
         sb_baseline = StefanBoltzmannLifetimeModel(self.engine, accretion_efficiency_F=accretion_efficiency_F,
