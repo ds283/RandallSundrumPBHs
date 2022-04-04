@@ -44,11 +44,18 @@ Tinit_grid = np.geomspace(4E8, 5E17, 250)
 M5_grid_size = len(M5_grid)
 grid_M5_serials = np.zeros(M5_grid_size)
 grid_M5_values = np.zeros(M5_grid_size)
+grid_M5_Tcrossover_GeV = np.zeros(M5_grid_size)
+grid_M5_Tcrossover_Kelvin = np.zeros(M5_grid_size)
 for serial, M5 in enumerate(M5_grid):
     grid_M5_serials[serial] = serial
     grid_M5_values[serial] = M5
 
-m5_df = pd.DataFrame(data={'serial': grid_M5_serials, 'M5_GeV': grid_M5_values})
+    params = lkit.ModelParameters(M5)
+    grid_M5_Tcrossover_GeV[serial] = params.T_crossover
+    grid_M5_Tcrossover_Kelvin[serial] = params.T_crossover_Kelvin
+
+m5_df = pd.DataFrame(data={'serial': grid_M5_serials, 'M5_GeV': grid_M5_values,
+                           'Tcrossover_GeV': grid_M5_Tcrossover_GeV, 'Tcrossover_Kelvin': grid_M5_Tcrossover_Kelvin})
 m5_df.set_index('serial', inplace=True)
 m5_df.to_csv('M5_grid.csv')
 
