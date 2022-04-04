@@ -2,9 +2,9 @@ import numpy as np
 from scipy.integrate import ode
 
 import matplotlib.pyplot as plt
-import seaborn as sns
 
-sns.set()
+import time
+
 
 # introduce fixed constants
 Const_8Pi = 8.0 * np.pi
@@ -28,9 +28,6 @@ StefanBoltzmannConstant4D = RadiationConstant4D / 4.0
 StefanBoltzmannConstant5D = 0.0668850223995 # 2 * Zeta(5) / pi^3
 gstar_full_SM = 106.7
 T_CMB = 2.72548
-
-# number of points to use on plots
-NumPoints = 200
 
 # number of T-sample points to capture for PBH lifetime mass/temperature relation
 NumTSamplePoints = 200
@@ -62,6 +59,16 @@ Mpc = 3.08567758128E+19 * Kilometre
 Kilogram = np.sqrt(Const_8Pi) * M4 / 2.17643424E-8
 Gram = Kilogram / 1000.0
 SolarMass = 1.98847E30 * Kilogram
+
+
+class Timer:
+    def __enter__(self):
+        self.start = time.perf_counter()
+        return self
+
+    def __exit__(self, *args):
+        self.end = time.perf_counter()
+        self.interval = self.end - self.start
 
 
 # The *ModelParameters* class captures details of the 4D and 5D Planck masses, and uses these to compute derived
@@ -120,6 +127,7 @@ class ModelParameters:
         self.ell_AdS_Metres = self.ell_AdS / Metre
 
         # compute mass-scale at which black holes cross over from 5D to 4D behaviour
+        # This is already guaranteed to be larger than the 4D Planck mass scale M4
         self.M_transition = Const_4D5D_Transition_Mass * M5 / (M_ratio*M_ratio*M_ratio*M_ratio)
         self.M_transition_Kilogram = self.M_transition / Kilogram
         self.M_transition_MSun = self.M_transition / SolarMass
@@ -393,43 +401,26 @@ class PBHModel:
 
         return Const_4Pi
 
-    # query for value of the dimensionless ratio Hrh in a 4D model
-    def Hrh_4D(self, x, rho):
-        return x / (1.0 + rho/(2.0*self.params.tension))
 
-    # query for value of the dimensionless ratio Hrh in a 5D model
-    def Hrh_5D(self, x, rho):
-        return Const_Hrh_5D * np.sqrt(x) * self._M4_over_M5_sqrt * \
-            np.power(rho / (1.0 + rho/(2.0*self.params.tension)), 1.0/4.0) / self.params.M5
-
-    def Hrh(self, x, rho):
-        if self.is_5D:
-            return self.Hrh_4D(x, rho)
-
-        else:
-            return self.Hrh_5D(x, rho)
-
-
-class StefanBoltzmannLifetimeModel:
+class StefanBoltzmann5DLifetimeModel:
     '''
-    Evaluate RHS of mass evolution model using a Stefan-Boltzmann limit for the evaporation term
+    Evaluate RHS of mass evolution model (assuming a Randall-Sundrum cosmology),
+    using a Stefan-Boltzmann limit for the evaporation term
     (i.e. the integrated Hawking flux)
     '''
     def __init__(self, engine: CosmologyEngine, accretion_efficiency_F=0.3,
-                 use_effective_radius=True):
+                 use_effective_radius=True, use_Page_suppression=True):
         '''
-        Instantiate a StefanBoltzmannLifetimeModel object
+        Instantiate a StefanBoltzmann5DLifetimeModel object
         :param engine: a CosmologyEngine instance to use for calculations
         :param accretion_efficiency_F: efficiency factor for Bondi-Hoyle-Lyttleton accretion
         :param use_effective_radius: whether accretion should use an effective radius rather than the horizon radius
         '''
         if engine is None or not isinstance(engine, CosmologyEngine):
-            raise RuntimeError('StefanBoltzmannLifetimeModel: supplied CosmologyEngine instance is not usable')
+            raise RuntimeError('StefanBoltzmann5DLifetimeModel: supplied CosmologyEngine instance is not usable')
 
         self.engine = engine
         self._params = engine.params
-        self._tension = params.tension
-        self._M4_4 = self._params.M4 * self._params.M4 * self._params.M4 * self._params.M4
         self._SB_4D = self._params.StefanBoltzmannConstant4D
         self._SB_5D = self._params.StefanBoltzmannConstant5D
 
@@ -438,36 +429,37 @@ class StefanBoltzmannLifetimeModel:
 
         self._accretion_efficiency_F = accretion_efficiency_F
         self._use_effective_radius = use_effective_radius
+        self._use_Page_suppression = use_Page_suppression
+
+        self._logM_end = np.log(self._params.M4)
 
     # step the PBH mass, accounting for accretion and evaporation
-    def __call__(self, logT_rad, logx_asarray):
+    def __call__(self, logT_rad, logM_asarray):
         # for some purposes we need the temperature of the radiation bath expressed in GeV
         T_rad = np.exp(logT_rad)
 
-        # also the PBH mass fraction
-        x = np.exp(logx_asarray.item())
+        # also the PBH mass, and reset the PBH model object self._M_PBH to its value
+        logM = logM_asarray.item()
+        M_PBH = np.exp(logM)
+        self._M_PBH.set_value(M_PBH, 'GeV')
 
-        # instantiate a PBHModel object to hold the PBH current state, and also the initial value of the
-        # temperature
-        M_Hubble = self.engine.M_Hubble(T=T_rad)
-        self._M_PBH.set_value(x * M_Hubble, 'GeV')
+        # compute horizon radius in 1/GeV
+        rh = self._M_PBH.radius
+        rh_sq = rh*rh
 
-        # compute radiation energy density
+        # compute current energy density rho(T) at this radiation temperature
         rho = self.engine.rho_radiation(T=T_rad)
 
-        # first term in evolution equation comes from variation of M_H
-        dlogx_dlogT = 12.0 * (self._tension + rho) / (2.0 * self._tension + rho) - 4.0
+        # compute current Hubble rate at this radiation temperature
+        H = self.engine.Hubble(T=T_rad)
 
-
-        # ACCRETION
-
-        Hrh = self._M_PBH.Hrh(x, rho)
-        Hrh_sq = Hrh * Hrh
-
+        # get alpha, the coefficient that turns rh into the effective radius, r_eff = alpha * rh
         alpha = self._M_PBH.alpha if self._use_effective_radius else 1.0
         alpha_sq = alpha*alpha
 
-        dlogx_dlogT -= (3.0/4.0) * self._accretion_efficiency_F * alpha_sq * Hrh_sq / x
+        # ACCRETION
+
+        dlogM_dlogT = -np.pi * self._accretion_efficiency_F * alpha_sq * rh_sq * rho / (self._M_PBH.mass * H)
 
 
         # EVAPORATION
@@ -478,13 +470,112 @@ class StefanBoltzmannLifetimeModel:
         g4_evap = 2.0  # TODO: CURRENTLY APPROXIMATE - ASSUME ONLY RADIATES TO PHOTONS
         g5_evap = 5.0  # TODO: ASSUME ONLY RADIATES TO BULK GRAVITONS
 
-        evap_prefactor = (alpha_sq/3.0) * rho * (1.0 + rho / (2.0 * self._tension)) / (x * t4 * Hrh_sq * self._M4_4)
+        evap_prefactor = Const_4Pi * alpha_sq / (self._M_PBH.mass * H * t4 * rh_sq)
         evap_dof = (g4_evap * self._SB_4D + Const_PiOver2 * alpha * g5_evap * self._SB_5D / t)
 
-        dlogx_dlogT += evap_prefactor * evap_dof
-        print('-- integrator called at x = {x:.5g}, M_PBH = {MPBH:.5g} gram, T = {T:.5g} GeV, returning dlogx_dlogT = {out:.5g}'.format(x=x, MPBH=self._M_PBH.mass/Gram, T=T_rad, out=dlogx_dlogT))
+        dlogM_dlogT += evap_prefactor * evap_dof / (2.6 if self._use_Page_suppression else 1.0)
 
-        return dlogx_dlogT
+        # x = self._M_PBH.mass / self.engine.M_Hubble(T=T_rad)
+        # evap_to_accrete = 4.0 / (self._accretion_efficiency_F * t4 * rh_sq * rh_sq * rho)
+        #
+        # T_Hawking = self._M_PBH.T_Hawking
+        #
+        # print('-- integrator called at x = {x:.5g}, M_PBH = {MPBHGeV:.5g} GeV = {MPBHgram:.5g} gram, '
+        #       'T = {TGeV:.5g} GeV = {TKelvin:.5g} Kelvin, returning dlogM_dlogT = {out:.5g}, dM/dT = {nolog:.5g}, '
+        #       'evap/accrete = {ratio:.5g}, T_Hawking = {THawkGeV:.5g} = {THawkKelvin:.5g} '
+        #       'Kelvin'.format(x=x, MPBHGeV=self._M_PBH.mass, MPBHgram=self._M_PBH.mass / Gram,
+        #                       TGeV=T_rad, TKelvin=T_rad / Kelvin, out=dlogM_dlogT,
+        #                       nolog=self._M_PBH.mass * dlogM_dlogT / T_rad, ratio=evap_to_accrete,
+        #                       THawkGeV=T_Hawking, THawkKelvin=T_Hawking/Kelvin))
+
+        return dlogM_dlogT
+
+
+class StefanBoltzmann4DLifetimeModel:
+    '''
+    Evaluate RHS of mass evolution model (assuming a standard 4-dimensional cosmology),
+    using a Stefan-Boltzmann limit for the evaporation term
+    (i.e. the integrated Hawking flux)
+    '''
+    def __init__(self, engine: CosmologyEngine, accretion_efficiency_F=0.3,
+                 use_effective_radius=True, use_Page_suppression=True):
+        '''
+        Instantiate a StefanBoltzmann4DLifetimeModel object
+        :param engine: a CosmologyEngine instance to use for calculations
+        :param accretion_efficiency_F: efficiency factor for Bondi-Hoyle-Lyttleton accretion
+        :param use_effective_radius: whether accretion should use an effective radius rather than the horizon radius
+        '''
+        if engine is None or not isinstance(engine, CosmologyEngine):
+            raise RuntimeError('StefanBoltzmann4DLifetimeModel: supplied CosmologyEngine instance is not usable')
+
+        self.engine = engine
+        self._params = engine.params
+        self._SB_4D = self._params.StefanBoltzmannConstant4D
+
+        # create a PBHModel instamce; the value assigned to the mass doesn't matter
+        self._M_PBH = PBHModel(self.engine.params, 1.0, units='gram')
+
+        self._accretion_efficiency_F = accretion_efficiency_F
+        self._use_effective_radius = use_effective_radius
+        self._use_Page_suppression = True
+
+        self._logM_end = np.log(self._params.M4)
+
+    # step the PBH mass, accounting for accretion and evaporation
+    def __call__(self, logT_rad, logM_asarray):
+        # for some purposes we need the temperature of the radiation bath expressed in GeV
+        T_rad = np.exp(logT_rad)
+
+        # also the PBH mass, and reset the PBH model object self._M_PBH to its value
+        logM = logM_asarray.item()
+        M_PBH = np.exp(logM)
+        self._M_PBH.set_value(M_PBH, 'GeV')
+
+        # compute horizon radius in 1/GeV
+        rh = self._M_PBH.radius_4D
+        rh_sq = rh*rh
+
+        # compute current energy density rho(T) at this radiation temperature
+        rho = self.engine.rho_radiation(T=T_rad)
+
+        # compute current Hubble rate at this radiation temperature
+        H = self.engine.Hubble4(T=T_rad)
+
+        # get alpha, the coefficient that turns rh into the effective radius, r_eff = alpha * rh
+        alpha = Const_Reff_4D if self._use_effective_radius else 1.0
+        alpha_sq = alpha*alpha
+
+        # ACCRETION
+
+        dlogM_dlogT = -np.pi * self._accretion_efficiency_F * alpha_sq * rh_sq * rho / (self._M_PBH.mass * H)
+
+
+        # EVAPORATION
+
+        t = Const_4Pi   # only need 4D result
+        t4 = t*t*t*t
+
+        g4_evap = 2.0  # TODO: CURRENTLY APPROXIMATE - ASSUME ONLY RADIATES TO PHOTONS
+
+        evap_prefactor = Const_4Pi * alpha_sq / (self._M_PBH.mass * H * t4 * rh_sq)
+        evap_dof = g4_evap * self._SB_4D
+
+        dlogM_dlogT += evap_prefactor * evap_dof / (2.6 if self._use_Page_suppression else 1.0)
+
+        # x = self._M_PBH.mass / self.engine.M_Hubble4(T=T_rad)
+        # evap_to_accrete = 4.0 / (self._accretion_efficiency_F * t4 * rh_sq * rh_sq * rho)
+        #
+        # T_Hawking = self._M_PBH.T_Hawking
+        #
+        # print('-- integrator called at x = {x:.5g}, M_PBH = {MPBHGeV:.5g} GeV = {MPBHgram:.5g} gram, '
+        #       'T = {TGeV:.5g} GeV = {TKelvin:.5g} Kelvin, returning dlogM_dlogT = {out:.5g}, dM/dT = {nolog:.5g}, '
+        #       'evap/accrete = {ratio:.5g}, T_Hawking = {THawkGeV:.5g} = {THawkKelvin:.5g} '
+        #       'Kelvin'.format(x=x, MPBHGeV=self._M_PBH.mass, MPBHgram=self._M_PBH.mass / Gram,
+        #                       TGeV=T_rad, TKelvin=T_rad / Kelvin, out=dlogM_dlogT,
+        #                       nolog=self._M_PBH.mass * dlogM_dlogT / T_rad, ratio=evap_to_accrete,
+        #                       THawkGeV=T_Hawking, THawkKelvin=T_Hawking/Kelvin))
+
+        return dlogM_dlogT
 
 
 class LifetimeObserver:
@@ -496,13 +587,14 @@ class LifetimeObserver:
     # constructor captures CosmologyEngine instance. _sample_grid should be a numpy 1d array representing points where
     # we want to sample the solution M(T), and mass_grid is an (empty) numpy 1d array of the same shape
     # into which the answer will be written
-    def __init__(self, engine: CosmologyEngine, sample_grid, mass_grid, x_grid):
+    def __init__(self, engine: CosmologyEngine, sample_grid, mass_grid, x_grid, relic_mass, use_4D=False):
         '''
         Instantiate a LifetimeObserver instance
         :param engine: CosmologyEngine instance to use for computations
-        :param sample_grid: grid of sample points for independent variable (here log T)
-        :param mass_grid: grid of sample points for dependent variable (here M)
-        :param x_grid: grid of sample points for dependent variable (here x)
+        :param sample_grid: soln_grid of sample points for independent variable (here log T)
+        :param mass_grid: soln_grid of sample points for dependent variable (here M)
+        :param x_grid: soln_grid of sample points for dependent variable (here x)
+        :param use_4D: set to true to use 4D Hubble mass in calculation of mass fraction x
         '''
         if engine is None or not isinstance(engine, CosmologyEngine):
             raise RuntimeError('LifetimeObserver: supplied CosmologyEngine instance is not usable')
@@ -513,12 +605,15 @@ class LifetimeObserver:
         # capture cosmology engine
         self._engine = engine
 
+        # capture use_4D setting
+        self._use_4D = use_4D
+
         # self.terminated is a flag that is set when the integration should terminate because a relic
-        # has formed; self.relic_mass is the PBH mass where we declare a relic forms
-        self.relic_mass = engine.params.M4
+        # has formed; self.relic_mass records the PBH mass where we declare a relic forms
+        self.relic_mass = relic_mass
         self.terminated = False
 
-        # capture reference to sample grid and data grid
+        # capture reference to sample soln_grid and data soln_grid
         self._sample_grid = sample_grid
         self._mass_grid = mass_grid
         self._x_grid = x_grid
@@ -526,7 +621,7 @@ class LifetimeObserver:
         self._sample_grid_length = sample_grid.size
 
         # self.sample_grid_current_index is an externally visible data member that exposes our current
-        # position within the same grid
+        # position within the same soln_grid
         self.sample_grid_current_index = 0
 
         # self.next_sample_point is an externally visible data member that exposes the value of the
@@ -537,7 +632,7 @@ class LifetimeObserver:
             self.next_sample_point = None
 
     # observation step should sample the solution if needed, and check whether the integration should end
-    def __call__(self, logT_rad, logx_asarray):
+    def __call__(self, logT_rad, logM_asarray):
         '''
         Execute an observation step. This should sample the solution if needed, storing the current value in
         self._mass_grid, and advance self.sample_grid_current_index (and update self.next_sample_point)
@@ -549,14 +644,15 @@ class LifetimeObserver:
         # expressed in GeV
         T_rad = np.exp(logT_rad)
 
-        # we also comtimes need the current value of x
-        x = np.exp(logx_asarray.item())
+        # extract current value of PBH mass, in GeV
+        M_PBH = np.exp(logM_asarray.item())
 
-        # compute current PBH mass
-        M_PBH = x * self._engine.M_Hubble(T=T_rad)
-
-        # write solution into M-grid if we have passed an observation point
+        # write solution into M-soln_grid if we have passed an observation point
         if self.next_sample_point is not None and logT_rad < self.next_sample_point:
+            # compute mass as a fraction of the Hubble volume mass
+            x = M_PBH / (self._engine.M_Hubble4(T=T_rad) if self._use_4D else self._engine.M_Hubble(T=T_rad))
+
+            # store these values
             self._mass_grid[self.sample_grid_current_index] = M_PBH
             self._x_grid[self.sample_grid_current_index] = x
 
@@ -576,39 +672,91 @@ class LifetimeObserver:
         return 0
 
 
+def Solve_4D_T(Ti, Mi, Mf, gstar, a, tension, g4, sigma4, g5, sigma5, M4, alpha):
+    a_gstar = a * gstar
+    a_gstar_sqrt = np.sqrt(a*gstar)
+
+    Ti_sq = Ti*Ti
+    Ti_4 = Ti_sq*Ti_sq
+
+    tension_sqrt = np.sqrt(tension)
+
+    alpha_sq = alpha*alpha
+
+    M4_sq = M4*M4
+
+    Mf_over_Mi = Mf/Mi
+    DeltaM = Mi * np.power(1.0 - Mf_over_Mi*Mf_over_Mi*Mf_over_Mi, 1.0/3.0)
+    DeltaM_over_M4 = DeltaM / M4
+    DeltaM_over_M4_3 = DeltaM_over_M4 * DeltaM_over_M4 * DeltaM_over_M4
+
+    g_factor = 8.0*g4*sigma4 + g5*alpha*sigma5
+
+    A_const = 64.0*np.sqrt(2.0/3.0)*np.pi/3.0
+
+    A1 = np.sqrt(a_gstar*Ti_4 + 2.0*tension)/Ti_sq
+    A2 = A_const * a_gstar_sqrt * tension_sqrt * DeltaM_over_M4_3 / (M4_sq * alpha_sq * g_factor)
+    A = A1 + A2
+
+    A_sq = A*A
+
+    return np.power(2.0*tension / (A_sq - a_gstar), 1.0/4.0)
+
+def Solve_5D_T(Ti, Mi, Mf, gstar, a, tension, g4, sigma4, g5, sigma5, M4, M5, alpha):
+    a_gstar = a * gstar
+    a_gstar_sqrt = np.sqrt(a * gstar)
+
+    Ti_sq = Ti*Ti
+    Ti_4 = Ti_sq*Ti_sq
+
+    tension_sqrt = np.sqrt(tension)
+
+    alpha_sq = alpha*alpha
+
+    Mf_over_Mi = Mf/Mi
+    DeltaM = Mi * np.sqrt(1.0 - Mf_over_Mi*Mf_over_Mi)
+    DeltaM_over_M5 = DeltaM / M5
+    DeltaM_over_M5_sq = DeltaM_over_M5*DeltaM_over_M5
+
+    g_factor = 4.0*g4*sigma4 + g5*alpha*sigma5
+
+    A_const = 16.0*np.sqrt(2.0/3.0)*np.pi/3.0
+
+    A1 = np.sqrt(a_gstar*Ti_4 + 2.0*tension) / Ti_sq
+    A2 = A_const * a_gstar_sqrt * tension_sqrt * DeltaM_over_M5_sq / (M4 * M5 * alpha_sq * g_factor)
+    A = A1 + A2
+
+    A_sq = A*A
+
+    return np.power(2.0*tension / (A_sq - a_gstar), 1.0/4.0)
+
+
 class PBHLifetimeModel:
-
-    # conversion factors into GeV for mass units we understand
-    _mass_conversions = {'gram': Gram, 'kilogram': Kilogram, 'GeV': 1.0}
-
-    # conversion factors into GeV for temperature units we understand
-    _temperature_conversions = {'Kelvin': Kelvin, 'GeV': 1.0}
-
-
-    def __init__(self, x_init, M_init, T_rad_init, LifetimeModel, num_samples=NumTSamplePoints):
+    def __init__(self, M_init, T_rad_init, LifetimeModel, num_samples=NumTSamplePoints, use_4D=False):
         '''
-        Capture initial valies
-        :param x_init: initial value of mass fraction x = M/M_H
+        Capture initial values
         :param M_init: initial PBH mass, expressed in GeV
         :param T_rad_init: temperature of radiation bath at formation, expressed in GeV
         :param LifetimeModel: model to use for lifetime calculations
-        :param num_samples: number of samples to take
+        :param num_samples: number of samples to extract
+        :param use_4D: should be True to use 4D Hubble mass in observer calculation of mass fraction x
         '''
         # LifetimeModel should include an engine field to which we can refer
         self._engine = LifetimeModel.engine
+        self._params = self._engine.params
+        self._use_4D = use_4D
 
-        self.x_init = x_init
         self.M_init = M_init
         self.T_rad_init = T_rad_init
 
         # integration actually proceeds with log(x)
-        self.log_x_init = np.log(x_init)
+        self.logM_init = np.log(M_init)
 
         # integration is done in terms of log(x) and log(T), where x = M/M_H(T) is the PBH mass expressed
         # as a fraction of the Hubble mass M_H
         self.logT_rad_init = np.log(T_rad_init)
 
-        # sample grid runs from initial temperature of the radiation bath at formation,
+        # sample soln_grid runs from initial temperature of the radiation bath at formation,
         # down to current CMB temmperature T_CMB
         self.T_min = T_CMB * Kelvin
         self.logT_min = np.log(self.T_min)
@@ -616,44 +764,69 @@ class PBHLifetimeModel:
         self.T_sample_points = np.geomspace(T_rad_init, self.T_min, num_samples)
         self.logT_sample_points = np.log(self.T_sample_points)
 
-        # reserve space for mass history
+        # reserve space for mass history, expressed as a PBH mass in GeV and as a fraction x of the
+        # currently Hubble mass M_H, x = M/M_H
         self.M_sample_points = np.zeros_like(self.logT_sample_points)
         self.x_sample_points = np.zeros_like(self.logT_sample_points)
 
-        # prepare an observer object using these sample points
-        _observer = LifetimeObserver(self._engine, self.logT_sample_points, self.M_sample_points, self.x_sample_points)
+        # set lifetime to default value of None, indicating that we could not compute it; we'll overwrite
+        # this value later
+        self.T_lifetime = None
+
+        # if we have to use an analytic solution to get all the way down to the relic scale,
+        # keep track of how much we needed to shift by
+        self.T_shift = None
+
+        # set compute time to None; will be overwritten later
+        self.compute_time = None
+
+        # prepare an observer object using these sample points, using a relic scale set at the
+        self._relic_scale = self._params.M4
+        observer = LifetimeObserver(self._engine, self.logT_sample_points, self.M_sample_points, self.x_sample_points,
+                                    self._relic_scale, use_4D=use_4D)
 
         # run the integration
-        self._integrate(LifetimeModel, _observer)
+        self._integrate(LifetimeModel, observer, use_4D)
 
 
-    def _integrate(self, LifetimeModel, Observer):
+    def _integrate(self, LifetimeModel, Observer, use_4D=False):
         '''
 
         :param LifetimeModel: callable representing RHS of ODE system
         :param Observer: callable representing solution observer (to record solution at specified sample points)
+        :param use_4D: assume 4D evolution
         :return:
         '''
         # set up stepper; need to use on that supports solout, which the SUNDIALS ones don't seem to do
-        stepper = ode(LifetimeModel).set_integrator('dopri5', rtol=1E-10, nsteps=5000)
+        stepper = ode(LifetimeModel).set_integrator('dopri5', rtol=1E-8, nsteps=5000)
         stepper.set_solout(Observer)
 
         # set up initial conditions for the PBH and the radiation bath
         # to keep the numerics sensible, we can't run the integration directly in grams; the numbers get too large,
         # making the integrator need a very small stepsize to keep up
-        stepper.set_initial_value(self.log_x_init, self.logT_rad_init)
+        stepper.set_initial_value(self.logM_init, self.logT_rad_init)
 
-        # integrate down to the present CMB temperature, or when the observer notices that the PBH
-        # mass has decreased below M4
+        with Timer() as timer:
+            # integrate down to the present CMB temperature, or when the observer notices that the PBH
+            # mass has decreased below M4
 
-        while stepper.successful() and Observer.next_sample_point is not None and stepper.t > self.logT_min \
-                and not Observer.terminated:
-            stepper.integrate(Observer.next_sample_point - 0.001)
+            # with np.errstate(over='raise', divide='raise'):
+            #     try:
+            #         while stepper.successful() and Observer.next_sample_point is not None and stepper.t > self.logT_min \
+            #                 and not Observer.terminated:
+            #             stepper.integrate(Observer.next_sample_point - 0.001)
+            #     except FloatingPointError as e:
+            #         print('Floating point error: {msg}'.format(msg=str(e)))
+            #         print('  -- at Minit = {Minit}, T_rad = {Tinit}, M5={M5}'.format(Minit=self.M_init_5D, Tinit=self.T_rad_init, M5=LifetimeModel._params.M5))
+            #
+            #         # leave lifetime as null to indicate that numerical results were unreliable here
+            #         return
 
-        # if there was an integration failure, raise an exception
-        if not stepper.successful():
-            raise RuntimeError('PBH lifetime calculation failed due to an integration error at T = {T:.5g} GeV, '
-                               'code = {code}'.format(T=np.exp(stepper.t), code=stepper.get_return_code()))
+            while stepper.successful() and Observer.next_sample_point is not None and stepper.t > self.logT_min \
+                    and not Observer.terminated:
+                stepper.integrate(Observer.next_sample_point - 0.001)
+
+        self.compute_time = timer.interval
 
         # truncate unused sample points at end of x_sample_points
         index = Observer.sample_grid_current_index
@@ -664,16 +837,130 @@ class PBHLifetimeModel:
             np.resize(self.x_sample_points, index)
 
         # if the observer terminated the integration, this is because the PBH evaporation proceeded
-        # to the point where we produce a relic
+        # to the point where we produce a relic, so we can record the lifetime and exit
         if Observer.terminated:
             self.T_lifetime = np.exp(stepper.t)
             return
 
-        self.T_lifetime = None
+        if stepper.successful():
+            raise RuntimeError('Observer did not terminate, but integration ended without failure code')
+
+        # if there was an integration failure, this is possibly because of a genuine problem, or possibly
+        # because we could not resolve the final stages of the integration - because that is very close
+        # to a singularity of the ODE system
+        code = stepper.get_return_code()
+        if code != -3:
+            raise RuntimeError('PBH lifetime calculation failed due to an integration error at '
+                               'T = {T:.5g} GeV = {TK:.5g} Kelvin, '
+                               'code = {code}'.format(T=np.exp(stepper.t), TK=np.exp(stepper.t)/Kelvin,
+                                                      code=stepper.get_return_code()))
+
+        # this code corresponds to "step size becomes too small", which we interpret to mean
+        # that we're close to the point of evaporation down to a relic
+
+        params: ModelParameters = self._params
+
+        # get current PBH mass in GeV
+        M = np.exp(stepper.y.item())
+        M_PBH = PBHModel(self._engine.params, M, 'GeV')
+
+        # get current radiation temperature in GeV
+        Ti = np.exp(stepper.t)
+
+        # if the evolution is 4D only, don't use 5D step
+        if self._use_4D:
+            # evaporation is four-dimensional all the way down to the relic scale
+            T_final = Solve_4D_T(Ti, M, self._relic_scale, params.gstar, params.RadiationConstant,
+                                 params.tension, 2.0, params.StefanBoltzmannConstant4D,
+                                 5.0, params.StefanBoltzmannConstant5D, params.M4,
+                                 Const_Reff_4D if LifetimeModel._use_effective_radius else 1.0)
+
+            DeltaT = Ti - T_final
+
+        else:
+            # if the PBH is already in the 5D regime, it stays in that regime all the way down to a relic
+            if M_PBH.is_5D:
+                # assume evaporation is five-dimensional all the way down to the relic scale
+                T_final = Solve_5D_T(Ti, M, self._relic_scale, params.gstar, params.RadiationConstant,
+                                     params.tension, 2.0, params.StefanBoltzmannConstant4D,
+                                     5.0, params.StefanBoltzmannConstant5D, params.M4, params.M5,
+                                     Const_Reff_5D if LifetimeModel._use_effective_radius else 1.0)
+
+                DeltaT = Ti - T_final
+
+            # otherwise there is a period of 4D evolution, followed by a period of 5D evolution
+            else:
+                # evolution is 4D down to the transition scale, then 5D down to the relic scale.
+                # The relic scale is always above the transition scale, assuming that is taken to be
+                # the 4D mass scale
+                T_transition = Solve_4D_T(Ti, M, params.M_transition, params.gstar, params.RadiationConstant,
+                                          params.tension, 2.0, params.StefanBoltzmannConstant4D,
+                                          5.0, params.StefanBoltzmannConstant5D, params.M4,
+                                          Const_Reff_4D if LifetimeModel._use_effective_radius else 1.0)
+
+                T_final = Solve_5D_T(T_transition, params.M_transition, self._relic_scale, params.gstar,
+                                     params.RadiationConstant, params.tension, 2.0, params.StefanBoltzmannConstant4D,
+                                     5.0, params.StefanBoltzmannConstant5D, params.M4, params.M5,
+                                     Const_Reff_5D if LifetimeModel._use_effective_radius else 1.0)
+
+                DeltaT = Ti - T_final
+
+        np.append(self.T_sample_points, T_final)
+        np.append(self.logT_sample_points, np.log(T_final))
+        np.append(self.M_sample_points, self._relic_scale)
+        np.append(self.x_sample_points, self._relic_scale / self._engine.M_Hubble(T=T_final))
+
+        self.T_lifetime = T_final
+        self.T_shift = DeltaT
+
+
+# class PBHInstance captures details of a PBH that forms at a specified initial temperature
+# (which we can map to an initial mass and a lengthscale)
+class PBHInstance:
+    # conversion factors into GeV for mass units we understand
+    _mass_conversions = {'gram': Gram, 'kilogram': Kilogram, 'GeV': 1.0}
+
+    # conversion factors into GeV for temperature units we understand
+    _temperature_conversions = {'Kelvin': Kelvin, 'GeV': 1.0}
+
+
+    # capture cosmology engine instance and formation temperature of the PBH, measured in GeV
+    # T_rad_init: temperature of radiation bath at PBH formation
+    # accretion_efficiency: accretion efficiency factor F in Bondi-Hoyle-Lyttleton model
+    # collapse_fraction: fraction of Hubble volume that collapses to PBH
+    # num_sample_ponts: number of T samples to take
+    def __init__(self, engine: CosmologyEngine, T_rad_init: float, accretion_efficiency_F=0.5,
+                 collapse_fraction_f=0.5, delta=0.0, num_samples=NumTSamplePoints):
+        self._engine = engine
+        self._params = engine.params
+        self.accretion_efficiency_F = accretion_efficiency_F
+
+        # x = f (1+delta) is the fraction of the Hubble volume that initially collapses to form the PBH
+        x_init = collapse_fraction_f * (1.0 + delta)
+
+        # get mass of Hubble volume expressed in GeV
+        M_Hubble = engine.M_Hubble(T=T_rad_init)
+        M_Hubble4 = engine.M_Hubble4(T=T_rad_init)
+
+        # compute initial mass in GeV
+        M_init_5D = x_init * M_Hubble
+        self.M_init_5D = M_init_5D
+
+        M_init_4D = x_init * M_Hubble4
+        self.M_init_4D = M_init_4D
+
+        # set up different lifetime models - initially we are only using a Stefan-Boltzmann version
+        sb_5D = StefanBoltzmann5DLifetimeModel(self._engine, accretion_efficiency_F=accretion_efficiency_F,
+                                               use_effective_radius=True, use_Page_suppression=True)
+        sb_4D = StefanBoltzmann4DLifetimeModel(self._engine, accretion_efficiency_F=accretion_efficiency_F,
+                                               use_effective_radius=True, use_Page_suppression=True)
+
+        self.lifetimes = {'StefanBoltzmann5D': PBHLifetimeModel(M_init_5D, T_rad_init, sb_5D, num_samples=num_samples),
+                          'StefanBoltzmann4D': PBHLifetimeModel(M_init_4D, T_rad_init, sb_4D, num_samples=num_samples, use_4D=True)}
 
 
     # produce plot of PBH mass over its lifetime, as a function of temperature T
-    def mass_plot(self, filename, mass_units='gram', temperature_units='Kelvin'):
+    def mass_plot(self, filename, histories=None, mass_units='gram', temperature_units='Kelvin'):
         # check desired units are sensible
         if mass_units not in self._mass_conversions:
             raise RuntimeError('PBHLifetimeModel.lifetime_plot(): unit "{unit}" not understood in '
@@ -683,159 +970,24 @@ class PBHLifetimeModel:
             raise RuntimeError('PBHLifetimeModel.lifetime_plot: unit "{unit}" not understood in '
                                'constructor'.format(unit=temperature_units))
 
+        # if no histories specifies, plot them all
+        if histories is None:
+            histories = self.lifetimes.keys()
+
         mass_units_to_GeV = self._mass_conversions[mass_units]
         temperature_units_to_GeV = self._temperature_conversions[temperature_units]
 
-        T_values = self.T_sample_points / temperature_units_to_GeV
-        # M_values = self.M_sample_points / mass_units_to_GeV
-        M_values = self.x_sample_points
-
         plt.figure()
-        plt.loglog(T_values, M_values,
-                   label='initial mass = {i:.3g} {unit}'.format(i=self.M_init / mass_units_to_GeV,
-                                                                unit=mass_units))
+
+        for label in histories:
+            if label in self.lifetimes:
+                history = self.lifetimes[label]
+                T_values = history.T_sample_points / temperature_units_to_GeV
+                M_values = history.M_sample_points / mass_units_to_GeV
+
+                plt.loglog(T_values, M_values, label='{key}'.format(key=label))
+
         plt.xlabel('Temperature T / {unit}'.format(unit=temperature_units))
         plt.ylabel('PBH mass / {unit}'.format(unit=mass_units))
         plt.legend()
         plt.savefig(filename)
-
-
-# class PBHInstance captures details of a PBH that forms at a specified initial temperature
-# (which we can map to an initial mass and a lengthscale)
-class PBHInstance:
-    # capture cosmology engine instance and formation temperature of the PBH, measured in GeV
-    # T_rad_init: temperature of radiation bath at PBH formation
-    # accretion_efficiency: accretion efficiency factor F in Bondi-Hoyle-Lyttleton model
-    # collapse_fraction: fraction of Hubble volume that collapses to PBH
-    # num_sample_ponts: number of T samples to take
-    def __init__(self, engine: CosmologyEngine, T_rad_init: float, accretion_efficiency_F=0.5,
-                 collapse_fraction_f=0.5, delta=0.0, num_samples=NumTSamplePoints):
-        self.engine = engine
-        self.accretion_efficiency_F = accretion_efficiency_F
-
-        _x_init = collapse_fraction_f * (1.0 + delta)
-        _M_Hubble = engine.M_Hubble(T=T_rad_init)
-        _M_init = _x_init * _M_Hubble
-
-        self.lifetimes \
-            = {'standard': PBHLifetimeModel(_x_init, _M_init, T_rad_init,
-                                            StefanBoltzmannLifetimeModel(self.engine,
-                                                                         accretion_efficiency_F=accretion_efficiency_F,
-                                                                         use_effective_radius=True),
-                                            num_samples=num_samples)}
-
-
-# generate a plot of PBH formation mass vs. formation temperature
-def PBHMassPlot(M5, Tlo=1E3, Thi=None, units='gram', collapse_fraction_f=0.5):
-    # check desired units are sensible
-    if units not in ['gram', 'kilogram', 'GeV']:
-        raise RuntimeError('PBHMassPlot: unit "{unit}" not understood in constructor'.format(unit=units))
-
-    if Thi is None:
-        Thi = M5
-
-    # build a dictionary of unit conversion coefficients
-    units_conversion = {'gram': Gram, 'kilogram': Kilogram, 'GeV': 1.0}
-
-    params = ModelParameters(M5)
-    engine = CosmologyEngine(params)
-
-    T_range = np.geomspace(Tlo, Thi, num=NumPoints)
-
-    unit = units_conversion[units]
-
-    M_values = [collapse_fraction_f * engine.M_Hubble(T=T) / unit for T in T_range]
-    M4_values = [collapse_fraction_f * engine.M_Hubble4(T=T) / unit for T in T_range]
-
-    plt.figure()
-    plt.loglog(T_range, M_values, label='Randall-Sundrum')
-    plt.loglog(T_range, M4_values, label='Standard 4D')
-    plt.xlabel('Temperature T / GeV')
-    plt.ylabel('PBH mass at formation / {units}'.format(units=units))
-    plt.legend()
-    plt.savefig('formation-mass.pdf')
-
-
-# generate a plot of PBH formation lengthscale vs. formation temperature
-def PBHLengthscalePlot(M5, Tlo=4E3, Thi=None, units='kilometre'):
-    # check desired units are sensible
-    if units not in ['metre', 'kilometre', 'Mpc']:
-        raise RuntimeError('PBHLengthscalePlot: unit "{unit}" not understood in constructor'.format(unit=units))
-
-    if Thi is None:
-        Thi = M5
-
-    # build a dictionary of unit conversion coefficients
-    units_conversion = {'metre': Metre, 'kilometre': Kilometre, 'Mpc': Mpc}
-
-    params = ModelParameters(M5)
-    engine = CosmologyEngine(params)
-
-    T_range = np.geomspace(Tlo, Thi, num=NumPoints)
-
-    unit = units_conversion[units]
-
-    R_values = [engine.R_Hubble(T=T) / unit for T in T_range]
-    R4_values = [engine.R_Hubble4(T=T) / unit for T in T_range]
-
-    plt.figure()
-    plt.loglog(T_range, R_values, label='Randall-Sundrum')
-    plt.loglog(T_range, R4_values, label='Standard 4D')
-    plt.xlabel('Temperature T / GeV')
-    plt.ylabel('Collapse lengthscale / {units}'.format(units=units))
-    plt.legend()
-    plt.savefig('formation-lengthscale.pdf')
-
-
-# generate a plot of PBH formation mass vs. formation lengthscale
-def PBHMassScaleRelation(M5, Tlo=4E3, Thi=None, length_units='kilometre', mass_units='gram', collapse_fraction_f=0.5):
-    # check desired units are sensible
-    if length_units not in ['metre', 'kilometre', 'Mpc']:
-        raise RuntimeError('PBHLengthscalePlot: unit "{unit}" not understood in constructor'.format(unit=length_units))
-
-    if mass_units not in ['gram', 'kilogram', 'GeV']:
-        raise RuntimeError('PBHMassPlot: unit "{unit}" not understood in constructor'.format(unit=mass_units))
-
-    if Thi is None:
-        Thi = M5
-
-    # build a dictionary of unit conversion coefficients
-    length_conversion = {'metre': Metre, 'kilometre': Kilometre, 'Mpc': Mpc}
-    mass_conversion = {'gram': Gram, 'kilogram': Kilogram, 'GeV': 1.0}
-
-    params = ModelParameters(M5)
-    engine = CosmologyEngine(params)
-
-    T_range = np.geomspace(Tlo, Thi, num=NumPoints)
-
-    length_unit = length_conversion[length_units]
-    mass_unit = mass_conversion[mass_units]
-
-    R_values = [engine.R_Hubble(T=T) / length_unit for T in reversed(T_range)]
-    R4_values = [engine.R_Hubble4(T=T) / length_unit for T in reversed(T_range)]
-
-    M_values = [collapse_fraction_f * engine.M_Hubble(T=T) / mass_unit for T in reversed(T_range)]
-    M4_values = [collapse_fraction_f * engine.M_Hubble4(T=T) / mass_unit for T in reversed(T_range)]
-
-    plt.figure()
-    plt.loglog(R_values, M_values, label='Randall-Sundrum')
-    plt.loglog(R4_values, M4_values, label='Standard 4D')
-    plt.xlabel('Lengthscale $\ell$ / {units}'.format(units=length_units))
-    plt.ylabel('PBH mass at formation / {units}'.format(units=mass_units))
-    plt.legend()
-    plt.savefig('PBH-mass-lengthscale.pdf')
-
-
-# Generate plots
-PBHMassPlot(5E12)
-PBHLengthscalePlot(5E12)
-PBHMassScaleRelation(5E12)
-
-# compute PBH evolution
-params = ModelParameters(1E14)
-print(params)
-engine = CosmologyEngine(params)
-
-sample = PBHInstance(engine, 1E10, accretion_efficiency_F=0.1, collapse_fraction_f=0.5)
-standard = sample.lifetimes['standard']
-standard.mass_plot('PBH_T1E10_mass.pdf')
