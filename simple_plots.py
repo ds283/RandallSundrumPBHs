@@ -114,12 +114,3 @@ def PBHMassScaleRelation(M5, Tlo=4E3, Thi=None, length_units='kilometre', mass_u
 PBHMassPlot(5E12)
 PBHLengthscalePlot(5E12)
 PBHMassScaleRelation(5E12)
-
-# compute PBH evolution
-params = lkit.ModelParameters(1E14)
-print(params)
-engine = lkit.CosmologyEngine(params)
-
-sample = lkit.PBHInstance(engine, 1E10, accretion_efficiency_F=0.1, collapse_fraction_f=0.5)
-standard = sample.lifetimes['standard']
-standard.mass_plot('PBH_T1E10_mass.pdf')
