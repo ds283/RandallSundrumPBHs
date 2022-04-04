@@ -682,17 +682,19 @@ def Solve_4D_T(Ti, Mi, Mf, gstar, a, tension, g4, sigma4, g5, sigma5, M4, alpha)
     alpha_sq = alpha*alpha
 
     M4_sq = M4*M4
-    M4_4 = M4_sq*M4_sq
-    M4_5 = M4_4*M4
 
-    DeltaM3 = Mf*Mf*Mf - Mi*Mi*Mi
+    Mf_over_Mi = Mf/Mi
+    DeltaM = Mi * np.power(1.0 - Mf_over_Mi*Mf_over_Mi*Mf_over_Mi, 1.0/3.0)
+    DeltaM_over_M4 = DeltaM / M4
+    DeltaM_over_M4_3 = DeltaM_over_M4 * DeltaM_over_M4 * DeltaM_over_M4
 
     g_factor = 8.0*g4*sigma4 + g5*alpha*sigma5
 
     A_const = 64.0*np.sqrt(2.0/3.0)*np.pi/3.0
 
-    A = np.sqrt(a_gstar_sqrt * Ti_4 + 2.0*tension)/Ti_sq \
-        - A_const * a_gstar_sqrt * tension_sqrt * DeltaM3/ (M4_5 * alpha_sq * g_factor)
+    A1 = np.sqrt(a_gstar*Ti_4 + 2.0*tension)/Ti_sq
+    A2 = A_const * a_gstar_sqrt * tension_sqrt * DeltaM_over_M4_3 / (M4_sq * alpha_sq * g_factor)
+    A = A1 + A2
 
     A_sq = A*A
 
@@ -709,21 +711,22 @@ def Solve_5D_T(Ti, Mi, Mf, gstar, a, tension, g4, sigma4, g5, sigma5, M4, M5, al
 
     alpha_sq = alpha*alpha
 
-    M5_sq = M5*M5
-    M5_3 = M5_sq*M5
+    Mf_over_Mi = Mf/Mi
+    DeltaM = Mi * np.sqrt(1.0 - Mf_over_Mi*Mf_over_Mi)
+    DeltaM_over_M5 = DeltaM / M5
+    DeltaM_over_M5_sq = DeltaM_over_M5*DeltaM_over_M5
 
-    DeltaM2 = Mf*Mf - Mi*Mi
+    g_factor = 4.0*g4*sigma4 + g5*alpha*sigma5
 
-    g_factor = 4.0 * g4 * sigma4 + g5 * alpha * sigma5
+    A_const = 16.0*np.sqrt(2.0/3.0)*np.pi/3.0
 
-    A_const = 16.0 * np.sqrt(2.0 / 3.0) * np.pi / 3.0
+    A1 = np.sqrt(a_gstar*Ti_4 + 2.0*tension) / Ti_sq
+    A2 = A_const * a_gstar_sqrt * tension_sqrt * DeltaM_over_M5_sq / (M4 * M5 * alpha_sq * g_factor)
+    A = A1 + A2
 
-    A = np.sqrt(a_gstar_sqrt * Ti_4 + 2.0 * tension) / Ti_sq \
-        - A_const * a_gstar_sqrt * tension_sqrt * DeltaM2 / (M4 * M5_3 * alpha_sq * g_factor)
+    A_sq = A*A
 
-    A_sq = A * A
-
-    return np.power(2.0 * tension / (A_sq - a_gstar), 1.0 / 4.0)
+    return np.power(2.0*tension / (A_sq - a_gstar), 1.0/4.0)
 
 
 class PBHLifetimeModel:
