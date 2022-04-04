@@ -19,7 +19,7 @@ def compute_lifetime(data):
     F = data['F']
     f = data['f']
 
-    params = lkit.ModelParameters(M5)
+    params = lkit.RandallSundrumParameters(M5)
     engine = lkit.CosmologyEngine(params)
 
     solution = lkit.PBHInstance(engine, Tinit, accretion_efficiency_F=F, collapse_fraction_f=f)
@@ -50,7 +50,7 @@ for serial, M5 in enumerate(M5_grid):
     grid_M5_serials[serial] = serial
     grid_M5_values[serial] = M5
 
-    params = lkit.ModelParameters(M5)
+    params = lkit.RandallSundrumParameters(M5)
     grid_M5_Tcrossover_GeV[serial] = params.T_crossover
     grid_M5_Tcrossover_Kelvin[serial] = params.T_crossover_Kelvin
 
@@ -82,7 +82,7 @@ def is_valid(M5: float, Tinit: float, f: float):
     if Tinit > M5:
         return False
 
-    params = lkit.ModelParameters(M5)
+    params = lkit.RandallSundrumParameters(M5)
     engine = lkit.CosmologyEngine(params)
 
     try:

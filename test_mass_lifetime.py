@@ -3,7 +3,7 @@ import LifetimeKit as lkit
 import seaborn as sns
 sns.set()
 
-params = lkit.ModelParameters(1.5935e14)
+params = lkit.RandallSundrumParameters(1.5935e14)
 engine = lkit.CosmologyEngine(params)
 
 soln = lkit.PBHInstance(engine, 6.4584e13)

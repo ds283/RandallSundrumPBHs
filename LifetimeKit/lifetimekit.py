@@ -73,13 +73,13 @@ class Timer:
         self.interval = self.end - self.start
 
 
-# The *ModelParameters* class captures details of the 4D and 5D Planck masses, and uses these to compute derived
+# The *RandallSundrumParameters* class captures details of the 4D and 5D Planck masses, and uses these to compute derived
 # quantities such as the brane tension and the crossover temperature (in GeV and Kelvin) from the quadratic
 # Hubble regime to the linear regime. It also computes the AdS radius in inverse GeV and metres, assuming that
 # the bulk cosmological constant is tuned to produce zero four-dimensional cosmological constant.
 # This is important for deciding when the transition takes place from a "small" 5D black hole (approximated
 # by Myers-Perry) to a "large", effectively 4D black hole (approximated by 4D Schwarzschild).
-class ModelParameters:
+class RandallSundrumParameters:
 
     def __init__(self, M5):
         # M5 is the fundamental 5D *reduced* Planck mass, measured in GeV
@@ -186,7 +186,7 @@ class ModelParameters:
 # The *CosmologyEngine* class provides methods to compute the Hubble rate, Hubble length, horizon mass, etc.
 class CosmologyEngine:
 
-    def __init__(self, params: ModelParameters):
+    def __init__(self, params: RandallSundrumParameters):
         self.params = params
 
     # compute the radiation energy density in GeV^4 from a temperature supplied in GeV
@@ -255,10 +255,10 @@ class PBHModel:
 
     _mass_conversions = {'gram': Gram, 'kilogram': Kilogram, 'GeV': 1.0}
 
-    # capture (i) initial mass value, and (ii) a ModelParameters instance so we can decide whether we are in the 4D or
+    # capture (i) initial mass value, and (ii) a RandallSundrumParameters instance so we can decide whether we are in the 4D or
     # 5D regime based on the AdS radius.
     # The initial mass value can be specified in grams, kilograms, or GeV, but defaults to GeV
-    def __init__(self, params: ModelParameters, mass: float, units='GeV'):
+    def __init__(self, params: RandallSundrumParameters, mass: float, units='GeV'):
         self.params = params
 
         self._M4_over_M5_sqrt = np.sqrt(1.0/self.params.M_ratio)
@@ -860,7 +860,7 @@ class PBHLifetimeModel:
         # this code corresponds to "step size becomes too small", which we interpret to mean
         # that we're close to the point of evaporation down to a relic
 
-        params: ModelParameters = self._params
+        params: RandallSundrumParameters = self._params
 
         # get current PBH mass in GeV
         M = np.exp(stepper.y.item())
