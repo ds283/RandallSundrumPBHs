@@ -29,6 +29,8 @@ StefanBoltzmannConstant5D = 0.0668850223995 # 2 * Zeta(5) / pi^3
 gstar_full_SM = 106.7
 T_CMB = 2.72548
 
+Page_suppression_factor = 2.6
+
 # number of T-sample points to capture for PBH lifetime mass/temperature relation
 NumTSamplePoints = 200
 
@@ -473,7 +475,7 @@ class StefanBoltzmann5DLifetimeModel:
         evap_prefactor = Const_4Pi * alpha_sq / (self._M_PBH.mass * H * t4 * rh_sq)
         evap_dof = (g4_evap * self._SB_4D + Const_PiOver2 * alpha * g5_evap * self._SB_5D / t)
 
-        dlogM_dlogT += evap_prefactor * evap_dof / (2.6 if self._use_Page_suppression else 1.0)
+        dlogM_dlogT += evap_prefactor * evap_dof / (Page_suppression_factor if self._use_Page_suppression else 1.0)
 
         # x = self._M_PBH.mass / self.engine.M_Hubble(T=T_rad)
         # evap_to_accrete = 4.0 / (self._accretion_efficiency_F * t4 * rh_sq * rh_sq * rho)
@@ -560,7 +562,7 @@ class StefanBoltzmann4DLifetimeModel:
         evap_prefactor = Const_4Pi * alpha_sq / (self._M_PBH.mass * H * t4 * rh_sq)
         evap_dof = g4_evap * self._SB_4D
 
-        dlogM_dlogT += evap_prefactor * evap_dof / (2.6 if self._use_Page_suppression else 1.0)
+        dlogM_dlogT += evap_prefactor * evap_dof / (Page_suppression_factor if self._use_Page_suppression else 1.0)
 
         # x = self._M_PBH.mass / self.engine.M_Hubble4(T=T_rad)
         # evap_to_accrete = 4.0 / (self._accretion_efficiency_F * t4 * rh_sq * rh_sq * rho)
