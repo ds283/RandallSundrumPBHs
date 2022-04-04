@@ -477,24 +477,14 @@ class StefanBoltzmann5DLifetimeModel:
         # x = self._M_PBH.mass / self.engine.M_Hubble(T=T_rad)
         # evap_to_accrete = 4.0 / (self._accretion_efficiency_F * t4 * rh_sq * rh_sq * rho)
         #
-        # # work out linear approximation for time to evaporation
-        # Delta_log_M_to_end = self._logM_end - logM
-        # Delta_log_T_to_end =  Delta_log_M_to_end / dlogM_dlogT
-        # Delta_Tend = Delta_log_T_to_end * T_rad
-        # Tend = T_rad + Delta_Tend
-        #
         # T_Hawking = self._M_PBH.T_Hawking
         #
         # print('-- integrator called at x = {x:.5g}, M_PBH = {MPBHGeV:.5g} GeV = {MPBHgram:.5g} gram, '
         #       'T = {TGeV:.5g} GeV = {TKelvin:.5g} Kelvin, returning dlogM_dlogT = {out:.5g}, dM/dT = {nolog:.5g}, '
-        #       'evap/accrete = {ratio:.5g}, predicted Delta T to end = {DeltaTGeV:.5g} GeV = {DeltaTKelvin:.5g} Kelvin, '
-        #       'T_end = {TendGeV:.5g} GeV = {TendKelvin:.5g} Kelvin, '
-        #       'T_Hawking = {THawkGeV:.5g} = {THawkKelvin:.5g} '
+        #       'evap/accrete = {ratio:.5g}, T_Hawking = {THawkGeV:.5g} = {THawkKelvin:.5g} '
         #       'Kelvin'.format(x=x, MPBHGeV=self._M_PBH.mass, MPBHgram=self._M_PBH.mass / Gram,
         #                       TGeV=T_rad, TKelvin=T_rad / Kelvin, out=dlogM_dlogT,
         #                       nolog=self._M_PBH.mass * dlogM_dlogT / T_rad, ratio=evap_to_accrete,
-        #                       DeltaTGeV=Delta_Tend, DeltaTKelvin=Delta_Tend / Kelvin,
-        #                       TendGeV=Tend, TendKelvin=Tend / Kelvin,
         #                       THawkGeV=T_Hawking, THawkKelvin=T_Hawking/Kelvin))
 
         return dlogM_dlogT
@@ -569,6 +559,19 @@ class StefanBoltzmann4DLifetimeModel:
         evap_dof = g4_evap * self._SB_4D
 
         dlogM_dlogT += evap_prefactor * evap_dof
+
+        # x = self._M_PBH.mass / self.engine.M_Hubble4(T=T_rad)
+        # evap_to_accrete = 4.0 / (self._accretion_efficiency_F * t4 * rh_sq * rh_sq * rho)
+        #
+        # T_Hawking = self._M_PBH.T_Hawking
+        #
+        # print('-- integrator called at x = {x:.5g}, M_PBH = {MPBHGeV:.5g} GeV = {MPBHgram:.5g} gram, '
+        #       'T = {TGeV:.5g} GeV = {TKelvin:.5g} Kelvin, returning dlogM_dlogT = {out:.5g}, dM/dT = {nolog:.5g}, '
+        #       'evap/accrete = {ratio:.5g}, T_Hawking = {THawkGeV:.5g} = {THawkKelvin:.5g} '
+        #       'Kelvin'.format(x=x, MPBHGeV=self._M_PBH.mass, MPBHgram=self._M_PBH.mass / Gram,
+        #                       TGeV=T_rad, TKelvin=T_rad / Kelvin, out=dlogM_dlogT,
+        #                       nolog=self._M_PBH.mass * dlogM_dlogT / T_rad, ratio=evap_to_accrete,
+        #                       THawkGeV=T_Hawking, THawkKelvin=T_Hawking/Kelvin))
 
         return dlogM_dlogT
 
@@ -801,6 +804,19 @@ class PBHLifetimeModel:
         with Timer() as timer:
             # integrate down to the present CMB temperature, or when the observer notices that the PBH
             # mass has decreased below M4
+
+            # with np.errstate(over='raise', divide='raise'):
+            #     try:
+            #         while stepper.successful() and Observer.next_sample_point is not None and stepper.t > self.logT_min \
+            #                 and not Observer.terminated:
+            #             stepper.integrate(Observer.next_sample_point - 0.001)
+            #     except FloatingPointError as e:
+            #         print('Floating point error: {msg}'.format(msg=str(e)))
+            #         print('  -- at Minit = {Minit}, T_rad = {Tinit}, M5={M5}'.format(Minit=self.M_init, Tinit=self.T_rad_init, M5=LifetimeModel._params.M5))
+            #
+            #         # leave lifetime as null to indicate that numerical results were unreliable here
+            #         return
+
             while stepper.successful() and Observer.next_sample_point is not None and stepper.t > self.logT_min \
                     and not Observer.terminated:
                 stepper.integrate(Observer.next_sample_point - 0.001)
