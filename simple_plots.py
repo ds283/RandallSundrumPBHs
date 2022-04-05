@@ -22,14 +22,15 @@ def PBHMassPlot(M5, Tlo=1E3, Thi=None, units='gram', collapse_fraction_f=0.5):
     units_conversion = {'gram': lkit.Gram, 'kilogram': lkit.Kilogram, 'GeV': 1.0}
 
     params = lkit.RandallSundrumParameters(M5)
-    engine = lkit.CosmologyEngine(params)
+    engine_RS = lkit.RandallSundrumModel(params)
+    engine_4D = lkit.StandardModel(params)
 
     T_range = np.geomspace(Tlo, Thi, num=NumPoints)
 
     unit = units_conversion[units]
 
-    M_values = [collapse_fraction_f * engine.M_Hubble(T=T) / unit for T in T_range]
-    M4_values = [collapse_fraction_f * engine.M_Hubble4(T=T) / unit for T in T_range]
+    M_values = [collapse_fraction_f * engine_RS.M_Hubble(T=T) / unit for T in T_range]
+    M4_values = [collapse_fraction_f * engine_4D.M_Hubble(T=T) / unit for T in T_range]
 
     plt.figure()
     plt.loglog(T_range, M_values, label='Randall-Sundrum')
@@ -53,14 +54,15 @@ def PBHLengthscalePlot(M5, Tlo=4E3, Thi=None, units='kilometre'):
     units_conversion = {'metre': lkit.Metre, 'kilometre': lkit.Kilometre, 'Mpc': lkit.Mpc}
 
     params = lkit.RandallSundrumParameters(M5)
-    engine = lkit.CosmologyEngine(params)
+    engine_RS = lkit.RandallSundrumModel(params)
+    engine_4D = lkit.StandardModel(params)
 
     T_range = np.geomspace(Tlo, Thi, num=NumPoints)
 
     unit = units_conversion[units]
 
-    R_values = [engine.R_Hubble(T=T) / unit for T in T_range]
-    R4_values = [engine.R_Hubble4(T=T) / unit for T in T_range]
+    R_values = [engine_RS.R_Hubble(T=T) / unit for T in T_range]
+    R4_values = [engine_4D.R_Hubble(T=T) / unit for T in T_range]
 
     plt.figure()
     plt.loglog(T_range, R_values, label='Randall-Sundrum')
@@ -88,18 +90,19 @@ def PBHMassScaleRelation(M5, Tlo=4E3, Thi=None, length_units='kilometre', mass_u
     mass_conversion = {'gram': lkit.Gram, 'kilogram': lkit.Kilogram, 'GeV': 1.0}
 
     params = lkit.RandallSundrumParameters(M5)
-    engine = lkit.CosmologyEngine(params)
+    engine_RS = lkit.RandallSundrumModel(params)
+    engine_4D = lkit.StandardModel(params)
 
     T_range = np.geomspace(Tlo, Thi, num=NumPoints)
 
     length_unit = length_conversion[length_units]
     mass_unit = mass_conversion[mass_units]
 
-    R_values = [engine.R_Hubble(T=T) / length_unit for T in reversed(T_range)]
-    R4_values = [engine.R_Hubble4(T=T) / length_unit for T in reversed(T_range)]
+    R_values = [engine_RS.R_Hubble(T=T) / length_unit for T in reversed(T_range)]
+    R4_values = [engine_4D.R_Hubble(T=T) / length_unit for T in reversed(T_range)]
 
-    M_values = [collapse_fraction_f * engine.M_Hubble(T=T) / mass_unit for T in reversed(T_range)]
-    M4_values = [collapse_fraction_f * engine.M_Hubble4(T=T) / mass_unit for T in reversed(T_range)]
+    M_values = [collapse_fraction_f * engine_RS.M_Hubble(T=T) / mass_unit for T in reversed(T_range)]
+    M4_values = [collapse_fraction_f * engine_4D.M_Hubble(T=T) / mass_unit for T in reversed(T_range)]
 
     plt.figure()
     plt.loglog(R_values, M_values, label='Randall-Sundrum')

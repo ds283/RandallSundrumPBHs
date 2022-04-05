@@ -20,9 +20,8 @@ def compute_lifetime(data):
     f = data['f']
 
     params = lkit.RandallSundrumParameters(M5)
-    engine = lkit.CosmologyEngine(params)
 
-    solution = lkit.PBHInstance(engine, Tinit, accretion_efficiency_F=F, collapse_fraction_f=f)
+    solution = lkit.PBHInstance(params, Tinit, accretion_efficiency_F=F, collapse_fraction_f=f)
 
     SB5D = solution.lifetimes['StefanBoltzmann5D']
     SB4D = solution.lifetimes['StefanBoltzmann4D']
@@ -83,7 +82,7 @@ def is_valid(M5: float, Tinit: float, f: float):
         return False
 
     params = lkit.RandallSundrumParameters(M5)
-    engine = lkit.CosmologyEngine(params)
+    engine = lkit.RandallSundrumModel(params)
 
     try:
         # get mass of Hubble volume expressed in GeV

@@ -183,10 +183,9 @@ class RandallSundrumParameters:
                                                                      mu=self.mu, ratio=self.M_ratio)
 
 
-# The *CosmologyEngine* class provides methods to compute the Hubble rate, Hubble length, horizon mass, etc.
-class CosmologyEngine:
+class BaseCosmology:
 
-    def __init__(self, params: RandallSundrumParameters):
+    def __init__(self, params):
         self.params = params
 
     # compute the radiation energy density in GeV^4 from a temperature supplied in GeV
@@ -198,23 +197,25 @@ class CosmologyEngine:
         elif log_T is not None:
             _T = np.exp(log_T)
         else:
-            raise RuntimeError('No temperature value supplied to CosmologyEngine.rho_radiation()')
+            raise RuntimeError('No temperature value supplied to BaseCosmology.rho_radiation()')
 
         # check that supplied temperature is lower than the 5D Planck mass
-        if T > self.params.M5:
-            raise RuntimeError('Temperature T={temp:.3g} GeV is higher than the 5D Planck '
-                               'mass M5={M5:.3g} GeV'.format(temp=T, M5=self.params.M5))
+        if T > self.params.M4:
+            raise RuntimeError('Temperature T={temp:.3g} GeV is higher than the Planck '
+                               'mass M4={M4:.3g} GeV'.format(temp=T, M4=self.params.M4))
 
         return self.params.RadiationConstant * self.params.gstar * T * T * T * T
 
+
+# The *StandardModel* class provides methods to compute the Hubble rate, Hubble length, horizon mass, etc.,
+# for the Randall-Sundrum scenario
+class StandardModel(BaseCosmology):
+
+    def __init__(self, params):
+        super().__init__(params)
+
     # compute the Hubble rate in GeV at a time corresponding to a temperature supplied in GeV
     def Hubble(self, T=None, log_T=None):
-        rho = self.rho_radiation(T, log_T)
-
-        return 1.0 / (Const_Sqrt_3 * self.params.M4) * np.sqrt(rho * (1.0 + rho / (2.0 * self.params.tension)))
-
-    # compute the 4D-only Hubble rate in GeV at a time corresponding to a temperature supplied in GeV
-    def Hubble4(self, T=None, log_T=None):
         rho = self.rho_radiation(T, log_T)
 
         return 1.0 / (Const_Sqrt_3 * self.params.M4) * np.sqrt(rho)
@@ -224,9 +225,31 @@ class CosmologyEngine:
     def R_Hubble(self, T=None, log_T=None):
         return 1.0 / self.Hubble(T, log_T)
 
-    # compute the 4D-only Hubble length in 1/GeV at a time corresponding to a temperature supplied in GeV
-    def R_Hubble4(self, T=None, log_T=None):
-        return 1.0 / self.Hubble4(T, log_T)
+    # compute the mass (in GeV) enclosed within the Hubble length, at a time corresponding to a temperature supplied in GeV
+    def M_Hubble(self, T=None, log_T=None):
+        rho = self.rho_radiation(T, log_T)
+        M_H = Const_M_H * self.params.M4 * self.params.M4 * self.params.M4 / np.sqrt(rho)
+
+        return M_H
+
+
+# The *RandallSundrumModel* class provides methods to compute the Hubble rate, Hubble length, horizon mass, etc.,
+# for the Randall-Sundrum scenario
+class RandallSundrumModel(BaseCosmology):
+
+    def __init__(self, params: RandallSundrumParameters):
+        super().__init__(params)
+
+    # compute the Hubble rate in GeV at a time corresponding to a temperature supplied in GeV
+    def Hubble(self, T=None, log_T=None):
+        rho = self.rho_radiation(T, log_T)
+
+        return 1.0 / (Const_Sqrt_3 * self.params.M4) * np.sqrt(rho * (1.0 + rho / (2.0 * self.params.tension)))
+
+    # compute the Hubble length in 1/GeV at a time corresponding to a temperature supplied in GeV
+    # the formula here is R_H = 1/H
+    def R_Hubble(self, T=None, log_T=None):
+        return 1.0 / self.Hubble(T, log_T)
 
     # compute the mass (in GeV) enclosed within the Hubble length, at a time corresponding to a temperature supplied in GeV
     # the formula here is M_H = (4/3) pi rho R_H^3, but we compute it directly to avoid multiple evaluations of rho
@@ -234,13 +257,6 @@ class CosmologyEngine:
         rho = self.rho_radiation(T, log_T)
         M_H = Const_M_H * self.params.M4 * self.params.M4 * self.params.M4 \
               * np.power(1.0 + rho / (2.0 * self.params.tension), -3.0/2.0) / np.sqrt(rho)
-
-        return M_H
-
-    # compute the mass (in GeV) enclosed within the 4D-only Hubble length, at a time corresponding to a temperature supplied in GeV
-    def M_Hubble4(self, T=None, log_T=None):
-        rho = self.rho_radiation(T, log_T)
-        M_H = Const_M_H * self.params.M4 * self.params.M4 * self.params.M4 / np.sqrt(rho)
 
         return M_H
 
@@ -410,16 +426,16 @@ class StefanBoltzmann5DLifetimeModel:
     using a Stefan-Boltzmann limit for the evaporation term
     (i.e. the integrated Hawking flux)
     '''
-    def __init__(self, engine: CosmologyEngine, accretion_efficiency_F=0.3,
+    def __init__(self, engine: RandallSundrumModel, accretion_efficiency_F=0.3,
                  use_effective_radius=True, use_Page_suppression=True):
         '''
         Instantiate a StefanBoltzmann5DLifetimeModel object
-        :param engine: a CosmologyEngine instance to use for calculations
+        :param engine: a RandallSundrumModel instance to use for calculations
         :param accretion_efficiency_F: efficiency factor for Bondi-Hoyle-Lyttleton accretion
         :param use_effective_radius: whether accretion should use an effective radius rather than the horizon radius
         '''
-        if engine is None or not isinstance(engine, CosmologyEngine):
-            raise RuntimeError('StefanBoltzmann5DLifetimeModel: supplied CosmologyEngine instance is not usable')
+        if engine is None or not isinstance(engine, RandallSundrumModel):
+            raise RuntimeError('StefanBoltzmann5DLifetimeModel: supplied RandallSundrumModel instance is not usable')
 
         self.engine = engine
         self._params = engine.params
@@ -499,16 +515,16 @@ class StefanBoltzmann4DLifetimeModel:
     using a Stefan-Boltzmann limit for the evaporation term
     (i.e. the integrated Hawking flux)
     '''
-    def __init__(self, engine: CosmologyEngine, accretion_efficiency_F=0.3,
+    def __init__(self, engine: StandardModel, accretion_efficiency_F=0.3,
                  use_effective_radius=True, use_Page_suppression=True):
         '''
         Instantiate a StefanBoltzmann4DLifetimeModel object
-        :param engine: a CosmologyEngine instance to use for calculations
+        :param engine: a StandardModel instance to use for calculations
         :param accretion_efficiency_F: efficiency factor for Bondi-Hoyle-Lyttleton accretion
         :param use_effective_radius: whether accretion should use an effective radius rather than the horizon radius
         '''
-        if engine is None or not isinstance(engine, CosmologyEngine):
-            raise RuntimeError('StefanBoltzmann4DLifetimeModel: supplied CosmologyEngine instance is not usable')
+        if engine is None or not isinstance(engine, StandardModel):
+            raise RuntimeError('StefanBoltzmann4DLifetimeModel: supplied StandardModel instance is not usable')
 
         self.engine = engine
         self._params = engine.params
@@ -541,7 +557,7 @@ class StefanBoltzmann4DLifetimeModel:
         rho = self.engine.rho_radiation(T=T_rad)
 
         # compute current Hubble rate at this radiation temperature
-        H = self.engine.Hubble4(T=T_rad)
+        H = self.engine.Hubble(T=T_rad)
 
         # get alpha, the coefficient that turns rh into the effective radius, r_eff = alpha * rh
         alpha = Const_Reff_4D if self._use_effective_radius else 1.0
@@ -564,7 +580,7 @@ class StefanBoltzmann4DLifetimeModel:
 
         dlogM_dlogT += evap_prefactor * evap_dof / (Page_suppression_factor if self._use_Page_suppression else 1.0)
 
-        # x = self._M_PBH.mass / self.engine.M_Hubble4(T=T_rad)
+        # x = self._M_PBH.mass / self.engine.M_Hubble(T=T_rad)
         # evap_to_accrete = 4.0 / (self._accretion_efficiency_F * t4 * rh_sq * rh_sq * rho)
         #
         # T_Hawking = self._M_PBH.T_Hawking
@@ -586,29 +602,26 @@ class LifetimeObserver:
     PBH model (i.e. mass as a function of T), and also checks whether the integration should abort
     because evaporation has proceeded to the point where a relic has formed
     '''
-    # constructor captures CosmologyEngine instance. _sample_grid should be a numpy 1d array representing points where
-    # we want to sample the solution M(T), and mass_grid is an (empty) numpy 1d array of the same shape
-    # into which the answer will be written
-    def __init__(self, engine: CosmologyEngine, sample_grid, mass_grid, x_grid, relic_mass, use_4D=False):
+
+    def __init__(self, engine, sample_grid, mass_grid, x_grid, relic_mass):
         '''
-        Instantiate a LifetimeObserver instance
-        :param engine: CosmologyEngine instance to use for computations
+        Instantiate a LifetimeObserver instance.
+        The constructor captures model engine instance. _sample_grid should be a numpy 1d array representing
+        points where we want to sample the solution M(T), and mass_grid is an (empty) numpy 1d array of the same shape
+        into which the answer will be written
+        :param engine: RandallSundrumModel instance to use for computations
         :param sample_grid: soln_grid of sample points for independent variable (here log T)
         :param mass_grid: soln_grid of sample points for dependent variable (here M)
         :param x_grid: soln_grid of sample points for dependent variable (here x)
-        :param use_4D: set to true to use 4D Hubble mass in calculation of mass fraction x
         '''
-        if engine is None or not isinstance(engine, CosmologyEngine):
-            raise RuntimeError('LifetimeObserver: supplied CosmologyEngine instance is not usable')
+        if engine is None:
+            raise RuntimeError('LifetimeObserver: supplied model instance is None')
 
         if sample_grid.shape != mass_grid.shape:
             raise RuntimeError('LifetimeObserver: _sample_grid and mass_grid shapes do not match')
 
         # capture cosmology engine
         self._engine = engine
-
-        # capture use_4D setting
-        self._use_4D = use_4D
 
         # self.terminated is a flag that is set when the integration should terminate because a relic
         # has formed; self.relic_mass records the PBH mass where we declare a relic forms
@@ -652,7 +665,7 @@ class LifetimeObserver:
         # write solution into M-soln_grid if we have passed an observation point
         if self.next_sample_point is not None and logT_rad < self.next_sample_point:
             # compute mass as a fraction of the Hubble volume mass
-            x = M_PBH / (self._engine.M_Hubble4(T=T_rad) if self._use_4D else self._engine.M_Hubble(T=T_rad))
+            x = M_PBH / self._engine.M_Hubble(T=T_rad)
 
             # store these values
             self._mass_grid[self.sample_grid_current_index] = M_PBH
@@ -785,13 +798,13 @@ class PBHLifetimeModel:
         # prepare an observer object using these sample points, using a relic scale set at the
         self._relic_scale = self._params.M4
         observer = LifetimeObserver(self._engine, self.logT_sample_points, self.M_sample_points, self.x_sample_points,
-                                    self._relic_scale, use_4D=use_4D)
+                                    self._relic_scale)
 
         # run the integration
-        self._integrate(LifetimeModel, observer, use_4D)
+        self._integrate(LifetimeModel, observer)
 
 
-    def _integrate(self, LifetimeModel, Observer, use_4D=False):
+    def _integrate(self, LifetimeModel, Observer):
         '''
 
         :param LifetimeModel: callable representing RHS of ODE system
@@ -931,30 +944,33 @@ class PBHInstance:
     # accretion_efficiency: accretion efficiency factor F in Bondi-Hoyle-Lyttleton model
     # collapse_fraction: fraction of Hubble volume that collapses to PBH
     # num_sample_ponts: number of T samples to take
-    def __init__(self, engine: CosmologyEngine, T_rad_init: float, accretion_efficiency_F=0.5,
+    def __init__(self, params, T_rad_init: float, accretion_efficiency_F=0.5,
                  collapse_fraction_f=0.5, delta=0.0, num_samples=NumTSamplePoints):
-        self._engine = engine
-        self._params = engine.params
+        self._params = params
+
+        self._RS_engine = RandallSundrumModel(params)
+        self._4D_engine = StandardModel(params)
+
         self.accretion_efficiency_F = accretion_efficiency_F
 
         # x = f (1+delta) is the fraction of the Hubble volume that initially collapses to form the PBH
         x_init = collapse_fraction_f * (1.0 + delta)
 
         # get mass of Hubble volume expressed in GeV
-        M_Hubble = engine.M_Hubble(T=T_rad_init)
-        M_Hubble4 = engine.M_Hubble4(T=T_rad_init)
+        M_Hubble_RS = self._RS_engine.M_Hubble(T=T_rad_init)
+        M_Hubble_4D = self._4D_engine.M_Hubble(T=T_rad_init)
 
         # compute initial mass in GeV
-        M_init_5D = x_init * M_Hubble
+        M_init_5D = x_init * M_Hubble_RS
         self.M_init_5D = M_init_5D
 
-        M_init_4D = x_init * M_Hubble4
+        M_init_4D = x_init * M_Hubble_4D
         self.M_init_4D = M_init_4D
 
         # set up different lifetime models - initially we are only using a Stefan-Boltzmann version
-        sb_5D = StefanBoltzmann5DLifetimeModel(self._engine, accretion_efficiency_F=accretion_efficiency_F,
+        sb_5D = StefanBoltzmann5DLifetimeModel(self._RS_engine, accretion_efficiency_F=accretion_efficiency_F,
                                                use_effective_radius=True, use_Page_suppression=True)
-        sb_4D = StefanBoltzmann4DLifetimeModel(self._engine, accretion_efficiency_F=accretion_efficiency_F,
+        sb_4D = StefanBoltzmann4DLifetimeModel(self._4D_engine, accretion_efficiency_F=accretion_efficiency_F,
                                                use_effective_radius=True, use_Page_suppression=True)
 
         self.lifetimes = {'StefanBoltzmann5D': PBHLifetimeModel(M_init_5D, T_rad_init, sb_5D, num_samples=num_samples),

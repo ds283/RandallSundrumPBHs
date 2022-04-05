@@ -4,9 +4,8 @@ import seaborn as sns
 sns.set()
 
 params = lkit.RandallSundrumParameters(1.5935e14)
-engine = lkit.CosmologyEngine(params)
 
-soln = lkit.PBHInstance(engine, 6.4584e13)
+soln = lkit.PBHInstance(params, 6.4584e13)
 soln.mass_plot('mass_history_fail.pdf')
 
 SB_4D = soln.lifetimes['StefanBoltzmann4D']
