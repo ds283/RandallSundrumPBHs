@@ -36,8 +36,8 @@ def map(f, obj):
     return f(obj)
 
 # build soln_grid of M5/Tinit sample points
-M5_grid = np.geomspace(2E8, 5E17, 250)
-Tinit_grid = np.geomspace(4E8, 5E17, 250)
+M5_grid = np.geomspace(2E8, 5E17, 400)
+Tinit_grid = np.geomspace(1E5, 5E17, 400)
 
 # generate serial numbers for M5 & Tinit sample grids and write these out
 M5_grid_size = len(M5_grid)
