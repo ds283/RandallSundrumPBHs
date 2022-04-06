@@ -404,7 +404,60 @@ class PBHModel:
         return Const_4Pi
 
 
-class StefanBoltzmann5DLifetimeModel:
+# table of primary Hawking quanta and masses, taken from BlackHawk manual (Appendix C, Table 3)
+# https://blackhawk.hepforge.org/manuals/blackhawk1.1.pdf
+_SM_particle_table = \
+    {'Higgs': {'mass': 1.2503E2, 'dof': 1},
+     'photon': {'mass': 0, 'dof': 2},
+     'gluon': {'mass': 0.2, 'dof': 16},
+     'W boson': {'mass': 8.0403E1, 'dof': 6},
+     'Z boson': {'mass': 9.11876E1, 'dof': 3},
+     'neutrino': {'mass': 0, 'dof': 6},
+     'electron': {'mass': 5.109989461E-4, 'dof': 4},
+     'muon': {'mass': 1.056583745E-1, 'dof': 4},
+     'tau': {'mass': 1.77686, 'dof': 4},
+     'up quark': {'mass': 2.2E-3, 'dof': 12},
+     'down quark': {'mass': 4.7E-3, 'dof': 12},
+     'charm quark': {'mass': 1.27, 'dof': 12},
+     'strange quark': {'mass': 9.6E-2, 'dof': 12},
+     'top quark': {'mass': 1.7321E2, 'dof': 12},
+     'bottom quark': {'mass': 4.18, 'dof': 12}}
+
+_RS_bulk_particle_table = \
+    {'5D graviton': {'mass': 0, 'dof': 5}}
+
+
+class BaseLifetimeModel:
+    '''
+    Shared infrastructure used by all lifetime model
+    '''
+
+    def g4(self, T_Hawking):
+        total_dof = 0
+
+        for data in _SM_particle_table.values():
+            mass = data['mass']
+            dof = data['dof']
+
+            if T_Hawking > mass:
+                total_dof += dof
+
+        return total_dof
+
+    def g5_RS(self, T_Hawking):
+        total_dof = 0
+
+        for data in _RS_bulk_particle_table.values():
+            mass = data['mass']
+            dof = data['dof']
+
+            if T_Hawking > mass:
+                total_dof += dof
+
+        return total_dof
+
+
+class StefanBoltzmann5DLifetimeModel(BaseLifetimeModel):
     '''
     Evaluate RHS of mass evolution model (assuming a Randall-Sundrum cosmology),
     using a Stefan-Boltzmann limit for the evaporation term
@@ -469,8 +522,10 @@ class StefanBoltzmann5DLifetimeModel:
         t = self._M_PBH.t
         t4 = t*t*t*t
 
-        g4_evap = 2.0  # TODO: CURRENTLY APPROXIMATE - ASSUME ONLY RADIATES TO PHOTONS
-        g5_evap = 5.0  # TODO: ASSUME ONLY RADIATES TO BULK GRAVITONS
+        # compute Hawking temperature and effective number of particle species active in the Hawking quanta
+        T_Hawking = self._M_PBH.T_Hawking
+        g4_evap = self.g4(T_Hawking)
+        g5_evap = self.g5_RS(T_Hawking)
 
         evap_prefactor = Const_4Pi * alpha_sq / (self._M_PBH.mass * H * t4 * rh_sq)
         evap_dof = (g4_evap * self._SB_4D + Const_PiOver2 * alpha * g5_evap * self._SB_5D / t)
@@ -493,7 +548,7 @@ class StefanBoltzmann5DLifetimeModel:
         return dlogM_dlogT
 
 
-class StefanBoltzmann4DLifetimeModel:
+class StefanBoltzmann4DLifetimeModel(BaseLifetimeModel):
     '''
     Evaluate RHS of mass evolution model (assuming a standard 4-dimensional cosmology),
     using a Stefan-Boltzmann limit for the evaporation term
@@ -557,7 +612,12 @@ class StefanBoltzmann4DLifetimeModel:
         t = Const_4Pi   # only need 4D result
         t4 = t*t*t*t
 
-        g4_evap = 2.0  # TODO: CURRENTLY APPROXIMATE - ASSUME ONLY RADIATES TO PHOTONS
+
+        # compute Hawking temperature and effective number of particle species active in the Hawking quanta
+        T_Hawking = self._M_PBH.T_Hawking_4D
+
+        # effective number of radiated species is SM + 2 to count 4D graviton states
+        g4_evap = self.g4(T_Hawking) + 2.0
 
         evap_prefactor = Const_4Pi * alpha_sq / (self._M_PBH.mass * H * t4 * rh_sq)
         evap_dof = g4_evap * self._SB_4D
