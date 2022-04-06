@@ -3,8 +3,7 @@ from scipy.integrate import ode
 
 import matplotlib.pyplot as plt
 
-import time
-
+from .timer import Timer
 
 # introduce fixed constants
 Const_8Pi = 8.0 * np.pi
@@ -61,16 +60,6 @@ Mpc = 3.08567758128E+19 * Kilometre
 Kilogram = np.sqrt(Const_8Pi) * M4 / 2.17643424E-8
 Gram = Kilogram / 1000.0
 SolarMass = 1.98847E30 * Kilogram
-
-
-class Timer:
-    def __enter__(self):
-        self.start = time.perf_counter()
-        return self
-
-    def __exit__(self, *args):
-        self.end = time.perf_counter()
-        self.interval = self.end - self.start
 
 
 # The *RandallSundrumParameters* class captures details of the 4D and 5D Planck masses, and uses these to compute derived

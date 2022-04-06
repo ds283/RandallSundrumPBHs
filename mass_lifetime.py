@@ -100,13 +100,17 @@ def is_valid(M5: float, Tinit: float, f: float):
     return True
 
 data = [(M5_serial, T_serial, M5, Tinit) for ((M5_serial, M5), (T_serial, Tinit)) in data_all if is_valid(M5, Tinit, 0.5)]
+print('Sample grid contains {N} valid entries'.format(N=len(data)))
 
 # assign a serial number to each configuration
 data_grid = [{'serial': serial, 'M5_serial': M5_serial, 'T_serial': T_serial, 'M5': M5, 'Tinit': Tinit,
               'F': 0.1, 'f': 0.5} for serial, (M5_serial, T_serial, M5, Tinit) in enumerate(data)]
 
-# use ray to perform a distributed map of compute_lifetime onto data_grid
-soln_grid = ray.get([map.remote(compute_lifetime, line) for line in data_grid])
+with lkit.Timer() as compute_timer:
+    # use ray to perform a distributed map of compute_lifetime onto data_grid
+    soln_grid = ray.get([map.remote(compute_lifetime, line) for line in data_grid])
+
+print('-- Task finished, wallclock time = {time:.3} s'.format(time=compute_timer.interval))
 
 # build a data frame indexed by serial numbers
 # we'll use this to store the computed lifetimes and associated metadata
