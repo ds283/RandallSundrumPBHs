@@ -900,14 +900,14 @@ class PBHLifetimeModel:
             np.resize(self.M_sample_points, index)
             np.resize(self.x_sample_points, index)
 
+        M = np.exp(stepper.y.item())
+        T_rad = np.exp(stepper.t)
+
         # if the observer terminated the integration, this is because the PBH evaporation proceeded
         # to the point where we produce a relic, so we can record the lifetime and exit
-        if Observer.terminated:
-            self.T_lifetime = np.exp(stepper.t)
-            return
-
         if stepper.successful():
-            raise RuntimeError('Observer did not terminate, but integration ended without failure code')
+            self.T_lifetime = T_rad
+            return
 
         # if there was an integration failure, this is possibly because of a genuine problem, or possibly
         # because we could not resolve the final stages of the integration - because that is very close
@@ -915,17 +915,17 @@ class PBHLifetimeModel:
         code = stepper.get_return_code()
         if code != -3:
             raise RuntimeError('PBH lifetime calculation failed due to an integration error at '
-                               'T = {T:.5g} GeV = {TK:.5g} Kelvin, '
-                               'code = {code}'.format(T=np.exp(stepper.t), TK=np.exp(stepper.t)/Kelvin,
+                               'PBH mass M = {MassGeV:.5g} GeV = {MassGram:.5g} gram, '
+                               'radiation temperature = {TGeV:.5g} GeV = {TKelvin:.5g} Kelvin, '
+                               'code = {code}'.format(MassGeV=M, MassGram=M/Gram,
+                                                      TGeV=T_rad, TKelvin=T_rad/Kelvin,
                                                       code=stepper.get_return_code()))
 
         # this code corresponds to "step size becomes too small", which we interpret to mean
         # that we're close to the point of evaporation down to a relic
 
-        params: RandallSundrumParameters = self._params
-
         # get current PBH mass in GeV
-        M = np.exp(stepper.y.item())
+        params = self._params
         M_PBH = PBHModel(self._engine.params, M, 'GeV')
 
         # get current radiation temperature in GeV
