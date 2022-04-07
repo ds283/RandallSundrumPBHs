@@ -150,8 +150,8 @@ class Model(BaseCosmology):
     # allow type introspection for our associated BlackHole model
     BlackHoleType = BlackHole
 
-    def __init__(self, params):
-        super().__init__(params)
+    def __init__(self, params, fixed_g=None):
+        super().__init__(params, fixed_g)
 
     # compute the Hubble rate in GeV at a time corresponding to a temperature supplied in GeV
     def Hubble(self, T=None, log_T=None):

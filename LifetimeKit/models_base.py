@@ -6,37 +6,8 @@ from .particle_data import SM_particle_table
 
 T_threshold_tolerance = 1E-8
 
-class BaseCosmology:
 
-    def __init__(self, params):
-        self.params = params
-
-    # compute the radiation energy density in GeV^4 from a temperature supplied in GeV
-    # currently, we assume there are a fixed number of relativistic species
-    def rho_radiation(self, T=None, log_T=None):
-        # if T is not supplied, try to use log_T
-        if T is not None:
-            _T = T
-        elif log_T is not None:
-            _T = np.exp(log_T)
-        else:
-            raise RuntimeError('No temperature value supplied to BaseCosmology.rho_radiation()')
-
-        # check that supplied temperature is lower than the intended maximum temperature
-        # (usually the 4D or 5D Planck mass, but model-dependent)
-        if T > self.params.Tmax:
-            raise RuntimeError('Temperature T = {TGeV:.3g} GeV = {TKelvin:.3g} K is higher than the specified '
-                               'maximum temperature Tmax = {TmaxGeV:.3g} GeV = '
-                               '{TmaxKelvin:.3g} K'.format(TGeV=T, TKelvin=T/Kelvin,
-                                                           TmaxGeV=self.params.Tmax, TmaxKelvin=self.params.Tmax/Kelvin))
-
-        Tsq = T*T
-        T4 = Tsq*Tsq
-
-        return self.params.RadiationConstant * self.params.gstar * T4
-
-
-def build_cumulative_g_table(particle_table):
+def build_cumulative_g_table(particle_table, weight=None):
     # build a list of particle records ordered by their mass
     particles = list(particle_table.values())
     particles.sort(key=itemgetter('mass'))
@@ -60,7 +31,7 @@ def build_cumulative_g_table(particle_table):
             if next_record['mass'] - next_threshold > T_threshold_tolerance:
                 break
 
-            cumulative_g += next_record['dof']
+            cumulative_g += next_record['dof'] * (next_record[weight] if weight is not None else 1.0)
 
             current_particle_index += 1
 
@@ -72,6 +43,59 @@ def build_cumulative_g_table(particle_table):
     g_values = np.resize(g_values, current_threshold_index)
 
     return T_thresholds, g_values
+
+
+class BaseCosmology:
+
+    def __init__(self, params, fixed_g=None):
+        self.params = params
+
+        self.SM_thresholds, self.SM_g_values = build_cumulative_g_table(SM_particle_table, weight='spin-weight')
+        self.SM_num_thresholds = len(self.SM_thresholds)
+
+        self._fixed_g = fixed_g
+
+    # compute the radiation energy density in GeV^4 from a temperature supplied in GeV
+    # currently, we assume there are a fixed number of relativistic species
+    def rho_radiation(self, T=None, log_T=None):
+        # if T is not supplied, try to use log_T
+        if T is not None:
+            _T = T
+        elif log_T is not None:
+            _T = np.exp(log_T)
+        else:
+            raise RuntimeError('No temperature value supplied to BaseCosmology.rho_radiation()')
+
+        # check that supplied temperature is lower than the intended maximum temperature
+        # (usually the 4D or 5D Planck mass, but model-dependent)
+        if T > self.params.Tmax:
+            raise RuntimeError('Temperature T = {TGeV:.3g} GeV = {TKelvin:.3g} K is higher than the specified '
+                               'maximum temperature Tmax = {TmaxGeV:.3g} GeV = '
+                               '{TmaxKelvin:.3g} K'.format(TGeV=T, TKelvin=T/Kelvin,
+                                                           TmaxGeV=self.params.Tmax, TmaxKelvin=self.params.Tmax/Kelvin))
+
+        Tsq = T*T
+        T4 = Tsq*Tsq
+
+        if self._fixed_g:
+            g = self._fixed_g
+        else:
+            g = self.g(T)
+
+        return self.params.RadiationConstant * g * T4
+
+
+    def g(self, T):
+        '''
+        Compute number of relativistic degrees of freedom in the radiation bath at temperature T
+        '''
+
+        # find where radiation temperature lies within out threshold list
+        index = np.searchsorted(self.SM_thresholds, T, side='left')
+        if index >= self.SM_num_thresholds:
+            index = self.SM_num_thresholds - 1
+
+        return self.SM_g_values[index]
 
 
 class BaseLifetimeModel:

@@ -137,9 +137,7 @@ class Parameters:
         # assume the crossover temperature is high enough that all SM particles are relativistic and in thermal
         # equilibrium, which should be good above Tcross = 200 GeV; we insist Tcross > 1E3 (see below),
         # which is hopefully enough headroom
-        self.gstar = gstar_full_SM
-
-        self.T_crossover = np.power(12.0 / (self.RadiationConstant * self.gstar), 1.0/4.0) * np.sqrt(M_ratio) * M5
+        self.T_crossover = np.power(12.0 / (self.RadiationConstant * gstar_full_SM), 1.0/4.0) * np.sqrt(M_ratio) * M5
         self.T_crossover_Kelvin = self.T_crossover / Kelvin
 
         # compute AdS radius ell and its inverse, mu
@@ -365,19 +363,19 @@ class BlackHole:
     def compute_analytic_Trad_final(self, Ti_rad, relic_scale, use_effective_radius=True):
         # if the PBH is already in the 5D regime, it stays in that regime all the way down to a relic
         if self.is_5D:
-            return Solve_5D_T(Ti_rad, self.mass, relic_scale, self.params.gstar, self.params.RadiationConstant,
+            return Solve_5D_T(Ti_rad, self.mass, relic_scale, gstar_full_SM, self.params.RadiationConstant,
                               self.params.tension, 2.0, self.params.StefanBoltzmannConstant4D,
                               5.0, self.params.StefanBoltzmannConstant5D, self.params.M4, self.params.M5,
                               Const_Reff_5D if use_effective_radius else 1.0)
 
         # otherwise there is a period of 4D evolution, followed by a period of 5D evolution
-        T_transition = Solve_4D_T(Ti_rad, self.mass, self.params.M_transition, self.params.gstar,
+        T_transition = Solve_4D_T(Ti_rad, self.mass, self.params.M_transition, gstar_full_SM,
                                   self.params.RadiationConstant, self.params.tension,
                                   2.0, self.params.StefanBoltzmannConstant4D,
                                   5.0, self.params.StefanBoltzmannConstant5D, self.params.M4,
                                   Const_Reff_4D if use_effective_radius else 1.0)
 
-        return Solve_5D_T(T_transition, self.params.M_transition, relic_scale, self.params.gstar,
+        return Solve_5D_T(T_transition, self.params.M_transition, relic_scale, gstar_full_SM,
                           self.params.RadiationConstant, self.params.tension,
                           2.0, self.params.StefanBoltzmannConstant4D,
                           5.0, self.params.StefanBoltzmannConstant5D, self.params.M4, self.params.M5,
@@ -391,8 +389,8 @@ class Model(BaseCosmology):
     # allow type introspection for our associated BlackHole model
     BlackHoleType = BlackHole
 
-    def __init__(self, params: Parameters):
-        super().__init__(params)
+    def __init__(self, params: Parameters, fixed_g=None):
+        super().__init__(params, fixed_g)
 
     # compute the Hubble rate in GeV at a time corresponding to a temperature supplied in GeV
     def Hubble(self, T=None, log_T=None):
