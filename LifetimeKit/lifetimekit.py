@@ -12,11 +12,6 @@ from .RandallSundrum5D import StefanBoltzmann as RS5D_StefanBoltzmann
 from .Standard4D import cosmology as Standard4D
 from .Standard4D import StefanBoltzmann as Standard4D_StefanBoltzmann
 
-# introduce fixed constants
-Const_8Pi = 8.0 * np.pi
-Const_2PiSquared = 2.0 * np.pi*np.pi
-Const_Hrh_5D = 2.0 / (np.power(3.0, 3.0/4.0) * np.sqrt(np.pi))
-
 # number of T-sample points to capture for PBH lifetime mass/temperature relation
 NumTSamplePoints = 200
 
@@ -245,8 +240,9 @@ class PBHLifetimeModel:
         Ti_rad = np.exp(stepper.t)
 
         # compute the final relic formation time using an analytic estimation
-        self.T_lifetime = M_PBH.compute_analytic_Trad_final(Ti_rad, self._relic_scale,
-                                                    use_effective_radius=LifetimeModel._use_effective_radius)
+        self.T_lifetime = \
+            M_PBH.compute_analytic_Trad_final(Ti_rad, self._relic_scale,
+                                              use_effective_radius=LifetimeModel._use_effective_radius)
 
         # record the shift due to using the analytic model
         self.T_shift = Ti_rad - self.T_lifetime
@@ -269,7 +265,7 @@ class PBHInstance:
     # num_sample_ponts: number of T samples to take
     def __init__(self, params, T_rad_init: float, accretion_efficiency_F=0.5,
                  collapse_fraction_f=0.5, delta=0.0, num_samples=NumTSamplePoints,
-                 models=['StefanBoltzmann5D', 'StefanBoltzmann4D']):
+                 models=['StefanBoltzmannRS5D', 'StefanBoltzmannStandard4D']):
         self._params = params
 
         self._RS_engine = RS5D.Model(params)
@@ -294,20 +290,20 @@ class PBHInstance:
         self.lifetimes = {}
 
         for label in models:
-            if label == 'StefanBoltzmann5D':
+            if label == 'StefanBoltzmannRS5D':
                 engine = RS5D_StefanBoltzmann.LifetimeModel(self._RS_engine,
                                                             accretion_efficiency_F=accretion_efficiency_F,
                                                             use_effective_radius=True, use_Page_suppression=True)
                 self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, engine, num_samples=num_samples)
 
-            elif label == 'StefanBoltzmann4D':
+            elif label == 'StefanBoltzmannStandard4D':
                 engine = Standard4D_StefanBoltzmann.LifetimeModel(self._4D_engine,
                                                                   accretion_efficiency_F=accretion_efficiency_F,
                                                                   use_effective_radius=True, use_Page_suppression=True)
                 self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, engine, num_samples=num_samples)
 
             else:
-                raise RuntimeError('LifetimeKit.PBHInstance: unknown model history "{label}"'.format(label=label))
+                raise RuntimeError('LifetimeKit.PBHInstance: unknown model type "{label}"'.format(label=label))
 
 
     # produce plot of PBH mass over its lifetime, as a function of temperature T

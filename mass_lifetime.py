@@ -23,8 +23,8 @@ def compute_lifetime(data):
 
     solution = lkit.PBHInstance(params, Tinit, accretion_efficiency_F=F, collapse_fraction_f=f)
 
-    SB5D = solution.lifetimes['StefanBoltzmann5D']
-    SB4D = solution.lifetimes['StefanBoltzmann4D']
+    SB5D = solution.lifetimes['StefanBoltzmannRS5D']
+    SB4D = solution.lifetimes['StefanBoltzmannStandard4D']
 
     return {'serial': serial, 'M5_serial': M5_serial, 'T_serial': T_serial,
             'Minit_5D': solution.M_init_5D, 'Minit_4D':solution.M_init_4D, 'Tinit': Tinit, 'F': F, 'f': f, 'M5': M5,
