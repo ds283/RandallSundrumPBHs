@@ -21,8 +21,8 @@ def PBHMassPlot(M5, Tlo=1E3, Thi=None, units='gram', collapse_fraction_f=0.5):
     # build a dictionary of unit conversion coefficients
     units_conversion = {'gram': lkit.Gram, 'kilogram': lkit.Kilogram, 'GeV': 1.0}
 
-    params = lkit.RandallSundrumParameters(M5)
-    engine_RS = lkit.RandallSundrumModel(params)
+    params = lkit.RandallSundrum5D.Parameters(M5)
+    engine_RS = lkit.RandallSundrum5D.Model(params)
     engine_4D = lkit.StandardModel(params)
 
     T_range = np.geomspace(Tlo, Thi, num=NumPoints)
@@ -53,8 +53,8 @@ def PBHLengthscalePlot(M5, Tlo=4E3, Thi=None, units='kilometre'):
     # build a dictionary of unit conversion coefficients
     units_conversion = {'metre': lkit.Metre, 'kilometre': lkit.Kilometre, 'Mpc': lkit.Mpc}
 
-    params = lkit.RandallSundrumParameters(M5)
-    engine_RS = lkit.RandallSundrumModel(params)
+    params = lkit.RandallSundrum5D.Parameters(M5)
+    engine_RS = lkit.RandallSundrum5D.Model(params)
     engine_4D = lkit.StandardModel(params)
 
     T_range = np.geomspace(Tlo, Thi, num=NumPoints)
@@ -89,8 +89,8 @@ def PBHMassScaleRelation(M5, Tlo=4E3, Thi=None, length_units='kilometre', mass_u
     length_conversion = {'metre': lkit.Metre, 'kilometre': lkit.Kilometre, 'Mpc': lkit.Mpc}
     mass_conversion = {'gram': lkit.Gram, 'kilogram': lkit.Kilogram, 'GeV': 1.0}
 
-    params = lkit.RandallSundrumParameters(M5)
-    engine_RS = lkit.RandallSundrumModel(params)
+    params = lkit.RandallSundrum5D.Parameters(M5)
+    engine_RS = lkit.RandallSundrum5D.Model(params)
     engine_4D = lkit.StandardModel(params)
 
     T_range = np.geomspace(Tlo, Thi, num=NumPoints)

@@ -3,7 +3,7 @@ import LifetimeKit as lkit
 import seaborn as sns
 sns.set()
 
-params = lkit.RandallSundrumParameters(1.5935e14)
+params = lkit.RS5D.Parameters(1.5935e14)
 
 soln = lkit.PBHInstance(params, 6.4584e13)
 soln.mass_plot('mass_history_fail.pdf')

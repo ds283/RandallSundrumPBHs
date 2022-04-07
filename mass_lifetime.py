@@ -19,7 +19,7 @@ def compute_lifetime(data):
     F = data['F']
     f = data['f']
 
-    params = lkit.RandallSundrumParameters(M5)
+    params = lkit.RS5D.Parameters(M5)
 
     solution = lkit.PBHInstance(params, Tinit, accretion_efficiency_F=F, collapse_fraction_f=f)
 
@@ -49,7 +49,7 @@ for serial, M5 in enumerate(M5_grid):
     grid_M5_serials[serial] = serial
     grid_M5_values[serial] = M5
 
-    params = lkit.RandallSundrumParameters(M5)
+    params = lkit.RS5D.Parameters(M5)
     grid_M5_Tcrossover_GeV[serial] = params.T_crossover
     grid_M5_Tcrossover_Kelvin[serial] = params.T_crossover_Kelvin
 
@@ -81,8 +81,8 @@ def is_valid(M5: float, Tinit: float, f: float):
     if Tinit > M5:
         return False
 
-    params = lkit.RandallSundrumParameters(M5)
-    engine = lkit.RandallSundrumModel(params)
+    params = lkit.RandallSundrum5D.Parameters(M5)
+    engine = lkit.RandallSundrum5D.Model(params)
 
     try:
         # get mass of Hubble volume expressed in GeV
@@ -93,7 +93,7 @@ def is_valid(M5: float, Tinit: float, f: float):
 
         # constructing a PBHModel with this mass will raise an exception if the mass is out of bounds
         # could possibly just write in the test here, but this way we abstract it into the PBHModel class
-        M_PBH = lkit.PBHModel(params, M_init, units='GeV')
+        M_PBH = lkit.RS5D.BlackHole(params, M_init, units='GeV')
     except RuntimeError as e:
         return False
 
