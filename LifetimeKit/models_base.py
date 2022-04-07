@@ -1,5 +1,7 @@
 import numpy as np
+import math
 from operator import itemgetter
+from functools import partial
 
 from .natural_units import Kelvin
 from .particle_data import SM_particle_table
@@ -43,6 +45,25 @@ def build_cumulative_g_table(particle_table, weight=None):
     g_values = np.resize(g_values, current_threshold_index)
 
     return T_thresholds, g_values
+
+
+def build_greybody_xi(particle_table):
+    xis_massive = []
+    xis_massless = 0.0
+
+    def xi(xi0, b, c, mass, dof, T_Hawking):
+        return dof * xi0 * math.exp(-b*math.pow(mass/T_Hawking, c))
+
+    for record in particle_table.values():
+        if 'b' in record:
+            xis_massive.append(partial(xi, record['xi0'], record['b'], record['c'], record['mass'], record['dof']))
+
+        else:
+            # massless species have no temperature dependence
+            xis_massless += record['dof'] * record['xi0']
+
+    return xis_massless, xis_massive
+
 
 
 class BaseCosmology:
@@ -98,9 +119,9 @@ class BaseCosmology:
         return self.SM_g_values[index]
 
 
-class BaseLifetimeModel:
+class BaseStefanBoltzmannLifetimeModel:
     '''
-    Shared infrastructure used by all lifetime models
+    Shared infrastructure used by all Stefan-Boltzmann-type lifetime models
     '''
 
     def __init__(self):
@@ -110,6 +131,8 @@ class BaseLifetimeModel:
         To do that we need to build a list of mass thresholds
         '''
 
+        # build table of mass thresholds associated with Hawking quanta; this is used in the Stefan-Boltzmann
+        # approximation
         self.SM_thresholds, self.SM_g_values = build_cumulative_g_table(SM_particle_table)
         self.SM_num_thresholds = len(self.SM_thresholds)
 
@@ -126,3 +149,13 @@ class BaseLifetimeModel:
             index = self.SM_num_thresholds - 1
 
         return self.SM_g_values[index]
+
+
+class BaseGreybodyLifetimeModel:
+    '''
+    Base infrastructure used by all greybody-factor type lifetime models
+    '''
+
+    def __init__(self):
+        # cache a list of greybody fitting functions
+        self.massless_xi, self.massive_xi = build_greybody_xi(SM_particle_table)

@@ -1,6 +1,6 @@
 import numpy as np
 
-from ...models_base import BaseLifetimeModel, build_cumulative_g_table
+from ...models_base import BaseStefanBoltzmannLifetimeModel, build_cumulative_g_table
 from ...constants import Page_suppression_factor
 from ...particle_data import RS_bulk_particle_table
 
@@ -9,7 +9,7 @@ from ..cosmology.RandallSundrum5D import Model, BlackHole
 Const_PiOver2 = np.pi / 2.0
 Const_4Pi = 4.0 * np.pi
 
-class LifetimeModel(BaseLifetimeModel):
+class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
     '''
     Evaluate RHS of mass evolution model (assuming a Randall-Sundrum models),
     using a Stefan-Boltzmann limit for the evaporation term
@@ -40,7 +40,7 @@ class LifetimeModel(BaseLifetimeModel):
         self._SB_4D = self._params.StefanBoltzmannConstant4D
         self._SB_5D = self._params.StefanBoltzmannConstant5D
 
-        # create a PBHModel instamce; the value assigned to the mass doesn't matter
+        # create a PBHModel instance; the value assigned to the mass doesn't matter
         self._M_PBH = BlackHole(self.engine.params, 1.0, units='gram')
 
         self._accretion_efficiency_F = accretion_efficiency_F
