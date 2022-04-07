@@ -1,8 +1,8 @@
 import numpy as np
 
-from LifetimeKit.models_base import BaseLifetimeModel
-from LifetimeKit.Standard4D.cosmology.standard4D import Model, BlackHole
-from LifetimeKit.constants import Page_suppression_factor
+from ...models_base import BaseLifetimeModel
+from ...constants import Page_suppression_factor
+from ..cosmology.standard4D import Model, BlackHole
 
 Const_Reff_4D = 3.0 * np.sqrt(3.0) / 2.0
 
@@ -22,6 +22,10 @@ class LifetimeModel(BaseLifetimeModel):
         :param accretion_efficiency_F: efficiency factor for Bondi-Hoyle-Lyttleton accretion
         :param use_effective_radius: whether accretion should use an effective radius rather than the horizon radius
         '''
+
+        # invoke superclass constructor
+        super().__init__()
+
         if engine is None or not isinstance(engine, Model):
             raise RuntimeError('Standard4D.StefanBoltzmann.LifetimeModel: supplied engine instance is not usable')
 

@@ -205,10 +205,10 @@ class PBHLifetimeModel:
         # truncate unused sample points at end of x_sample_points
         index = Observer.sample_grid_current_index
         if index < self.T_sample_points.size:
-            np.resize(self.T_sample_points, index)
-            np.resize(self.logT_sample_points, index)
-            np.resize(self.M_sample_points, index)
-            np.resize(self.x_sample_points, index)
+            self.T_sample_points = np.resize(self.T_sample_points, index)
+            self.logT_sample_points = np.resize(self.logT_sample_points, index)
+            self.M_sample_points = np.resize(self.M_sample_points, index)
+            self.x_sample_points = np.resize(self.x_sample_points, index)
 
         M = np.exp(stepper.y.item())
         T_rad = np.exp(stepper.t)

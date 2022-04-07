@@ -1,8 +1,10 @@
 import numpy as np
 
-from LifetimeKit.models_base import BaseLifetimeModel
-from LifetimeKit.RandallSundrum5D.cosmology.RandallSundrum5D import Model, BlackHole
-from LifetimeKit.constants import Page_suppression_factor
+from ...models_base import BaseLifetimeModel, build_cumulative_g_table
+from ...constants import Page_suppression_factor
+from ...particle_data import RS_bulk_particle_table
+
+from ..cosmology.RandallSundrum5D import Model, BlackHole
 
 Const_PiOver2 = np.pi / 2.0
 Const_4Pi = 4.0 * np.pi
@@ -21,6 +23,14 @@ class LifetimeModel(BaseLifetimeModel):
         :param accretion_efficiency_F: efficiency factor for Bondi-Hoyle-Lyttleton accretion
         :param use_effective_radius: whether accretion should use an effective radius rather than the horizon radius
         '''
+
+        # invoke superclass constructor
+        super().__init__()
+
+        # build table of dof values for radiation into bulk quanta
+        self.bulk_thresholds, self.bulk_g_values = build_cumulative_g_table(RS_bulk_particle_table)
+        self.bulk_num_thresholds = len(self.bulk_thresholds)
+
         if engine is None or not isinstance(engine, Model):
             raise RuntimeError('RandallSundrum5D.StefanBoltzmann.LifetimeModel: supplied engine is not usable')
 
@@ -37,6 +47,19 @@ class LifetimeModel(BaseLifetimeModel):
         self._use_Page_suppression = use_Page_suppression
 
         self._logM_end = np.log(self._params.M4)
+
+    def g5(self, T_Hawking):
+        '''
+        Compute number of relativistic degrees of freedom available for Hawking quanta to radiate into
+        based on bulk species
+        '''
+
+        # find where T_Hawking lies within out threshold list
+        index = np.searchsorted(self.bulk_thresholds, T_Hawking, side='left')
+        if index >= self.bulk_num_thresholds:
+            index = self.bulk_num_thresholds - 1
+
+        return self.bulk_g_values[index]
 
     # step the PBH mass, accounting for accretion and evaporation
     def __call__(self, logT_rad, logM_asarray):
@@ -75,7 +98,7 @@ class LifetimeModel(BaseLifetimeModel):
         # compute Hawking temperature and effective number of particle species active in the Hawking quanta
         T_Hawking = self._M_PBH.T_Hawking
         g4_evap = self.g4(T_Hawking)
-        g5_evap = self.g5_RS(T_Hawking)
+        g5_evap = self.g5(T_Hawking)
 
         evap_prefactor = Const_4Pi * alpha_sq / (self._M_PBH.mass * H * t4 * rh_sq)
         evap_dof = (g4_evap * self._SB_4D + Const_PiOver2 * alpha * g5_evap * self._SB_5D / t)

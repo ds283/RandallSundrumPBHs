@@ -1,7 +1,10 @@
 import numpy as np
+from operator import itemgetter
 
 from .natural_units import Kelvin
-from .particle_data import SM_particle_table, RS_bulk_particle_table
+from .particle_data import SM_particle_table
+
+T_threshold_tolerance = 1E-8
 
 class BaseCosmology:
 
@@ -33,31 +36,69 @@ class BaseCosmology:
         return self.params.RadiationConstant * self.params.gstar * T4
 
 
+def build_cumulative_g_table(particle_table):
+    # build a list of particle records ordered by their mass
+    particles = list(particle_table.values())
+    particles.sort(key=itemgetter('mass'))
+
+    next_threshold = 0.0
+    cumulative_g = 0.0
+    current_threshold_index = 0
+    current_particle_index = 0
+
+    num_particles = len(particles)
+    T_thresholds = np.zeros(num_particles)
+    g_values = np.zeros(num_particles)
+
+    next_record = particles[current_particle_index]
+    while current_particle_index < num_particles:
+        # reset current_threshold to value of next mass threshold
+        next_threshold = next_record['mass']
+
+        while current_particle_index < num_particles:
+            next_record = particles[current_particle_index]
+            if next_record['mass'] - next_threshold > T_threshold_tolerance:
+                break
+
+            cumulative_g += next_record['dof']
+
+            current_particle_index += 1
+
+        T_thresholds[current_threshold_index] = next_threshold
+        g_values[current_threshold_index] = cumulative_g
+        current_threshold_index += 1
+
+    T_thresholds = np.resize(T_thresholds, current_threshold_index)
+    g_values = np.resize(g_values, current_threshold_index)
+
+    return T_thresholds, g_values
+
+
 class BaseLifetimeModel:
     '''
-    Shared infrastructure used by all lifetime model
+    Shared infrastructure used by all lifetime models
     '''
 
+    def __init__(self):
+        '''
+        To speed up computations, we want to cache the number of relativistic degrees of freedom
+        available at any given temperature.
+        To do that we need to build a list of mass thresholds
+        '''
+
+        self.SM_thresholds, self.SM_g_values = build_cumulative_g_table(SM_particle_table)
+        self.SM_num_thresholds = len(self.SM_thresholds)
+
+
     def g4(self, T_Hawking):
-        total_dof = 0
+        '''
+        Compute number of relativistic degrees of freedom available for Hawking quanta to radiate into,
+        based on Standard Model particles
+        '''
 
-        for data in SM_particle_table.values():
-            mass = data['mass']
-            dof = data['dof']
+        # find where T_Hawking lies within out threshold list
+        index = np.searchsorted(self.SM_thresholds, T_Hawking, side='left')
+        if index >= self.SM_num_thresholds:
+            index = self.SM_num_thresholds - 1
 
-            if T_Hawking > mass:
-                total_dof += dof
-
-        return total_dof
-
-    def g5_RS(self, T_Hawking):
-        total_dof = 0
-
-        for data in RS_bulk_particle_table.values():
-            mass = data['mass']
-            dof = data['dof']
-
-            if T_Hawking > mass:
-                total_dof += dof
-
-        return total_dof
+        return self.SM_g_values[index]
