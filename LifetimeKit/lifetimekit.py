@@ -9,12 +9,16 @@ from .natural_units import M4, Kelvin, Metre, Kilometre, Mpc, Kilogram, Gram, So
 from .constants import T_CMB
 from .RandallSundrum5D import cosmology as RS5D
 from .RandallSundrum5D import StefanBoltzmann as RS5D_StefanBoltzmann
+from .RandallSundrum5D import greybody as RS5D_greybody
 from .Standard4D import cosmology as Standard4D
 from .Standard4D import StefanBoltzmann as Standard4D_StefanBoltzmann
+from .Standard4D import greybody as Standard4D_greybody
 
 # number of T-sample points to capture for PBH lifetime mass/temperature relation
 NumTSamplePoints = 200
 
+# default models to compute
+_DEFAULT_MODEL_SET = ['StefanBoltzmannRS5D', 'GreybodyRS5D', 'StefanBoltzmannStandard4D', 'GreybodyStandard4D']
 
 class LifetimeObserver:
     '''
@@ -264,7 +268,7 @@ class PBHInstance:
     # accretion_efficiency: accretion efficiency factor F in Bondi-Hoyle-Lyttleton model
     # collapse_fraction: fraction of Hubble volume that collapses to PBH
     # num_sample_ponts: number of T samples to take
-    def __init__(self, params, T_rad_init: float, models=['StefanBoltzmannRS5D', 'StefanBoltzmannStandard4D'],
+    def __init__(self, params, T_rad_init: float, models=_DEFAULT_MODEL_SET,
                  accretion_efficiency_F=0.5, collapse_fraction_f=0.5, delta=0.0, fixed_g4=None, fixed_g5=None,
                  fixed_g=None, num_samples=NumTSamplePoints):
         self._params = params
@@ -292,18 +296,28 @@ class PBHInstance:
 
         for label in models:
             if label == 'StefanBoltzmannRS5D':
-                engine = RS5D_StefanBoltzmann.LifetimeModel(self._RS_engine,
-                                                            accretion_efficiency_F=accretion_efficiency_F,
-                                                            use_effective_radius=True, use_Page_suppression=True,
-                                                            fixed_g4=fixed_g4, fixed_g5=fixed_g5)
-                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, engine, num_samples=num_samples)
+                model = RS5D_StefanBoltzmann.LifetimeModel(self._RS_engine,
+                                                           accretion_efficiency_F=accretion_efficiency_F,
+                                                           use_effective_radius=True, use_Page_suppression=True,
+                                                           fixed_g4=fixed_g4, fixed_g5=fixed_g5)
+                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples)
+
+            elif label == 'GreybodyRS5D':
+                model = RS5D_greybody.LifetimeModel(self._RS_engine, accretion_efficiency_F=accretion_efficiency_F,
+                                                    use_effective_radius=True)
+                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples)
 
             elif label == 'StefanBoltzmannStandard4D':
-                engine = Standard4D_StefanBoltzmann.LifetimeModel(self._4D_engine,
-                                                                  accretion_efficiency_F=accretion_efficiency_F,
-                                                                  use_effective_radius=True, use_Page_suppression=True,
-                                                                  fixed_g4=fixed_g4)
-                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, engine, num_samples=num_samples)
+                model = Standard4D_StefanBoltzmann.LifetimeModel(self._4D_engine,
+                                                                 accretion_efficiency_F=accretion_efficiency_F,
+                                                                 use_effective_radius=True, use_Page_suppression=True,
+                                                                 fixed_g4=fixed_g4)
+                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples)
+
+            elif label == 'GreybodyStandard4D':
+                model = Standard4D_greybody.LifetimeModel(self._4D_engine, accretion_efficiency_F=accretion_efficiency_F,
+                                                          use_effective_radius=True)
+                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples)
 
             else:
                 raise RuntimeError('LifetimeKit.PBHInstance: unknown model type "{label}"'.format(label=label))
