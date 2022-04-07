@@ -155,6 +155,7 @@ class PBHLifetimeModel:
         self.compute_time = None
 
         # prepare an observer object using these sample points, using a relic scale set at the
+        # four-dimensional Planck scale (which is usually what we want)
         self._relic_scale = self._params.M4
         observer = LifetimeObserver(self._engine, self.logT_sample_points, self.M_sample_points, self.x_sample_points,
                                     self._relic_scale)
