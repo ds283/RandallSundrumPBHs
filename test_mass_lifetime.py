@@ -11,6 +11,9 @@ soln.mass_plot('mass_history_fail.pdf')
 SB_4D = soln.lifetimes['StefanBoltzmannStandard4D']
 SB_5D = soln.lifetimes['StefanBoltzmannRS5D']
 
+print('RS5D compute time: {time} s'.format(time=SB_5D.compute_time))
+print('Standard4D compute time: {time} s'.format(time=SB_4D.compute_time))
+
 print('4D lifetime = {Life4D:.5g} Kelvin, 5D lifetime = {Life5D:.5g} Kelvin'.format(Life4D=SB_4D.T_lifetime/lkit.Kelvin,
                                                                                     Life5D=SB_5D.T_lifetime/lkit.Kelvin))
 print('4D shift = {Shift4D:.5g} Kelvin, 5D shift = {Shift5D:.5g} Kelvin'.format(Shift4D=SB_4D.T_shift/lkit.Kelvin if SB_4D.T_shift is not None else 0.0,

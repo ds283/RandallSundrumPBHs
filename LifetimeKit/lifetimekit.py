@@ -264,13 +264,13 @@ class PBHInstance:
     # accretion_efficiency: accretion efficiency factor F in Bondi-Hoyle-Lyttleton model
     # collapse_fraction: fraction of Hubble volume that collapses to PBH
     # num_sample_ponts: number of T samples to take
-    def __init__(self, params, T_rad_init: float, accretion_efficiency_F=0.5,
-                 collapse_fraction_f=0.5, delta=0.0, num_samples=NumTSamplePoints,
-                 models=['StefanBoltzmannRS5D', 'StefanBoltzmannStandard4D']):
+    def __init__(self, params, T_rad_init: float, models=['StefanBoltzmannRS5D', 'StefanBoltzmannStandard4D'],
+                 accretion_efficiency_F=0.5, collapse_fraction_f=0.5, delta=0.0, fixed_g4=None, fixed_g5=None,
+                 fixed_g=None, num_samples=NumTSamplePoints):
         self._params = params
 
-        self._RS_engine = RS5D.Model(params)
-        self._4D_engine = Standard4D.Model(params)
+        self._RS_engine = RS5D.Model(params, fixed_g=fixed_g)
+        self._4D_engine = Standard4D.Model(params, fixed_g=fixed_g)
 
         self.accretion_efficiency_F = accretion_efficiency_F
 
@@ -294,13 +294,15 @@ class PBHInstance:
             if label == 'StefanBoltzmannRS5D':
                 engine = RS5D_StefanBoltzmann.LifetimeModel(self._RS_engine,
                                                             accretion_efficiency_F=accretion_efficiency_F,
-                                                            use_effective_radius=True, use_Page_suppression=True)
+                                                            use_effective_radius=True, use_Page_suppression=True,
+                                                            fixed_g4=fixed_g4, fixed_g5=fixed_g5)
                 self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, engine, num_samples=num_samples)
 
             elif label == 'StefanBoltzmannStandard4D':
                 engine = Standard4D_StefanBoltzmann.LifetimeModel(self._4D_engine,
                                                                   accretion_efficiency_F=accretion_efficiency_F,
-                                                                  use_effective_radius=True, use_Page_suppression=True)
+                                                                  use_effective_radius=True, use_Page_suppression=True,
+                                                                  fixed_g4=fixed_g4)
                 self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, engine, num_samples=num_samples)
 
             else:

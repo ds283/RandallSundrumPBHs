@@ -1,7 +1,8 @@
 import numpy as np
 
-from LifetimeKit.models_base import BaseCosmology
-from LifetimeKit.natural_units import Kilogram, Gram
+from ...models_base import BaseCosmology
+from ...natural_units import Kilogram, Gram
+from ...constants import gstar_full_SM
 
 Const_M_H = 4.0 * np.sqrt(3.0) * np.pi
 Const_Sqrt_3 = np.sqrt(3.0)
@@ -138,7 +139,7 @@ class BlackHole:
     # use an analytic lifetime model to determine the final radiation temperature given a current
     # radiation temperature and a target final mass
     def compute_analytic_Trad_final(self, Ti_rad, relic_scale, use_effective_radius=True):
-        return Solve_4D_T(Ti_rad, self.mass, relic_scale, self.params.gstar, self.params.RadiationConstant,
+        return Solve_4D_T(Ti_rad, self.mass, relic_scale, gstar_full_SM, self.params.RadiationConstant,
                           2.0, self.params.StefanBoltzmannConstant4D, self.params.M4,
                           Const_Reff_4D if use_effective_radius else 1.0)
 
