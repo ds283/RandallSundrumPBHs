@@ -8,8 +8,8 @@ params = lkit.RS5D.Parameters(1.5935e14)
 soln = lkit.PBHInstance(params, 6.4584e13)
 soln.mass_plot('mass_history_fail.pdf')
 
-SB_4D = soln.lifetimes['StefanBoltzmann4D']
-SB_5D = soln.lifetimes['StefanBoltzmann5D']
+SB_4D = soln.lifetimes['StefanBoltzmannStandard4D']
+SB_5D = soln.lifetimes['StefanBoltzmannRS5D']
 
 print('4D lifetime = {Life4D:.5g} Kelvin, 5D lifetime = {Life5D:.5g} Kelvin'.format(Life4D=SB_4D.T_lifetime/lkit.Kelvin,
                                                                                     Life5D=SB_5D.T_lifetime/lkit.Kelvin))
