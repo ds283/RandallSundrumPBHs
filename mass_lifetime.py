@@ -81,8 +81,8 @@ def is_valid(M5: float, Tinit: float, f: float):
     if Tinit > M5:
         return False
 
-    params = lkit.RandallSundrum5D.Parameters(M5)
-    engine = lkit.RandallSundrum5D.Model(params)
+    params = lkit.RS5D.Parameters(M5)
+    engine = lkit.RS5D.Model(params)
 
     try:
         # get mass of Hubble volume expressed in GeV
