@@ -15,7 +15,8 @@ class LifetimeModel(BaseLifetimeModel):
     (i.e. the integrated Hawking flux)
     '''
     def __init__(self, engine: Model, accretion_efficiency_F=0.3,
-                 use_effective_radius=True, use_Page_suppression=True):
+                 use_effective_radius=True, use_Page_suppression=True,
+                 fixed_g4=None):
         '''
         Instantiate a StefanBoltzmann4DLifetimeModel object
         :param engine: a StandardModel instance to use for calculations
@@ -39,6 +40,7 @@ class LifetimeModel(BaseLifetimeModel):
         self._accretion_efficiency_F = accretion_efficiency_F
         self._use_effective_radius = use_effective_radius
         self._use_Page_suppression = use_Page_suppression
+        self._fixed_g4 = fixed_g4
 
         self._logM_end = np.log(self._params.M4)
 
@@ -81,7 +83,7 @@ class LifetimeModel(BaseLifetimeModel):
         T_Hawking = self._M_PBH.T_Hawking
 
         # effective number of radiated species is SM + 2 to count 4D graviton states
-        g4_evap = self.g4(T_Hawking) + 2.0
+        g4_evap = (self._fixed_g4 if self._fixed_g4 is not None else self.g4(T_Hawking)) + 2.0
 
         evap_prefactor = Const_4Pi * alpha_sq / (self._M_PBH.mass * H * t4 * rh_sq)
         evap_dof = g4_evap * self._SB_4D

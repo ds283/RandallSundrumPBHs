@@ -16,7 +16,8 @@ class LifetimeModel(BaseLifetimeModel):
     (i.e. the integrated Hawking flux)
     '''
     def __init__(self, engine: Model, accretion_efficiency_F=0.3,
-                 use_effective_radius=True, use_Page_suppression=True):
+                 use_effective_radius=True, use_Page_suppression=True,
+                 fixed_g4=None, fixed_g5=None):
         '''
         Instantiate a StefanBoltzmann5DLifetimeModel object
         :param engine: a RandallSundrumModel instance to use for calculations
@@ -45,6 +46,8 @@ class LifetimeModel(BaseLifetimeModel):
         self._accretion_efficiency_F = accretion_efficiency_F
         self._use_effective_radius = use_effective_radius
         self._use_Page_suppression = use_Page_suppression
+        self._fixed_g4 = fixed_g4
+        self._fixed_g5 = fixed_g5
 
         self._logM_end = np.log(self._params.M4)
 
@@ -97,8 +100,8 @@ class LifetimeModel(BaseLifetimeModel):
 
         # compute Hawking temperature and effective number of particle species active in the Hawking quanta
         T_Hawking = self._M_PBH.T_Hawking
-        g4_evap = self.g4(T_Hawking)
-        g5_evap = self.g5(T_Hawking)
+        g4_evap = self._fixed_g4 if self._fixed_g4 is not None else self.g4(T_Hawking)
+        g5_evap = self._fixed_g5 if self._fixed_g5 is not None else self.g5(T_Hawking)
 
         evap_prefactor = Const_4Pi * alpha_sq / (self._M_PBH.mass * H * t4 * rh_sq)
         evap_dof = (g4_evap * self._SB_4D + Const_PiOver2 * alpha * g5_evap * self._SB_5D / t)
