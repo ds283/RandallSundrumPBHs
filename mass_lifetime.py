@@ -30,7 +30,8 @@ def compute_lifetime(data, pba: ActorHandle):
                   'StefanBoltzmannRS5D', 'StefanBoltzmannStandard4D',
                   'StefanBoltzmannRS5D-noreff', 'StefanBoltzmannStandard4D-noreff',
                   'StefanBoltzmannRS5D-fixedg', 'StefanBoltzmannStandard4D-fixedg',
-                  'StefanBoltzmannRS5D-fixedN', 'StefanBoltzmannStandard4D-fixedN']
+                  'StefanBoltzmannRS5D-fixedN', 'StefanBoltzmannStandard4D-fixedN',
+                  'StefanBoltzmannRS5D-noPage', 'StefanBoltzmannStandard4D-noPage']
     solution = lkit.PBHInstance(params, Tinit, models=model_list, accretion_efficiency_F=F, collapse_fraction_f=f)
 
     GB5D = solution.lifetimes['GreybodyRS5D']
@@ -48,6 +49,9 @@ def compute_lifetime(data, pba: ActorHandle):
     SB5D_fixedN = solution.lifetimes['StefanBoltzmannRS5D-fixedN']
     SB4D_fixedN = solution.lifetimes['StefanBoltzmannStandard4D-fixedN']
 
+    SB5D_noPage = solution.lifetimes['StefanBoltzmannRS5D-noPage']
+    SB4D_noPage = solution.lifetimes['StefanBoltzmannStandard4D-noPage']
+
     pba.update.remote(1)
 
     return {'serial': serial, 'M5_serial': M5_serial, 'T_serial': T_serial,
@@ -61,7 +65,9 @@ def compute_lifetime(data, pba: ActorHandle):
             'SB_5D_fixedg_lifetime': SB5D_fixedg.T_lifetime, 'SB_5D_fixedg_shift': SB5D_fixedg.T_shift, 'SB_5D_fixedg_compute': SB5D_fixedg.compute_time,
             'SB_4D_fixedg_lifetime': SB4D_fixedg.T_lifetime, 'SB_4D_fixedg_shift': SB4D_fixedg.T_shift, 'SB_4D_fixedg_compute': SB4D_fixedg.compute_time,
             'SB_5D_fixedN_lifetime': SB5D_fixedN.T_lifetime, 'SB_5D_fixedN_shift': SB5D_fixedN.T_shift, 'SB_5D_fixedN_compute': SB5D_fixedN.compute_time,
-            'SB_4D_fixedN_lifetime': SB4D_fixedN.T_lifetime, 'SB_4D_fixedN_shift': SB4D_fixedN.T_shift, 'SB_4D_fixedN_compute': SB4D_fixedN.compute_time}
+            'SB_4D_fixedN_lifetime': SB4D_fixedN.T_lifetime, 'SB_4D_fixedN_shift': SB4D_fixedN.T_shift, 'SB_4D_fixedN_compute': SB4D_fixedN.compute_time,
+            'SB_5D_noPage_lifetime': SB5D_noPage.T_lifetime, 'SB_5D_noPage_shift': SB5D_noPage.T_shift, 'SB_5D_noPage_compute': SB5D_noPage.compute_time,
+            'SB_4D_noPage_lifetime': SB4D_noPage.T_lifetime, 'SB_4D_noPage_shift': SB4D_noPage.T_shift, 'SB_4D_noPage_compute': SB4D_noPage.compute_time}
 
 @ray.remote
 def map(f, obj, actor):
@@ -223,6 +229,16 @@ SB_4D_fixedN_lifetime_Kelvin = np.zeros(work_size)
 SB_4D_fixedN_shift = np.zeros(work_size)
 SB_4D_fixedN_compute = np.zeros(work_size)
 
+SB_5D_noPage_lifetime_GeV = np.zeros(work_size)
+SB_5D_noPage_lifetime_Kelvin = np.zeros(work_size)
+SB_5D_noPage_shift = np.zeros(work_size)
+SB_5D_noPage_compute = np.zeros(work_size)
+
+SB_4D_noPage_lifetime_GeV = np.zeros(work_size)
+SB_4D_noPage_lifetime_Kelvin = np.zeros(work_size)
+SB_4D_noPage_shift = np.zeros(work_size)
+SB_4D_noPage_compute = np.zeros(work_size)
+
 
 for line in soln_grid:
     serial = line['serial']
@@ -292,6 +308,16 @@ for line in soln_grid:
     SB_4D_fixedN_shift[serial] = line['SB_4D_fixedN_shift'] / lkit.Kelvin if line['SB_4D_fixedN_shift'] is not None else None
     SB_4D_fixedN_compute[serial] = line['SB_4D_fixedN_compute']
 
+    SB_5D_noPage_lifetime_GeV[serial] = line['SB_5D_noPage_lifetime']
+    SB_5D_noPage_lifetime_Kelvin[serial] = line['SB_5D_noPage_lifetime'] / lkit.Kelvin if line['SB_5D_noPage_lifetime'] is not None else None
+    SB_5D_noPage_shift[serial] = line['SB_5D_noPage_shift'] / lkit.Kelvin if line['SB_5D_noPage_shift'] is not None else None
+    SB_5D_noPage_compute[serial] = line['SB_5D_noPage_compute']
+
+    SB_4D_noPage_lifetime_GeV[serial] = line['SB_4D_noPage_lifetime']
+    SB_4D_noPage_lifetime_Kelvin[serial] = line['SB_4D_noPage_lifetime'] / lkit.Kelvin if line['SB_4D_noPage_lifetime'] is not None else None
+    SB_4D_noPage_shift[serial] = line['SB_4D_noPage_shift'] / lkit.Kelvin if line['SB_4D_noPage_shift'] is not None else None
+    SB_4D_noPage_compute[serial] = line['SB_4D_noPage_compute']
+
 
 df = pd.DataFrame(data={'M5_serial': M5_serial,
                         'T_serial': T_serial,
@@ -343,6 +369,14 @@ df = pd.DataFrame(data={'M5_serial': M5_serial,
                         'SB_4D_fixedN_lifetime_GeV': SB_4D_fixedN_lifetime_GeV,
                         'SB_4D_fixedN_lifetime_Kelvin': SB_4D_fixedN_lifetime_Kelvin,
                         'SB_4D_fixedN_shift_Kelvin': SB_4D_fixedN_shift,
-                        'SB_4D_fixedN_compute': SB_4D_fixedN_compute}, index=df_index)
+                        'SB_4D_fixedN_compute': SB_4D_fixedN_compute,
+                        'SB_5D_noPage_lifetime_GeV': SB_5D_noPage_lifetime_GeV,
+                        'SB_5D_noPage_lifetime_Kelvin': SB_5D_noPage_lifetime_Kelvin,
+                        'SB_5D_noPage_shift_Kelvin': SB_5D_noPage_shift,
+                        'SB_5D_noPage_compute': SB_5D_noPage_compute,
+                        'SB_4D_noPage_lifetime_GeV': SB_4D_noPage_lifetime_GeV,
+                        'SB_4D_noPage_lifetime_Kelvin': SB_4D_noPage_lifetime_Kelvin,
+                        'SB_4D_noPage_shift_Kelvin': SB_4D_noPage_shift,
+                        'SB_4D_noPage_compute': SB_4D_noPage_compute}, index=df_index)
 df.index.name = 'index'
 df.to_csv('mass_lifetime.csv')

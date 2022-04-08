@@ -361,6 +361,20 @@ class PBHInstance:
                                                                  fixed_g4=gstar_full_SM)
                 self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples)
 
+            elif label == 'StefanBoltzmannRS5D-noPage':
+                model = RS5D_StefanBoltzmann.LifetimeModel(engine_RS,
+                                                           accretion_efficiency_F=accretion_efficiency_F,
+                                                           use_effective_radius=True, use_Page_suppression=False,
+                                                           fixed_g4=gstar_full_SM, fixed_g5=5.0)
+                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples)
+
+            elif label == 'StefanBoltzmannStandard4D-noPage':
+                model = Standard4D_StefanBoltzmann.LifetimeModel(engine_4D,
+                                                                 accretion_efficiency_F=accretion_efficiency_F,
+                                                                 use_effective_radius=True, use_Page_suppression=False,
+                                                                 fixed_g4=gstar_full_SM)
+                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples)
+
             else:
                 raise RuntimeError('LifetimeKit.PBHInstance: unknown model type "{label}"'.format(label=label))
 
