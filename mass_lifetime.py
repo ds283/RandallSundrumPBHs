@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 
 import ray
+from ray.actor import ActorHandle
 from progressbar import ProgressBar
 ray.init()
 
