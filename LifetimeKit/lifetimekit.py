@@ -14,6 +14,8 @@ from .Standard4D import cosmology as Standard4D
 from .Standard4D import StefanBoltzmann as Standard4D_StefanBoltzmann
 from .Standard4D import greybody as Standard4D_greybody
 
+from .constants import gstar_full_SM
+
 # number of T-sample points to capture for PBH lifetime mass/temperature relation
 NumTSamplePoints = 200
 
@@ -269,12 +271,14 @@ class PBHInstance:
     # collapse_fraction: fraction of Hubble volume that collapses to PBH
     # num_sample_ponts: number of T samples to take
     def __init__(self, params, T_rad_init: float, models=_DEFAULT_MODEL_SET,
-                 accretion_efficiency_F=0.5, collapse_fraction_f=0.5, delta=0.0, fixed_g4=None, fixed_g5=None,
-                 fixed_g=None, num_samples=NumTSamplePoints):
+                 accretion_efficiency_F=0.5, collapse_fraction_f=0.5, delta=0.0, num_samples=NumTSamplePoints):
         self._params = params
 
-        self._RS_engine = RS5D.Model(params, fixed_g=fixed_g)
-        self._4D_engine = Standard4D.Model(params, fixed_g=fixed_g)
+        engine_RS = RS5D.Model(params)
+        engine_4D = Standard4D.Model(params)
+
+        engine_RS_fixedN = RS5D.Model(params, fixed_g=gstar_full_SM)
+        engine_4D_fixedN = Standard4D.Model(params, fixed_g=gstar_full_SM)
 
         self.accretion_efficiency_F = accretion_efficiency_F
 
@@ -282,8 +286,8 @@ class PBHInstance:
         x_init = collapse_fraction_f * (1.0 + delta)
 
         # get mass of Hubble volume expressed in GeV
-        M_Hubble_RS = self._RS_engine.M_Hubble(T=T_rad_init)
-        M_Hubble_4D = self._4D_engine.M_Hubble(T=T_rad_init)
+        M_Hubble_RS = engine_RS.M_Hubble(T=T_rad_init)
+        M_Hubble_4D = engine_4D.M_Hubble(T=T_rad_init)
 
         # compute initial mass in GeV
         M_init_5D = x_init * M_Hubble_RS
@@ -295,28 +299,66 @@ class PBHInstance:
         self.lifetimes = {}
 
         for label in models:
-            if label == 'StefanBoltzmannRS5D':
-                model = RS5D_StefanBoltzmann.LifetimeModel(self._RS_engine,
-                                                           accretion_efficiency_F=accretion_efficiency_F,
-                                                           use_effective_radius=True, use_Page_suppression=True,
-                                                           fixed_g4=fixed_g4, fixed_g5=fixed_g5)
-                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples)
-
-            elif label == 'GreybodyRS5D':
-                model = RS5D_greybody.LifetimeModel(self._RS_engine, accretion_efficiency_F=accretion_efficiency_F,
+            if label == 'GreybodyRS5D':
+                model = RS5D_greybody.LifetimeModel(engine_RS, accretion_efficiency_F=accretion_efficiency_F,
                                                     use_effective_radius=True)
                 self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples)
 
-            elif label == 'StefanBoltzmannStandard4D':
-                model = Standard4D_StefanBoltzmann.LifetimeModel(self._4D_engine,
-                                                                 accretion_efficiency_F=accretion_efficiency_F,
-                                                                 use_effective_radius=True, use_Page_suppression=True,
-                                                                 fixed_g4=fixed_g4)
+            elif label == 'GreybodyStandard4D':
+                model = Standard4D_greybody.LifetimeModel(engine_4D, accretion_efficiency_F=accretion_efficiency_F,
+                                                          use_effective_radius=True)
                 self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples)
 
-            elif label == 'GreybodyStandard4D':
-                model = Standard4D_greybody.LifetimeModel(self._4D_engine, accretion_efficiency_F=accretion_efficiency_F,
-                                                          use_effective_radius=True)
+            elif label == 'StefanBoltzmannRS5D':
+                model = RS5D_StefanBoltzmann.LifetimeModel(engine_RS,
+                                                           accretion_efficiency_F=accretion_efficiency_F,
+                                                           use_effective_radius=True, use_Page_suppression=True)
+                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples)
+
+            elif label == 'StefanBoltzmannStandard4D':
+                model = Standard4D_StefanBoltzmann.LifetimeModel(engine_4D,
+                                                                 accretion_efficiency_F=accretion_efficiency_F,
+                                                                 use_effective_radius=True, use_Page_suppression=True)
+                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples)
+
+            elif label == 'StefanBoltzmannRS5D-noreff':
+                model = RS5D_StefanBoltzmann.LifetimeModel(engine_RS,
+                                                           accretion_efficiency_F=accretion_efficiency_F,
+                                                           use_effective_radius=False, use_Page_suppression=True)
+                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples)
+
+            elif label == 'StefanBoltzmannStandard4D-noreff':
+                model = Standard4D_StefanBoltzmann.LifetimeModel(engine_4D,
+                                                                 accretion_efficiency_F=accretion_efficiency_F,
+                                                                 use_effective_radius=False, use_Page_suppression=True)
+                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples)
+
+            elif label == 'StefanBoltzmannRS5D-fixedg':
+                model = RS5D_StefanBoltzmann.LifetimeModel(engine_RS,
+                                                           accretion_efficiency_F=accretion_efficiency_F,
+                                                           use_effective_radius=True, use_Page_suppression=True,
+                                                           fixed_g4=gstar_full_SM, fixed_g5=5.0)
+                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples)
+
+            elif label == 'StefanBoltzmannStandard4D-fixedg':
+                model = Standard4D_StefanBoltzmann.LifetimeModel(engine_4D,
+                                                                 accretion_efficiency_F=accretion_efficiency_F,
+                                                                 use_effective_radius=True, use_Page_suppression=True,
+                                                                 fixed_g4=gstar_full_SM)
+                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples)
+
+            elif label == 'StefanBoltzmannRS5D-fixedN':
+                model = RS5D_StefanBoltzmann.LifetimeModel(engine_RS_fixedN,
+                                                           accretion_efficiency_F=accretion_efficiency_F,
+                                                           use_effective_radius=True, use_Page_suppression=True,
+                                                           fixed_g4=gstar_full_SM, fixed_g5=5.0)
+                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples)
+
+            elif label == 'StefanBoltzmannStandard4D-fixedN':
+                model = Standard4D_StefanBoltzmann.LifetimeModel(engine_4D_fixedN,
+                                                                 accretion_efficiency_F=accretion_efficiency_F,
+                                                                 use_effective_radius=True, use_Page_suppression=True,
+                                                                 fixed_g4=gstar_full_SM)
                 self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples)
 
             else:

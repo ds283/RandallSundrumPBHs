@@ -2,93 +2,16 @@ import numpy as np
 import pandas as pd
 
 import ray
-from ray.actor import ActorHandle
+from progressbar import ProgressBar
 ray.init()
-
-from asyncio import Event
-from typing import Tuple
 
 import LifetimeKit as lkit
 
 import itertools
-from tqdm import tqdm
 
 
 # adapted from https://docs.ray.io/en/latest/ray-core/examples/progress_bar.html
-@ray.remote
-class ProgressBarActor:
-    counter: int
-    delta: int
-    event: Event
 
-    def __init__(self) -> None:
-        self.counter = 0
-        self.delta = 0
-        self.event = Event()
-
-    def update(self, num_items_completed: int) -> None:
-        '''
-        Updates the ProgressBar with the incremental number of items that were just completed
-        '''
-        self.counter += num_items_completed
-        self.delta += num_items_completed
-        self.event.set()
-
-    async def wait_for_update(self) -> Tuple[int, int]:
-        '''
-        Blocking call.
-
-        Waits until somebody calls update(), then returns a tuple of the number of updates since the last call
-        to wait_for_update(), and the total number of completed items.
-        '''
-        await self.event.wait()
-        self.event.clear()
-        saved_delta = self.delta
-        self.delta = 0
-        return saved_delta, self.counter
-
-    def get_countter(self) -> int:
-        '''
-        Returns the total number of complete items
-        '''
-        return self.counter
-
-
-class ProgressBar:
-    progress_actor: ActorHandle
-    total: int
-    description: str
-    pbar: tqdm
-
-    def __init__(self, total: int, description: str=""):
-        # Ray actions don't seem to play nice with mypy, generating a spurious warning for the
-        # following line, which we need to suppress. The code is fine.
-        self.progress_actor = ProgressBarActor.remote()     # type: ignore
-        self.total = total
-        self.description = description
-
-    @property
-    def actor(self) -> ActorHandle:
-        """
-        Returns a reference to the remote ProgressBarActor.
-        When you complete tasks, call update() on the actor
-        """
-        return self.progress_actor
-
-    def print_until_done(self) -> None:
-        """
-        Blocking call.
-
-        Do this after starting a series of remote Ray tasks, to which you've passed the actor handle. Each of them
-        calls update() on the actor. When the progress meter reaches 100%, this method returns.
-        """
-        pbar = tqdm(desc=self.description, total=self.total)
-        while True:
-            delta, counter = ray.get(self.actor.wait_for_update.remote())
-            pbar.update(delta)
-            if counter >= self.total:
-                pbar.close()
-                return
 
 def compute_lifetime(data, pba: ActorHandle):
     serial = data['serial']
@@ -102,18 +25,42 @@ def compute_lifetime(data, pba: ActorHandle):
 
     params = lkit.RS5D.Parameters(M5)
 
-    solution = lkit.PBHInstance(params, Tinit, models=['GreybodyRS5D', 'GreybodyStandard4D'],
-                                accretion_efficiency_F=F, collapse_fraction_f=f)
+    model_list = ['GreybodyRS5D', 'GreybodyStandard4D',
+                  'StefanBoltzmannRS5D', 'StefanBoltzmannStandard4D',
+                  'StefanBoltzmannRS5D-noreff', 'StefanBoltzmannStandard4D-noreff',
+                  'StefanBoltzmannRS5D-fixedg', 'StefanBoltzmannStandard4D-fixedg',
+                  'StefanBoltzmannRS5D-fixedN', 'StefanBoltzmannStandard4D-fixedN']
+    solution = lkit.PBHInstance(params, Tinit, models=model_list, accretion_efficiency_F=F, collapse_fraction_f=f)
 
-    SB5D = solution.lifetimes['GreybodyRS5D']
-    SB4D = solution.lifetimes['GreybodyStandard4D']
+    GB5D = solution.lifetimes['GreybodyRS5D']
+    GB4D = solution.lifetimes['GreybodyStandard4D']
+
+    SB5D = solution.lifetimes['StefanBoltzmannRS5D']
+    SB4D = solution.lifetimes['StefanBoltzmannStandard4D']
+
+    SB5D_noreff = solution.lifetimes['StefanBoltzmannRS5D-noreff']
+    SB4D_noreff = solution.lifetimes['StefanBoltzmannStandard4D-noreff']
+
+    SB5D_fixedg = solution.lifetimes['StefanBoltzmannRS5D-fixedg']
+    SB4D_fixedg = solution.lifetimes['StefanBoltzmannStandard4D-fixedg']
+
+    SB5D_fixedN = solution.lifetimes['StefanBoltzmannRS5D-fixedN']
+    SB4D_fixedN = solution.lifetimes['StefanBoltzmannStandard4D-fixedN']
 
     pba.update.remote(1)
 
     return {'serial': serial, 'M5_serial': M5_serial, 'T_serial': T_serial,
-            'Minit_5D': solution.M_init_5D, 'Minit_4D':solution.M_init_4D, 'Tinit': Tinit, 'F': F, 'f': f, 'M5': M5,
+            'Minit_5D': solution.M_init_5D, 'Minit_4D': solution.M_init_4D, 'Tinit': Tinit, 'F': F, 'f': f, 'M5': M5,
+            'GB_5D_lifetime': GB5D.T_lifetime, 'GB_5D_shift': GB5D.T_shift, 'GB_5D_compute': GB5D.compute_time,
+            'GB_4D_lifetime': GB4D.T_lifetime, 'GB_4D_shift': GB4D.T_shift, 'GB_4D_compute': GB4D.compute_time,
             'SB_5D_lifetime': SB5D.T_lifetime, 'SB_5D_shift': SB5D.T_shift, 'SB_5D_compute': SB5D.compute_time,
-            'SB_4D_lifetime': SB4D.T_lifetime, 'SB_4D_shift': SB4D.T_shift, 'SB_4D_compute': SB4D.compute_time}
+            'SB_4D_lifetime': SB4D.T_lifetime, 'SB_4D_shift': SB4D.T_shift, 'SB_4D_compute': SB4D.compute_time,
+            'SB_5D_noreff_lifetime': SB5D_noreff.T_lifetime, 'SB_5D_noreff_shift': SB5D_noreff.T_shift, 'SB_5D_noreff_compute': SB5D_noreff.compute_time,
+            'SB_4D_noreff_lifetime': SB4D_noreff.T_lifetime, 'SB_4D_noreff_shift': SB4D_noreff.T_shift, 'SB_4D_noreff_compute': SB4D_noreff.compute_time,
+            'SB_5D_fixedg_lifetime': SB5D_fixedg.T_lifetime, 'SB_5D_fixedg_shift': SB5D_fixedg.T_shift, 'SB_5D_fixedg_compute': SB5D_fixedg.compute_time,
+            'SB_4D_fixedg_lifetime': SB4D_fixedg.T_lifetime, 'SB_4D_fixedg_shift': SB4D_fixedg.T_shift, 'SB_4D_fixedg_compute': SB4D_fixedg.compute_time,
+            'SB_5D_fixedN_lifetime': SB5D_fixedN.T_lifetime, 'SB_5D_fixedN_shift': SB5D_fixedN.T_shift, 'SB_5D_fixedN_compute': SB5D_fixedN.compute_time,
+            'SB_4D_fixedN_lifetime': SB4D_fixedN.T_lifetime, 'SB_4D_fixedN_shift': SB4D_fixedN.T_shift, 'SB_4D_fixedN_compute': SB4D_fixedN.compute_time}
 
 @ray.remote
 def map(f, obj, actor):
@@ -225,6 +172,16 @@ M_4D_init_gram = np.zeros(work_size)
 T_init_GeV = np.zeros(work_size)
 T_init_Kelvin = np.zeros(work_size)
 
+GB_5D_lifetime_GeV = np.zeros(work_size)
+GB_5D_lifetime_Kelvin = np.zeros(work_size)
+GB_5D_shift = np.zeros(work_size)
+GB_5D_compute = np.zeros(work_size)
+
+GB_4D_lifetime_GeV = np.zeros(work_size)
+GB_4D_lifetime_Kelvin = np.zeros(work_size)
+GB_4D_shift = np.zeros(work_size)
+GB_4D_compute = np.zeros(work_size)
+
 SB_5D_lifetime_GeV = np.zeros(work_size)
 SB_5D_lifetime_Kelvin = np.zeros(work_size)
 SB_5D_shift = np.zeros(work_size)
@@ -234,6 +191,37 @@ SB_4D_lifetime_GeV = np.zeros(work_size)
 SB_4D_lifetime_Kelvin = np.zeros(work_size)
 SB_4D_shift = np.zeros(work_size)
 SB_4D_compute = np.zeros(work_size)
+
+SB_5D_noreff_lifetime_GeV = np.zeros(work_size)
+SB_5D_noreff_lifetime_Kelvin = np.zeros(work_size)
+SB_5D_noreff_shift = np.zeros(work_size)
+SB_5D_noreff_compute = np.zeros(work_size)
+
+SB_4D_noreff_lifetime_GeV = np.zeros(work_size)
+SB_4D_noreff_lifetime_Kelvin = np.zeros(work_size)
+SB_4D_noreff_shift = np.zeros(work_size)
+SB_4D_noreff_compute = np.zeros(work_size)
+
+SB_5D_fixedg_lifetime_GeV = np.zeros(work_size)
+SB_5D_fixedg_lifetime_Kelvin = np.zeros(work_size)
+SB_5D_fixedg_shift = np.zeros(work_size)
+SB_5D_fixedg_compute = np.zeros(work_size)
+
+SB_4D_fixedg_lifetime_GeV = np.zeros(work_size)
+SB_4D_fixedg_lifetime_Kelvin = np.zeros(work_size)
+SB_4D_fixedg_shift = np.zeros(work_size)
+SB_4D_fixedg_compute = np.zeros(work_size)
+
+SB_5D_fixedN_lifetime_GeV = np.zeros(work_size)
+SB_5D_fixedN_lifetime_Kelvin = np.zeros(work_size)
+SB_5D_fixedN_shift = np.zeros(work_size)
+SB_5D_fixedN_compute = np.zeros(work_size)
+
+SB_4D_fixedN_lifetime_GeV = np.zeros(work_size)
+SB_4D_fixedN_lifetime_Kelvin = np.zeros(work_size)
+SB_4D_fixedN_shift = np.zeros(work_size)
+SB_4D_fixedN_compute = np.zeros(work_size)
+
 
 for line in soln_grid:
     serial = line['serial']
@@ -253,6 +241,16 @@ for line in soln_grid:
     T_init_GeV[serial] = line['Tinit']
     T_init_Kelvin[serial] = line['Tinit'] / lkit.Kelvin
 
+    GB_5D_lifetime_GeV[serial] = line['GB_5D_lifetime']
+    GB_5D_lifetime_Kelvin[serial] = line['GB_5D_lifetime'] / lkit.Kelvin if line['GB_5D_lifetime'] is not None else None
+    GB_5D_shift[serial] = line['GB_5D_shift'] / lkit.Kelvin if line['GB_5D_shift'] is not None else None
+    GB_5D_compute[serial] = line['GB_5D_compute']
+
+    GB_4D_lifetime_GeV[serial] = line['GB_4D_lifetime']
+    GB_4D_lifetime_Kelvin[serial] = line['GB_4D_lifetime'] / lkit.Kelvin if line['GB_4D_lifetime'] is not None else None
+    GB_4D_shift[serial] = line['GB_4D_shift'] / lkit.Kelvin if line['GB_4D_shift'] is not None else None
+    GB_4D_compute[serial] = line['GB_4D_compute']
+
     SB_5D_lifetime_GeV[serial] = line['SB_5D_lifetime']
     SB_5D_lifetime_Kelvin[serial] = line['SB_5D_lifetime'] / lkit.Kelvin if line['SB_5D_lifetime'] is not None else None
     SB_5D_shift[serial] = line['SB_5D_shift'] / lkit.Kelvin if line['SB_5D_shift'] is not None else None
@@ -262,6 +260,36 @@ for line in soln_grid:
     SB_4D_lifetime_Kelvin[serial] = line['SB_4D_lifetime'] / lkit.Kelvin if line['SB_4D_lifetime'] is not None else None
     SB_4D_shift[serial] = line['SB_4D_shift'] / lkit.Kelvin if line['SB_4D_shift'] is not None else None
     SB_4D_compute[serial] = line['SB_4D_compute']
+
+    SB_5D_noreff_lifetime_GeV[serial] = line['SB_5D_noreff_lifetime']
+    SB_5D_noreff_lifetime_Kelvin[serial] = line['SB_5D_noreff_lifetime'] / lkit.Kelvin if line['SB_5D_noreff_lifetime'] is not None else None
+    SB_5D_noreff_shift[serial] = line['SB_5D_noreff_shift'] / lkit.Kelvin if line['SB_5D_noreff_shift'] is not None else None
+    SB_5D_noreff_compute[serial] = line['SB_5D_noreff_compute']
+
+    SB_4D_noreff_lifetime_GeV[serial] = line['SB_4D_noreff_lifetime']
+    SB_4D_noreff_lifetime_Kelvin[serial] = line['SB_4D_noreff_lifetime'] / lkit.Kelvin if line['SB_4D_lifetime'] is not None else None
+    SB_4D_noreff_shift[serial] = line['SB_4D_noreff_shift'] / lkit.Kelvin if line['SB_4D_noreff_shift'] is not None else None
+    SB_4D_noreff_compute[serial] = line['SB_4D_noreff_compute']
+
+    SB_5D_fixedg_lifetime_GeV[serial] = line['SB_5D_fixedg_lifetime']
+    SB_5D_fixedg_lifetime_Kelvin[serial] = line['SB_5D_fixedg_lifetime'] / lkit.Kelvin if line['SB_5D_fixedg_lifetime'] is not None else None
+    SB_5D_fixedg_shift[serial] = line['SB_5D_fixedg_shift'] / lkit.Kelvin if line['SB_5D_fixedg_shift'] is not None else None
+    SB_5D_fixedg_compute[serial] = line['SB_5D_fixedg_compute']
+
+    SB_4D_fixedg_lifetime_GeV[serial] = line['SB_4D_fixedg_lifetime']
+    SB_4D_fixedg_lifetime_Kelvin[serial] = line['SB_4D_fixedg_lifetime'] / lkit.Kelvin if line['SB_4D_fixedg_lifetime'] is not None else None
+    SB_4D_fixedg_shift[serial] = line['SB_4D_fixedg_shift'] / lkit.Kelvin if line['SB_4D_fixedg_shift'] is not None else None
+    SB_4D_fixedg_compute[serial] = line['SB_4D_fixedg_compute']
+
+    SB_5D_fixedN_lifetime_GeV[serial] = line['SB_5D_fixedN_lifetime']
+    SB_5D_fixedN_lifetime_Kelvin[serial] = line['SB_5D_fixedN_lifetime'] / lkit.Kelvin if line['SB_5D_fixedN_lifetime'] is not None else None
+    SB_5D_fixedN_shift[serial] = line['SB_5D_fixedN_shift'] / lkit.Kelvin if line['SB_5D_fixedN_shift'] is not None else None
+    SB_5D_fixedN_compute[serial] = line['SB_5D_fixedN_compute']
+
+    SB_4D_fixedN_lifetime_GeV[serial] = line['SB_4D_fixedN_lifetime']
+    SB_4D_fixedN_lifetime_Kelvin[serial] = line['SB_4D_fixedN_lifetime'] / lkit.Kelvin if line['SB_4D_fixedN_lifetime'] is not None else None
+    SB_4D_fixedN_shift[serial] = line['SB_4D_fixedN_shift'] / lkit.Kelvin if line['SB_4D_fixedN_shift'] is not None else None
+    SB_4D_fixedN_compute[serial] = line['SB_4D_fixedN_compute']
 
 
 df = pd.DataFrame(data={'M5_serial': M5_serial,
@@ -275,6 +303,14 @@ df = pd.DataFrame(data={'M5_serial': M5_serial,
                         'M_4D_init_gram': M_4D_init_gram,
                         'T_init_GeV': T_init_GeV,
                         'T_init_Kelvin': T_init_Kelvin,
+                        'GB_5D_lifetime_GeV': GB_5D_lifetime_GeV,
+                        'GB_5D_lifetime_Kelvin': GB_5D_lifetime_Kelvin,
+                        'GB_5D_shift_Kelvin': GB_5D_shift,
+                        'GB_5D_compute': GB_5D_compute,
+                        'GB_4D_lifetime_GeV': GB_4D_lifetime_GeV,
+                        'GB_4D_lifetime_Kelvin': GB_4D_lifetime_Kelvin,
+                        'GB_4D_shift_Kelvin': GB_4D_shift,
+                        'GB_4D_compute': GB_4D_compute,
                         'SB_5D_lifetime_GeV': SB_5D_lifetime_GeV,
                         'SB_5D_lifetime_Kelvin': SB_5D_lifetime_Kelvin,
                         'SB_5D_shift_Kelvin': SB_5D_shift,
@@ -282,6 +318,30 @@ df = pd.DataFrame(data={'M5_serial': M5_serial,
                         'SB_4D_lifetime_GeV': SB_4D_lifetime_GeV,
                         'SB_4D_lifetime_Kelvin': SB_4D_lifetime_Kelvin,
                         'SB_4D_shift_Kelvin': SB_4D_shift,
-                        'SB_4D_compute': SB_4D_compute}, index=df_index)
+                        'SB_4D_compute': SB_4D_compute,
+                        'SB_5D_noreff_lifetime_GeV': SB_5D_noreff_lifetime_GeV,
+                        'SB_5D_noreff_lifetime_Kelvin': SB_5D_noreff_lifetime_Kelvin,
+                        'SB_5D_noreff_shift_Kelvin': SB_5D_noreff_shift,
+                        'SB_5D_noreff_compute': SB_5D_noreff_compute,
+                        'SB_4D_noreff_lifetime_GeV': SB_4D_noreff_lifetime_GeV,
+                        'SB_4D_noreff_lifetime_Kelvin': SB_4D_noreff_lifetime_Kelvin,
+                        'SB_4D_noreff_shift_Kelvin': SB_4D_noreff_shift,
+                        'SB_4D_noreff_compute': SB_4D_noreff_compute,
+                        'SB_5D_fixedg_lifetime_GeV': SB_5D_fixedg_lifetime_GeV,
+                        'SB_5D_fixedg_lifetime_Kelvin': SB_5D_fixedg_lifetime_Kelvin,
+                        'SB_5D_fixedg_shift_Kelvin': SB_5D_fixedg_shift,
+                        'SB_5D_fixedg_compute': SB_5D_fixedg_compute,
+                        'SB_4D_fixedg_lifetime_GeV': SB_4D_fixedg_lifetime_GeV,
+                        'SB_4D_fixedg_lifetime_Kelvin': SB_4D_fixedg_lifetime_Kelvin,
+                        'SB_4D_fixedg_shift_Kelvin': SB_4D_fixedg_shift,
+                        'SB_4D_fixedg_compute': SB_4D_fixedg_compute,
+                        'SB_5D_fixedN_lifetime_GeV': SB_5D_fixedN_lifetime_GeV,
+                        'SB_5D_fixedN_lifetime_Kelvin': SB_5D_fixedN_lifetime_Kelvin,
+                        'SB_5D_fixedN_shift_Kelvin': SB_5D_fixedN_shift,
+                        'SB_5D_fixedN_compute': SB_5D_fixedN_compute,
+                        'SB_4D_fixedN_lifetime_GeV': SB_4D_fixedN_lifetime_GeV,
+                        'SB_4D_fixedN_lifetime_Kelvin': SB_4D_fixedN_lifetime_Kelvin,
+                        'SB_4D_fixedN_shift_Kelvin': SB_4D_fixedN_shift,
+                        'SB_4D_fixedN_compute': SB_4D_fixedN_compute}, index=df_index)
 df.index.name = 'index'
 df.to_csv('mass_lifetime.csv')

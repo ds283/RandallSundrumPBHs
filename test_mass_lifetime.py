@@ -5,7 +5,12 @@ sns.set()
 
 params = lkit.RS5D.Parameters(1.5935e14)
 
-soln = lkit.PBHInstance(params, 6.4584e13)
+models = ['GreybodyRS5D', 'GreybodyStandard4D', 'StefanBoltzmannRS5D', 'StefanBoltzmannStandard4D',
+          'StefanBoltzmannRS5D-noreff', 'StefanBoltzmannStandard4D-noreff',
+          'StefanBoltzmannRS5D-fixedg', 'StefanBoltzmannStandard4D-fixedg',
+          'StefanBoltzmannRS5D-fixedN', 'StefanBoltzmannStandard4D-fixedN',
+          ]
+soln = lkit.PBHInstance(params, 6.4584e13, models=models)
 soln.mass_plot('mass_history_fail.pdf')
 
 for label in soln.lifetimes:
