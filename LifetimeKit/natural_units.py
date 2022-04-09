@@ -28,3 +28,13 @@ Mpc = 3.08567758128E+19 * Kilometre
 Kilogram = np.sqrt(Const_8Pi) * M4 / 2.17643424E-8
 Gram = Kilogram / 1000.0
 SolarMass = 1.98847E30 * Kilogram
+
+# in unis where c = hbar = 1, the Planck time is
+# MP = sqrt(G) = 5.39124760E-44 s
+#    = sqrt(8piG) / sqrt(8pi) = 1 / (M4 * sqrt(8pi))
+# that gives us 1 second measured in GeV
+Second = 1.0 / (M4 * np.sqrt(Const_8Pi) * 5.39124760E-44)
+Minute = 60 * Second
+Hour = 60 * Minute
+Day = 24 * Hour
+Year = 365 * Day
