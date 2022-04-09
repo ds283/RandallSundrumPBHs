@@ -29,10 +29,11 @@ class LifetimeModel(BaseGreybodyLifetimeModel):
         super().__init__()
 
         # build list of greybody factors associated with 4D Einstein graviton states
-        massless, massive = build_greybody_xi(Standard4D_graviton_table)
+        massless, massive, dct = build_greybody_xi(Standard4D_graviton_table)
 
         self.massless_xi += massless
         self.massive_xi += massive
+        self.xi_dict = self.xi_dict | dct
 
         if engine is None or not isinstance(engine, Model):
             raise RuntimeError('Standard4D.greybody.LifetimeModel: supplied engine instance is not usable')
@@ -49,6 +50,56 @@ class LifetimeModel(BaseGreybodyLifetimeModel):
 
         self._logM_end = np.log(self._params.M4)
 
+    def _rate_accretion(self, T_rad, M_PBH):
+        # compute horizon radius in 1/GeV
+        rh = self._M_PBH.radius
+        rh_sq = rh*rh
+
+        # compute current energy density rho(T) at this radiation temperature
+        rho = self.engine.rho_radiation(T=T_rad)
+
+        # get alpha, the coefficient that turns rh into the effective radius, r_eff = alpha * rh
+        alpha = Const_Reff_4D if self._use_effective_radius else 1.0
+        alpha_sq = alpha*alpha
+
+        dM_dt = np.pi * self._accretion_efficiency_F * alpha_sq * rh_sq * rho
+
+        return dM_dt
+
+    def _rate_evaporation(self, T_rad, M_PBH):
+        # compute horizon radius in 1/GeV
+        rh = self._M_PBH.radius
+        rh_sq = rh*rh
+
+        # compute Hawking temperature
+        T_Hawking = self._M_PBH.T_Hawking
+
+        # sum over greybody factors to get evaporation rate
+        dM_dt = -(self.massless_xi + sum([xi(T_Hawking) for xi in self.massive_xi])) / (Const_2Pi * rh_sq)
+
+        return dM_dt
+
+    def _rate_quarks(self, T_rad, M_PBH):
+        quarks = ['up quark', 'down quark', 'strange quark', 'charm quark', 'top quark', 'bottom quark']
+        return self._sum_xi_list(T_rad, M_PBH, quarks)
+
+    def _rate_leptons(self, T_rad, M_PBH):
+        leptons = ['electron', 'muon', 'tau', 'neutrino']
+        return self._sum_xi_list(T_rad, M_PBH, leptons)
+
+    def _rate_photons(self, T_rad, M_PBH):
+        return self._sum_xi_list(T_rad, M_PBH, ['photon'])
+
+    def _rate_gluons(self, T_rad, M_PBH):
+        return self._sum_xi_list(T_rad, M_PBH, ['gluon'])
+
+    def _rate_EW_bosons(self, T_rad, M_PBH):
+        EW_bosons = ['Higgs', 'Z boson', 'W boson']
+        return self._sum_xi_list(T_rad, M_PBH, EW_bosons)
+
+    def _rate_graviton4D(self, T_rad, M_PBH):
+        return self._sum_xi_list(T_rad, M_PBH, ['4D graviton'])
+
     # step the PBH mass, accounting for accretion and evaporation
     def __call__(self, logT_rad, logM_asarray):
         # for some purposes we need the temperature of the radiation bath expressed in GeV
@@ -59,33 +110,13 @@ class LifetimeModel(BaseGreybodyLifetimeModel):
         M_PBH = np.exp(logM)
         self._M_PBH.set_value(M_PBH, 'GeV')
 
-        # compute horizon radius in 1/GeV
-        rh = self._M_PBH.radius
-        rh_sq = rh*rh
-
-        # compute current energy density rho(T) at this radiation temperature
-        rho = self.engine.rho_radiation(T=T_rad)
-
         # compute current Hubble rate at this radiation temperature
         H = self.engine.Hubble(T=T_rad)
 
-        # get alpha, the coefficient that turns rh into the effective radius, r_eff = alpha * rh
-        alpha = Const_Reff_4D if self._use_effective_radius else 1.0
-        alpha_sq = alpha*alpha
-
         # ACCRETION
-
-        dlogM_dlogT = -np.pi * self._accretion_efficiency_F * alpha_sq * rh_sq * rho / (self._M_PBH.mass * H)
-
+        dlogM_dlogT = -self._rate_accretion(T_rad, self._M_PBH) / (self._M_PBH.mass * H)
 
         # EVAPORATION
-
-        # compute Hawking temperature
-        T_Hawking = self._M_PBH.T_Hawking
-
-        # sum over greybody factors to get evaporation rate
-        evap = (self.massless_xi + sum([xi(T_Hawking) for xi in self.massive_xi])) / (Const_2Pi * rh_sq)
-
-        dlogM_dlogT += evap / (self._M_PBH.mass * H)
+        dlogM_dlogT += -self._rate_evaporation(T_rad, self._M_PBH) / (self._M_PBH.mass * H)
 
         return dlogM_dlogT

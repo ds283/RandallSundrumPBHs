@@ -114,6 +114,16 @@ class LifetimeObserver:
 
 
 class PBHLifetimeModel:
+    # conversion factors into GeV for mass units we understand
+    _mass_conversions = {'gram': Gram, 'kilogram': Kilogram, 'SolarMass': SolarMass, 'GeV': 1.0}
+
+    # conversion factors into GeV for temperature units we understand
+    _temperature_conversions = {'Kelvin': Kelvin, 'GeV': 1.0}
+
+    # conversion factors into GeV for time units
+    _time_conversions = {'second': 1.0, 'year': 60.0*60.0*24.0*365.0}
+
+
     def __init__(self, M_init, T_rad_init, LifetimeModel, num_samples=NumTSamplePoints):
         '''
         Capture initial values
@@ -168,6 +178,23 @@ class PBHLifetimeModel:
 
         # run the integration
         self._integrate(LifetimeModel, observer)
+
+        # get list of methods in LifetimeModel that can be used to produce a rate, and use these to populate
+        # our rates list
+        self.rates = {}
+        for method in dir(LifetimeModel):
+            if method.startswith('_rate_'):
+                c = getattr(LifetimeModel, method, None)
+                if callable(c):
+                    data = np.zeros_like(self.T_sample_points)
+
+                    M_PBH = self._engine.BlackHoleType(self._params, Kilogram, 'GeV')
+
+                    for n in range(0, len(self.T_sample_points)):
+                        M_PBH.set_value(self.M_sample_points[n])
+                        data[n] = c(self.T_sample_points[n], M_PBH)
+
+                self.rates[method.removeprefix('_rate_')] = data
 
 
     def _integrate(self, LifetimeModel, Observer):
@@ -254,12 +281,48 @@ class PBHLifetimeModel:
         # record the shift due to using the analytic model
         self.T_shift = Ti_rad - self.T_lifetime
 
+    def rates_plot(self, filename, rates=None, mass_units='gram', time_units='year', temperature_units='Kelvin'):
+        # check desired units are sensible
+        if mass_units not in self._mass_conversions:
+            raise RuntimeError('PBHLifetimeModel.rates_plot(): unit "{unit}" not understood in '
+                               'constructor'.format(unit=mass_units))
+
+        if temperature_units not in self._temperature_conversions:
+            raise RuntimeError('PBHLifetimeModel.rates_plot: unit "{unit}" not understood in '
+                               'constructor'.format(unit=temperature_units))
+
+        if time_units not in self._time_conversions:
+            raise RuntimeError('PBHLifetimeModel.rates_plot: unit "{unit}" not understood in '
+                               'constructor'.format(unit=time_units))
+
+        # if no models specified, plot them all
+        if rates is None:
+            rates = self.rates.keys()
+
+        mass_units_to_GeV = self._mass_conversions[mass_units]
+        temperature_units_to_GeV = self._temperature_conversions[temperature_units]
+        time_units_to_seconds = self._time_conversions[time_units]
+
+        plt.figure()
+
+        T_values = self.T_sample_points / temperature_units_to_GeV
+        for label in rates:
+            if label in self.rates:
+                history = np.abs(self.rates[label] / mass_units_to_GeV / time_units_to_seconds)
+
+                plt.loglog(T_values, history, label='{key}'.format(key=label))
+
+        plt.xlabel('Temperature T / {unit}'.format(unit=temperature_units))
+        plt.ylabel('Mass change rate / {massunit}/{tunit}'.format(massunit=mass_units, tunit=temperature_units))
+        plt.legend()
+        plt.savefig(filename)
+
 
 # class PBHInstance captures details of a PBH that forms at a specified initial temperature
 # (which we can map to an initial mass and a lengthscale)
 class PBHInstance:
     # conversion factors into GeV for mass units we understand
-    _mass_conversions = {'gram': Gram, 'kilogram': Kilogram, 'GeV': 1.0}
+    _mass_conversions = {'gram': Gram, 'kilogram': Kilogram, 'SolarMass': SolarMass, 'GeV': 1.0}
 
     # conversion factors into GeV for temperature units we understand
     _temperature_conversions = {'Kelvin': Kelvin, 'GeV': 1.0}

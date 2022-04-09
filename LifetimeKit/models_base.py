@@ -6,8 +6,10 @@ from functools import partial
 from .natural_units import Kelvin
 from .particle_data import SM_particle_table
 
+
 T_threshold_tolerance = 1E-8
 
+Const_2Pi = 2.0 * np.pi
 
 def build_cumulative_g_table(particle_table, weight=None):
     # build a list of particle records ordered by their mass
@@ -50,19 +52,25 @@ def build_cumulative_g_table(particle_table, weight=None):
 def build_greybody_xi(particle_table):
     xis_massive = []
     xis_massless = 0.0
+    xis = {}
 
     def xi(xi0, b, c, mass, dof, T_Hawking):
         return dof * xi0 * math.exp(-b*math.pow(mass/T_Hawking, c))
 
-    for record in particle_table.values():
+    for label in particle_table:
+        record = particle_table[label]
         if 'b' in record:
-            xis_massive.append(partial(xi, record['xi0'], record['b'], record['c'], record['mass'], record['dof']))
+            f = partial(xi, record['xi0'], record['b'], record['c'], record['mass'], record['dof'])
+            xis_massive.append(f)
+            xis[label] = f
 
         else:
             # massless species have no temperature dependence
-            xis_massless += record['dof'] * record['xi0']
+            q = record['dof'] * record['xi0']
+            xis_massless += q
+            xis[label] = q
 
-    return xis_massless, xis_massive
+    return xis_massless, xis_massive, xis
 
 
 
@@ -158,4 +166,23 @@ class BaseGreybodyLifetimeModel:
 
     def __init__(self):
         # cache a list of greybody fitting functions
-        self.massless_xi, self.massive_xi = build_greybody_xi(SM_particle_table)
+        self.massless_xi, self.massive_xi, self.xi_dict = build_greybody_xi(SM_particle_table)
+
+    def _sum_xi_list(self, T_rad, M_PBH, species):
+        # compute horizon radius in 1/GeV
+        rh = M_PBH.radius
+        rh_sq = rh*rh
+
+        # compute Hawking temperature
+        T_Hawking = self._M_PBH.T_Hawking
+
+        dM_dt = 0.0
+        for label in species:
+            record = self.xi_dict[label]
+
+            if callable(record):
+                dM_dt += -record(T_Hawking)
+            else:
+                dM_dt += -record
+
+        return dM_dt / (Const_2Pi * rh_sq)
