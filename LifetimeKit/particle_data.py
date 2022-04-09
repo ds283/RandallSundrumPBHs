@@ -39,7 +39,7 @@ SM_particle_table = \
   'bottom quark': {'mass': 4.18, 'dof': 12, 'spin-weight': fermion_weight, 'xi0': xi0_spin0pt5_4D, 'b': b_spin0pt5_4D, 'c': c_spin0pt5_4D}}
 
 Standard4D_graviton_table = \
- {'4D graviton': {'mass': 0.0, 'dof': 2.0, 'xi0': xi0_spin2_5D}}
+ {'4D graviton': {'mass': 0.0, 'dof': 2.0, 'xi0': xi0_spin2_4D}}
 
 RS_bulk_particle_table = \
  {'5D graviton': {'mass': 0.0, 'dof': 5.0, 'xi0': xi0_spin2_5D}}
