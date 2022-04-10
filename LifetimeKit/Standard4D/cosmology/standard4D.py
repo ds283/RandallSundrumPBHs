@@ -1,43 +1,42 @@
-import numpy as np
+import math
 
 from ...models_base import BaseCosmology
 from ...natural_units import Kilogram, Gram
 from ...constants import gstar_full_SM
 
-Const_M_H = 4.0 * np.sqrt(3.0) * np.pi
-Const_Sqrt_3 = np.sqrt(3.0)
-Const_4Pi = 4.0 * np.pi
+Const_M_H = 4.0 * math.sqrt(3.0) * math.pi
+Const_Sqrt_3 = math.sqrt(3.0)
+Const_4Pi = 4.0 * math.pi
 
-Const_Radius_4D = 1.0 / (4.0 * np.pi)
-Const_Reff_4D = 3.0 * np.sqrt(3.0) / 2.0
+Const_Radius_4D = 1.0 / (4.0 * math.pi)
+Const_Reff_4D = 3.0 * math.sqrt(3.0) / 2.0
 
 
 # Analytic lifetime model for 4D Schwarzschild black hole, for evaporation only, neglecting accretion
 def Solve_4D_T(Ti, Mi, Mf, gstar, a, g4, sigma4, M4, alpha):
     a_gstar = a * gstar
-    a_gstar_sqrt = np.sqrt(a*gstar)
+    a_gstar_sqrt = math.sqrt(a_gstar)
 
     Ti_sq = Ti*Ti
-    Ti_4 = Ti_sq*Ti_sq
 
     alpha_sq = alpha*alpha
 
     M4_sq = M4*M4
 
     Mf_over_Mi = Mf/Mi
-    DeltaM = Mi * np.power(1.0 - Mf_over_Mi*Mf_over_Mi*Mf_over_Mi, 1.0/3.0)
+    DeltaM = Mi * math.pow(1.0 - Mf_over_Mi*Mf_over_Mi*Mf_over_Mi, 1.0/3.0)
     DeltaM_over_M4 = DeltaM / M4
     DeltaM_over_M4_3 = DeltaM_over_M4 * DeltaM_over_M4 * DeltaM_over_M4
 
     g_factor = g4*sigma4
 
-    A_const = (8.0/3.0*np.sqrt(3.0))*np.pi
+    A_const = (8.0/3.0*math.sqrt(3.0))*math.pi
 
     A1 = 1.0/Ti_sq
     A2 = A_const * a_gstar_sqrt * DeltaM_over_M4_3 / (M4_sq * alpha_sq * g_factor)
     A = A1 + A2
 
-    return 1.0/np.sqrt(A)
+    return 1.0/math.sqrt(A)
 
 
 # class *BlackHole* represents the state of a PBH, which involves at least mass but possibly also charge and
@@ -158,7 +157,7 @@ class Model(BaseCosmology):
     def Hubble(self, T=None, log_T=None):
         rho = self.rho_radiation(T, log_T)
 
-        return 1.0 / (Const_Sqrt_3 * self.params.M4) * np.sqrt(rho)
+        return 1.0 / (Const_Sqrt_3 * self.params.M4) * math.sqrt(rho)
 
     # compute the Hubble length in 1/GeV at a time corresponding to a temperature supplied in GeV
     # the formula here is R_H = 1/H
@@ -168,6 +167,6 @@ class Model(BaseCosmology):
     # compute the mass (in GeV) enclosed within the Hubble length, at a time corresponding to a temperature supplied in GeV
     def M_Hubble(self, T=None, log_T=None):
         rho = self.rho_radiation(T, log_T)
-        M_H = Const_M_H * self.params.M4 * self.params.M4 * self.params.M4 / np.sqrt(rho)
+        M_H = Const_M_H * self.params.M4 * self.params.M4 * self.params.M4 / math.sqrt(rho)
 
         return M_H

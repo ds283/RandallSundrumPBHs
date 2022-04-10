@@ -1,20 +1,19 @@
+import math
+
+import matplotlib.pyplot as plt
 import numpy as np
 from scipy.integrate import ode
 
-import matplotlib.pyplot as plt
-
-from .timer import Timer
-
-from .natural_units import M4, Kelvin, Metre, Kilometre, Mpc, Kilogram, Gram, SolarMass
-from .constants import T_CMB
-from .RandallSundrum5D import cosmology as RS5D
 from .RandallSundrum5D import StefanBoltzmann as RS5D_StefanBoltzmann
+from .RandallSundrum5D import cosmology as RS5D
 from .RandallSundrum5D import greybody as RS5D_greybody
-from .Standard4D import cosmology as Standard4D
 from .Standard4D import StefanBoltzmann as Standard4D_StefanBoltzmann
+from .Standard4D import cosmology as Standard4D
 from .Standard4D import greybody as Standard4D_greybody
-
+from .constants import T_CMB
 from .constants import gstar_full_SM
+from .natural_units import Kelvin, Kilogram, Gram, SolarMass
+from .timer import Timer
 
 # number of T-sample points to capture for PBH lifetime mass/temperature relation
 NumTSamplePoints = 200
@@ -83,10 +82,10 @@ class LifetimeObserver:
         '''
         # for some calculations we cannot avoid using the temperature of the radiation bath
         # expressed in GeV
-        T_rad = np.exp(logT_rad)
+        T_rad = math.exp(logT_rad)
 
         # extract current value of PBH mass, in GeV
-        M_PBH = np.exp(logM_asarray.item())
+        M_PBH = math.exp(logM_asarray.item())
 
         # write solution into M-soln_grid if we have passed an observation point
         if self.next_sample_point is not None and logT_rad < self.next_sample_point:
@@ -140,16 +139,16 @@ class PBHLifetimeModel:
         self.T_rad_init = T_rad_init
 
         # integration actually proceeds with log(x)
-        self.logM_init = np.log(M_init)
+        self.logM_init = math.log(M_init)
 
         # integration is done in terms of log(x) and log(T), where x = M/M_H(T) is the PBH mass expressed
         # as a fraction of the Hubble mass M_H
-        self.logT_rad_init = np.log(T_rad_init)
+        self.logT_rad_init = math.log(T_rad_init)
 
         # sample soln_grid runs from initial temperature of the radiation bath at formation,
         # down to current CMB temmperature T_CMB
         self.T_min = T_CMB * Kelvin
-        self.logT_min = np.log(self.T_min)
+        self.logT_min = math.log(self.T_min)
 
         self.T_sample_points = np.geomspace(T_rad_init, self.T_min, num_samples)
         self.logT_sample_points = np.log(self.T_sample_points)
@@ -243,8 +242,8 @@ class PBHLifetimeModel:
             self.M_sample_points = np.resize(self.M_sample_points, index)
             self.x_sample_points = np.resize(self.x_sample_points, index)
 
-        M = np.exp(stepper.y.item())
-        T_rad = np.exp(stepper.t)
+        M = math.exp(stepper.y.item())
+        T_rad = math.exp(stepper.t)
 
         # if the observer terminated the integration, this is because the PBH evaporation proceeded
         # to the point where we produce a relic, so we can record the lifetime and exit
@@ -271,7 +270,7 @@ class PBHLifetimeModel:
         M_PBH = self._engine.BlackHoleType(self._engine.params, M, 'GeV')
 
         # get current radiation temperature in GeV
-        Ti_rad = np.exp(stepper.t)
+        Ti_rad = math.exp(stepper.t)
 
         # compute the final relic formation time using an analytic estimation
         self.T_lifetime = \

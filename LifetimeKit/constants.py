@@ -1,6 +1,6 @@
-import numpy as np
+import math
 
-RadiationConstant4D = np.pi * np.pi / 30.0
+RadiationConstant4D = math.pi * math.pi / 30.0
 StefanBoltzmannConstant4D = RadiationConstant4D / 4.0
 StefanBoltzmannConstant5D = 0.0668850223995 # 2 * Zeta(5) / pi^3
 gstar_full_SM = 106.75

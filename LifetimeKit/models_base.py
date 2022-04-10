@@ -1,15 +1,15 @@
-import numpy as np
 import math
-from operator import itemgetter
 from functools import partial
+from operator import itemgetter
+
+import numpy as np
 
 from .natural_units import Kelvin
 from .particle_data import SM_particle_table
 
-
 T_threshold_tolerance = 1E-8
 
-Const_2Pi = 2.0 * np.pi
+Const_2Pi = 2.0 * math.pi
 
 def build_cumulative_g_table(particle_table, weight=None):
     # build a list of particle records ordered by their mass
@@ -91,7 +91,7 @@ class BaseCosmology:
         if T is not None:
             _T = T
         elif log_T is not None:
-            _T = np.exp(log_T)
+            _T = math.exp(log_T)
         else:
             raise RuntimeError('No temperature value supplied to BaseCosmology.rho_radiation()')
 

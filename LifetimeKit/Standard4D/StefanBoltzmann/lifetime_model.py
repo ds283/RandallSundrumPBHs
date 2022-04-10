@@ -1,13 +1,13 @@
-import numpy as np
+import math
 
 from ...models_base import BaseStefanBoltzmannLifetimeModel
 from ...constants import Page_suppression_factor
 
 from ..cosmology.standard4D import Model, BlackHole
 
-Const_Reff_4D = 3.0 * np.sqrt(3.0) / 2.0
+Const_Reff_4D = 3.0 * math.sqrt(3.0) / 2.0
 
-Const_4Pi = 4.0 * np.pi
+Const_4Pi = 4.0 * math.pi
 
 class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
     '''
@@ -43,16 +43,16 @@ class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
         self._use_Page_suppression = use_Page_suppression
         self._fixed_g4 = fixed_g4
 
-        self._logM_end = np.log(self._params.M4)
+        self._logM_end = math.log(self._params.M4)
 
     # step the PBH mass, accounting for accretion and evaporation
     def __call__(self, logT_rad, logM_asarray):
         # for some purposes we need the temperature of the radiation bath expressed in GeV
-        T_rad = np.exp(logT_rad)
+        T_rad = math.exp(logT_rad)
 
         # also the PBH mass, and reset the PBH model object self._M_PBH to its value
         logM = logM_asarray.item()
-        M_PBH = np.exp(logM)
+        M_PBH = math.exp(logM)
         self._M_PBH.set_value(M_PBH, 'GeV')
 
         # compute horizon radius in 1/GeV
@@ -71,7 +71,7 @@ class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
 
         # ACCRETION
 
-        dlogM_dlogT = -np.pi * self._accretion_efficiency_F * alpha_sq * rh_sq * rho / (self._M_PBH.mass * H)
+        dlogM_dlogT = -math.pi * self._accretion_efficiency_F * alpha_sq * rh_sq * rho / (self._M_PBH.mass * H)
 
 
         # EVAPORATION

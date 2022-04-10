@@ -1,92 +1,92 @@
-import numpy as np
+import math
 
+from LifetimeKit.constants import RadiationConstant4D, StefanBoltzmannConstant4D, StefanBoltzmannConstant5D, \
+    gstar_full_SM
 from LifetimeKit.models_base import BaseCosmology
-
 from LifetimeKit.natural_units import M4, Kelvin, Metre, Kilogram, Gram, SolarMass
-from LifetimeKit.constants import RadiationConstant4D, StefanBoltzmannConstant4D, StefanBoltzmannConstant5D, gstar_full_SM
 
 # numerical constant in test (based on mass M) for whether black hole behaves as 4D Schwarzschild
 # or 5D Myers-Perry
 Const_4D5D_Transition_Mass = 4.0 / 3.0
 
 # constant in test for whether black hole behaves as 4D Schwarzschild or 5D Myers-Perry
-Const_4D5D_Transition_Radius = 2.0 / (3.0 * np.pi)
+Const_4D5D_Transition_Radius = 2.0 / (3.0 * math.pi)
 
-Const_M_H = 4.0 * np.sqrt(3.0) * np.pi
-Const_4Pi = 4.0 * np.pi
-Const_2Pi = 2.0 * np.pi
-Const_Sqrt_3 = np.sqrt(3.0)
-Const_4thRoot_6 = np.power(6, 1.0 / 4.0)
+Const_M_H = 4.0 * math.sqrt(3.0) * math.pi
+Const_4Pi = 4.0 * math.pi
+Const_2Pi = 2.0 * math.pi
+Const_Sqrt_3 = math.sqrt(3.0)
+Const_4thRoot_6 = math.pow(6, 1.0 / 4.0)
 
 # coefficients in 4D and 5D black hole mass/radius relations
-Const_Radius_5D = 1.0 / (np.sqrt(3.0) * np.pi)
-Const_Radius_4D = 1.0 / (4.0 * np.pi)
+Const_Radius_5D = 1.0 / (math.sqrt(3.0) * math.pi)
+Const_Radius_4D = 1.0 / (4.0 * math.pi)
 
 # effective radius multipliers for 4D and 5D black holes
 Const_Reff_5D = 2.0
-Const_Reff_4D = 3.0 * np.sqrt(3.0) / 2.0
+Const_Reff_4D = 3.0 * math.sqrt(3.0) / 2.0
 
 
 # Analytic lifetime model for 4D Schwarzschild black hole, for evaporation only, neglecting accretion
 def Solve_4D_T(Ti, Mi, Mf, gstar, a, tension, g4, sigma4, g5, sigma5, M4, alpha):
     a_gstar = a * gstar
-    a_gstar_sqrt = np.sqrt(a*gstar)
+    a_gstar_sqrt = math.sqrt(a*gstar)
 
     Ti_sq = Ti*Ti
     Ti_4 = Ti_sq*Ti_sq
 
-    tension_sqrt = np.sqrt(tension)
+    tension_sqrt = math.sqrt(tension)
 
     alpha_sq = alpha*alpha
 
     M4_sq = M4*M4
 
     Mf_over_Mi = Mf/Mi
-    DeltaM = Mi * np.power(1.0 - Mf_over_Mi*Mf_over_Mi*Mf_over_Mi, 1.0/3.0)
+    DeltaM = Mi * math.pow(1.0 - Mf_over_Mi*Mf_over_Mi*Mf_over_Mi, 1.0/3.0)
     DeltaM_over_M4 = DeltaM / M4
     DeltaM_over_M4_3 = DeltaM_over_M4 * DeltaM_over_M4 * DeltaM_over_M4
 
     g_factor = 8.0*g4*sigma4 + g5*alpha*sigma5
 
-    A_const = 64.0*np.sqrt(2.0/3.0)*np.pi/3.0
+    A_const = 64.0*math.sqrt(2.0/3.0)*math.pi/3.0
 
-    A1 = np.sqrt(a_gstar*Ti_4 + 2.0*tension)/Ti_sq
+    A1 = math.sqrt(a_gstar*Ti_4 + 2.0*tension)/Ti_sq
     A2 = A_const * a_gstar_sqrt * tension_sqrt * DeltaM_over_M4_3 / (M4_sq * alpha_sq * g_factor)
     A = A1 + A2
 
     A_sq = A*A
 
-    return np.power(2.0*tension / (A_sq - a_gstar), 1.0/4.0)
+    return math.pow(2.0*tension / (A_sq - a_gstar), 1.0/4.0)
 
 # Analytic lifetime model for 5D Tangherlini black hole (i.e. Myers-Perry without spin), for evaporation only,
 # neglecting accretion
 def Solve_5D_T(Ti, Mi, Mf, gstar, a, tension, g4, sigma4, g5, sigma5, M4, M5, alpha):
     a_gstar = a * gstar
-    a_gstar_sqrt = np.sqrt(a * gstar)
+    a_gstar_sqrt = math.sqrt(a * gstar)
 
     Ti_sq = Ti*Ti
     Ti_4 = Ti_sq*Ti_sq
 
-    tension_sqrt = np.sqrt(tension)
+    tension_sqrt = math.sqrt(tension)
 
     alpha_sq = alpha*alpha
 
     Mf_over_Mi = Mf/Mi
-    DeltaM = Mi * np.sqrt(1.0 - Mf_over_Mi*Mf_over_Mi)
+    DeltaM = Mi * math.sqrt(1.0 - Mf_over_Mi*Mf_over_Mi)
     DeltaM_over_M5 = DeltaM / M5
     DeltaM_over_M5_sq = DeltaM_over_M5*DeltaM_over_M5
 
     g_factor = 4.0*g4*sigma4 + g5*alpha*sigma5
 
-    A_const = 16.0*np.sqrt(2.0/3.0)*np.pi/3.0
+    A_const = 16.0*math.sqrt(2.0/3.0)*math.pi/3.0
 
-    A1 = np.sqrt(a_gstar*Ti_4 + 2.0*tension) / Ti_sq
+    A1 = math.sqrt(a_gstar*Ti_4 + 2.0*tension) / Ti_sq
     A2 = A_const * a_gstar_sqrt * tension_sqrt * DeltaM_over_M5_sq / (M4 * M5 * alpha_sq * g_factor)
     A = A1 + A2
 
     A_sq = A*A
 
-    return np.power(2.0*tension / (A_sq - a_gstar), 1.0/4.0)
+    return math.pow(2.0*tension / (A_sq - a_gstar), 1.0/4.0)
 
 
 # The *Parameters* class captures details of the 4D and 5D Planck masses, and uses these to compute derived
@@ -125,7 +125,7 @@ class Parameters:
         self.tension = 6 * M_ratio*M_ratio * M5*M5*M5*M5
 
         # also compute the mass scale associated with the tension
-        self.tension_scale = Const_4thRoot_6 * np.sqrt(M_ratio) * M5
+        self.tension_scale = Const_4thRoot_6 * math.sqrt(M_ratio) * M5
 
         # compute crossover temperature from the quadratic to the linear regime, which occurs when rho = 2 lambda
 
@@ -137,7 +137,7 @@ class Parameters:
         # assume the crossover temperature is high enough that all SM particles are relativistic and in thermal
         # equilibrium, which should be good above Tcross = 200 GeV; we insist Tcross > 1E3 (see below),
         # which is hopefully enough headroom
-        self.T_crossover = np.power(12.0 / (self.RadiationConstant * gstar_full_SM), 1.0/4.0) * np.sqrt(M_ratio) * M5
+        self.T_crossover = math.pow(12.0 / (self.RadiationConstant * gstar_full_SM), 1.0/4.0) * math.sqrt(M_ratio) * M5
         self.T_crossover_Kelvin = self.T_crossover / Kelvin
 
         # compute AdS radius ell and its inverse, mu
@@ -216,7 +216,7 @@ class BlackHole:
     def __init__(self, params: Parameters, mass: float, units='GeV'):
         self.params = params
 
-        self._M4_over_M5_sqrt = np.sqrt(1.0/self.params.M_ratio)
+        self._M4_over_M5_sqrt = math.sqrt(1.0/self.params.M_ratio)
 
         # assign current value
         self.set_value(mass, units)
@@ -275,7 +275,7 @@ class BlackHole:
     # query for the 5D Myers-Perry radius of the black hole, measured in 1/GeV
     @property
     def radius_5D(self):
-        return Const_Radius_5D * np.sqrt(self.mass / self.params.M5) / self.params.M5
+        return Const_Radius_5D * math.sqrt(self.mass / self.params.M5) / self.params.M5
 
     # query for the 4D Schwarzschild radius of the black hole, measured in 1/GeV
     @property
@@ -396,7 +396,7 @@ class Model(BaseCosmology):
     def Hubble(self, T=None, log_T=None):
         rho = self.rho_radiation(T, log_T)
 
-        return 1.0 / (Const_Sqrt_3 * self.params.M4) * np.sqrt(rho * (1.0 + rho / (2.0 * self.params.tension)))
+        return 1.0 / (Const_Sqrt_3 * self.params.M4) * math.sqrt(rho * (1.0 + rho / (2.0 * self.params.tension)))
 
     # compute the Hubble length in 1/GeV at a time corresponding to a temperature supplied in GeV
     # the formula here is R_H = 1/H
@@ -408,6 +408,6 @@ class Model(BaseCosmology):
     def M_Hubble(self, T=None, log_T=None):
         rho = self.rho_radiation(T, log_T)
         M_H = Const_M_H * self.params.M4 * self.params.M4 * self.params.M4 \
-              * np.power(1.0 + rho / (2.0 * self.params.tension), -3.0/2.0) / np.sqrt(rho)
+              * math.pow(1.0 + rho / (2.0 * self.params.tension), -3.0/2.0) / math.sqrt(rho)
 
         return M_H

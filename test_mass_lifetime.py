@@ -17,7 +17,7 @@ soln.mass_plot('mass_history.pdf')
 
 for label in soln.lifetimes:
     history = soln.lifetimes[label]
-    history.rates_plot('{label}_rate_history.pdf'.format(label=label), rates=['gluons', 'photons', 'EW_bosons', 'graviton4D', 'graviton5D', 'leptons'])
+    history.rates_plot('{label}_rate_history.pdf'.format(label=label), rates=['gluons', 'photons', 'EW_bosons', 'graviton4D', 'graviton5D', 'leptons', 'evaporation'])
 
     print('-- {label}'.format(label=label))
     print('   compute time = {time}'.format(time=history.compute_time))

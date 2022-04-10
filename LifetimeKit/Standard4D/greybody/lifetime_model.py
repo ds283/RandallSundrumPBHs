@@ -1,14 +1,14 @@
-import numpy as np
+import math
 
 from ...models_base import BaseGreybodyLifetimeModel, build_greybody_xi
 from ...particle_data import Standard4D_graviton_table
 
 from ..cosmology.standard4D import Model, BlackHole
 
-Const_Reff_4D = 3.0 * np.sqrt(3.0) / 2.0
+Const_Reff_4D = 3.0 * math.sqrt(3.0) / 2.0
 
-Const_4Pi = 4.0 * np.pi
-Const_2Pi = 2.0 * np.pi
+Const_4Pi = 4.0 * math.pi
+Const_2Pi = 2.0 * math.pi
 
 class LifetimeModel(BaseGreybodyLifetimeModel):
     '''
@@ -48,7 +48,7 @@ class LifetimeModel(BaseGreybodyLifetimeModel):
         self._accretion_efficiency_F = accretion_efficiency_F
         self._use_effective_radius = use_effective_radius
 
-        self._logM_end = np.log(self._params.M4)
+        self._logM_end = math.log(self._params.M4)
 
     def _rate_accretion(self, T_rad, M_PBH):
         # compute horizon radius in 1/GeV
@@ -62,7 +62,7 @@ class LifetimeModel(BaseGreybodyLifetimeModel):
         alpha = Const_Reff_4D if self._use_effective_radius else 1.0
         alpha_sq = alpha*alpha
 
-        dM_dt = np.pi * self._accretion_efficiency_F * alpha_sq * rh_sq * rho
+        dM_dt = math.pi * self._accretion_efficiency_F * alpha_sq * rh_sq * rho
 
         return dM_dt
 
@@ -103,11 +103,11 @@ class LifetimeModel(BaseGreybodyLifetimeModel):
     # step the PBH mass, accounting for accretion and evaporation
     def __call__(self, logT_rad, logM_asarray):
         # for some purposes we need the temperature of the radiation bath expressed in GeV
-        T_rad = np.exp(logT_rad)
+        T_rad = math.exp(logT_rad)
 
         # also the PBH mass, and reset the PBH model object self._M_PBH to its value
         logM = logM_asarray.item()
-        M_PBH = np.exp(logM)
+        M_PBH = math.exp(logM)
         self._M_PBH.set_value(M_PBH, 'GeV')
 
         # compute current Hubble rate at this radiation temperature

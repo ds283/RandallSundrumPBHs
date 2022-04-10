@@ -1,13 +1,14 @@
+import math
+
 import numpy as np
 
-from ...models_base import BaseStefanBoltzmannLifetimeModel, build_cumulative_g_table
+from ..cosmology.RandallSundrum5D import Model, BlackHole
 from ...constants import Page_suppression_factor
+from ...models_base import BaseStefanBoltzmannLifetimeModel, build_cumulative_g_table
 from ...particle_data import RS_bulk_particle_table
 
-from ..cosmology.RandallSundrum5D import Model, BlackHole
-
-Const_PiOver2 = np.pi / 2.0
-Const_4Pi = 4.0 * np.pi
+Const_PiOver2 = math.pi / 2.0
+Const_4Pi = 4.0 * math.pi
 
 class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
     '''
@@ -49,7 +50,7 @@ class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
         self._fixed_g4 = fixed_g4
         self._fixed_g5 = fixed_g5
 
-        self._logM_end = np.log(self._params.M4)
+        self._logM_end = math.log(self._params.M4)
 
     def g5(self, T_Hawking):
         '''
@@ -67,11 +68,11 @@ class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
     # step the PBH mass, accounting for accretion and evaporation
     def __call__(self, logT_rad, logM_asarray):
         # for some purposes we need the temperature of the radiation bath expressed in GeV
-        T_rad = np.exp(logT_rad)
+        T_rad = math.exp(logT_rad)
 
         # also the PBH mass, and reset the PBH model object self._M_PBH to its value
         logM = logM_asarray.item()
-        M_PBH = np.exp(logM)
+        M_PBH = math.exp(logM)
         self._M_PBH.set_value(M_PBH, 'GeV')
 
         # compute horizon radius in 1/GeV
@@ -90,7 +91,7 @@ class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
 
         # ACCRETION
 
-        dlogM_dlogT = -np.pi * self._accretion_efficiency_F * alpha_sq * rh_sq * rho / (self._M_PBH.mass * H)
+        dlogM_dlogT = -math.pi * self._accretion_efficiency_F * alpha_sq * rh_sq * rho / (self._M_PBH.mass * H)
 
 
         # EVAPORATION
