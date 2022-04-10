@@ -60,13 +60,14 @@ def build_greybody_xi(particle_table):
     for label in particle_table:
         record = particle_table[label]
         if 'b' in record:
-            f = partial(xi, record['xi0'], record['b'], record['c'], record['mass'], record['dof'])
+            f = partial(xi, record['xi0'], record['b'], record['c'], record['mass'],
+                        record['dof'] if record['xi-per-dof'] else 1.0)
             xis_massive.append(f)
             xis[label] = f
 
         else:
             # massless species have no temperature dependence
-            q = record['dof'] * record['xi0']
+            q = (record['dof'] if record['xi-per-dof'] else 1.0) * record['xi0']
             xis_massless += q
             xis[label] = q
 
