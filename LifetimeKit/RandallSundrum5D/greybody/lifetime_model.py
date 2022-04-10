@@ -71,7 +71,7 @@ class LifetimeModel(BaseGreybodyLifetimeModel):
         rh_sq = rh*rh
 
         # compute Hawking temperature
-        T_Hawking = self._M_PBH.T_Hawking
+        T_Hawking = M_PBH.T_Hawking
 
         # sum over greybody factors to get evaporation rate
         dM_dt = -(self.massless_xi + sum([xi(T_Hawking) for xi in self.massive_xi])) / (Const_2Pi * rh_sq)

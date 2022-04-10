@@ -52,7 +52,7 @@ class LifetimeModel(BaseGreybodyLifetimeModel):
 
     def _rate_accretion(self, T_rad, M_PBH):
         # compute horizon radius in 1/GeV
-        rh = self._M_PBH.radius
+        rh = M_PBH.radius
         rh_sq = rh*rh
 
         # compute current energy density rho(T) at this radiation temperature
@@ -68,11 +68,11 @@ class LifetimeModel(BaseGreybodyLifetimeModel):
 
     def _rate_evaporation(self, T_rad, M_PBH):
         # compute horizon radius in 1/GeV
-        rh = self._M_PBH.radius
+        rh = M_PBH.radius
         rh_sq = rh*rh
 
         # compute Hawking temperature
-        T_Hawking = self._M_PBH.T_Hawking
+        T_Hawking = M_PBH.T_Hawking
 
         # sum over greybody factors to get evaporation rate
         dM_dt = -(self.massless_xi + sum([xi(T_Hawking) for xi in self.massive_xi])) / (Const_2Pi * rh_sq)
