@@ -3,6 +3,7 @@ import math
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.integrate import ode
+import pandas as pd
 
 from .RandallSundrum5D import StefanBoltzmann as RS5D_StefanBoltzmann
 from .RandallSundrum5D import cosmology as RS5D
@@ -315,6 +316,41 @@ class PBHLifetimeModel:
         plt.ylabel('Mass change rate / {massunit}/{tunit}'.format(massunit=mass_units, tunit=temperature_units))
         plt.legend()
         plt.savefig(filename)
+
+    def rates_csv(self, filename, rates=None, mass_units='gram', time_units='year', temperature_units='Kelvin'):
+        # check desired units are sensible
+        if mass_units not in self._mass_conversions:
+            raise RuntimeError('PBHLifetimeModel.rates_plot(): unit "{unit}" not understood in '
+                               'constructor'.format(unit=mass_units))
+
+        if temperature_units not in self._temperature_conversions:
+            raise RuntimeError('PBHLifetimeModel.rates_plot: unit "{unit}" not understood in '
+                               'constructor'.format(unit=temperature_units))
+
+        if time_units not in self._time_conversions:
+            raise RuntimeError('PBHLifetimeModel.rates_plot: unit "{unit}" not understood in '
+                               'constructor'.format(unit=time_units))
+
+        # if no models specified, plot them all
+        if rates is None:
+            rates = self.rates.keys()
+
+        mass_units_to_GeV = self._mass_conversions[mass_units]
+        temperature_units_to_GeV = self._temperature_conversions[temperature_units]
+        time_units_to_seconds = self._time_conversions[time_units]
+
+        T_values = self.T_sample_points / temperature_units_to_GeV
+        data = {'T_rad': T_values}
+
+        for label in rates:
+            if label in self.rates:
+                history = np.abs(self.rates[label] / mass_units_to_GeV / time_units_to_seconds)
+
+                data[label] = history
+
+        df = pd.DataFrame(data)
+        df.index.name = 'index'
+        df.to_csv(filename)
 
 
 # class PBHInstance captures details of a PBH that forms at a specified initial temperature
