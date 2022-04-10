@@ -45,6 +45,49 @@ class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
 
         self._logM_end = math.log(self._params.M4)
 
+    def _rate_accretion(self, T_rad, M_PBH):
+        # compute horizon radius in 1/GeV
+        rh = M_PBH.radius
+        rh_sq = rh*rh
+
+        # compute current energy density rho(T) at this radiation temperature
+        rho = self.engine.rho_radiation(T=T_rad)
+
+        # get alpha, the coefficient that turns rh into the effective radius, r_eff = alpha * rh
+        alpha = M_PBH.alpha if self._use_effective_radius else 1.0
+        alpha_sq = alpha*alpha
+
+        dM_dt = math.pi * self._accretion_efficiency_F * alpha_sq * rh_sq * rho
+
+        return dM_dt
+
+    def _rate_evaporation(self, T_rad, M_PBH):
+        # compute horizon radius in 1/GeV
+        rh = M_PBH.radius
+        rh_sq = rh*rh
+
+        # get alpha, the coefficient that turns rh into the effective radius, r_eff = alpha * rh
+        alpha = M_PBH.alpha if self._use_effective_radius else 1.0
+        alpha_sq = alpha*alpha
+
+        t = M_PBH.t   # only need 4D result
+        t4 = t*t*t*t
+
+        # compute Hawking temperature and effective number of particle species active in the Hawking quanta
+        T_Hawking = M_PBH.T_Hawking
+
+        # effective number of radiated species is SM + 2 to count 4D graviton states
+        # (but is this an overcounting? we know from the greybody calculation that emission into gravitons
+        # is basically negligible in 4D)
+        g4_evap = (self._fixed_g4 if self._fixed_g4 is not None else self.g4(T_Hawking)) + 2.0
+
+        evap_prefactor = Const_4Pi * alpha_sq / (t4 * rh_sq)
+        evap_dof = g4_evap * self._SB_4D
+
+        dM_dt = -evap_prefactor * evap_dof / (Page_suppression_factor if self._use_Page_suppression else 1.0)
+
+        return dM_dt
+
     # step the PBH mass, accounting for accretion and evaporation
     def __call__(self, logT_rad, logM_asarray):
         # for some purposes we need the temperature of the radiation bath expressed in GeV
@@ -55,52 +98,13 @@ class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
         M_PBH = math.exp(logM)
         self._M_PBH.set_value(M_PBH, 'GeV')
 
-        # compute horizon radius in 1/GeV
-        rh = self._M_PBH.radius
-        rh_sq = rh*rh
-
-        # compute current energy density rho(T) at this radiation temperature
-        rho = self.engine.rho_radiation(T=T_rad)
-
         # compute current Hubble rate at this radiation temperature
         H = self.engine.Hubble(T=T_rad)
 
-        # get alpha, the coefficient that turns rh into the effective radius, r_eff = alpha * rh
-        alpha = Const_Reff_4D if self._use_effective_radius else 1.0
-        alpha_sq = alpha*alpha
-
         # ACCRETION
-
-        dlogM_dlogT = -math.pi * self._accretion_efficiency_F * alpha_sq * rh_sq * rho / (self._M_PBH.mass * H)
-
+        dlogM_dlogT = -self._rate_accretion(T_rad, self._M_PBH) / (self._M_PBH.mass * H)
 
         # EVAPORATION
-
-        t = Const_4Pi   # only need 4D result
-        t4 = t*t*t*t
-
-        # compute Hawking temperature and effective number of particle species active in the Hawking quanta
-        T_Hawking = self._M_PBH.T_Hawking
-
-        # effective number of radiated species is SM + 2 to count 4D graviton states
-        g4_evap = (self._fixed_g4 if self._fixed_g4 is not None else self.g4(T_Hawking)) + 2.0
-
-        evap_prefactor = Const_4Pi * alpha_sq / (self._M_PBH.mass * H * t4 * rh_sq)
-        evap_dof = g4_evap * self._SB_4D
-
-        dlogM_dlogT += evap_prefactor * evap_dof / (Page_suppression_factor if self._use_Page_suppression else 1.0)
-
-        # x = self._M_PBH.mass / self.engine.M_Hubble(T=T_rad)
-        # evap_to_accrete = 4.0 / (self._accretion_efficiency_F * t4 * rh_sq * rh_sq * rho)
-        #
-        # T_Hawking = self._M_PBH.T_Hawking
-        #
-        # print('-- integrator called at x = {x:.5g}, M_PBH = {MPBHGeV:.5g} GeV = {MPBHgram:.5g} gram, '
-        #       'T = {TGeV:.5g} GeV = {TKelvin:.5g} Kelvin, returning dlogM_dlogT = {out:.5g}, dM/dT = {nolog:.5g}, '
-        #       'evap/accrete = {ratio:.5g}, T_Hawking = {THawkGeV:.5g} = {THawkKelvin:.5g} '
-        #       'Kelvin'.format(x=x, MPBHGeV=self._M_PBH.mass, MPBHgram=self._M_PBH.mass / Gram,
-        #                       TGeV=T_rad, TKelvin=T_rad / Kelvin, out=dlogM_dlogT,
-        #                       nolog=self._M_PBH.mass * dlogM_dlogT / T_rad, ratio=evap_to_accrete,
-        #                       THawkGeV=T_Hawking, THawkKelvin=T_Hawking/Kelvin))
+        dlogM_dlogT += -self._rate_evaporation(T_rad, self._M_PBH) / (self._M_PBH.mass * H)
 
         return dlogM_dlogT
