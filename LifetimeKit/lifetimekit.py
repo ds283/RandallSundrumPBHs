@@ -124,7 +124,7 @@ class PBHLifetimeModel:
     _time_conversions = {'second': 1.0, 'year': 60.0*60.0*24.0*365.0}
 
 
-    def __init__(self, M_init, T_rad_init, LifetimeModel, num_samples=NumTSamplePoints):
+    def __init__(self, M_init, T_rad_init, LifetimeModel, num_samples=NumTSamplePoints, compute_rates=False):
         '''
         Capture initial values
         :param M_init: initial PBH mass, expressed in GeV
@@ -182,19 +182,21 @@ class PBHLifetimeModel:
         # get list of methods in LifetimeModel that can be used to produce a rate, and use these to populate
         # our rates list
         self.rates = {}
-        for method in dir(LifetimeModel):
-            if method.startswith('_rate_'):
-                c = getattr(LifetimeModel, method, None)
-                if callable(c):
-                    data = np.zeros_like(self.T_sample_points)
 
-                    M_PBH = self._engine.BlackHoleType(self._params, Kilogram, 'GeV')
+        if compute_rates:
+            for method in dir(LifetimeModel):
+                if method.startswith('_rate_'):
+                    c = getattr(LifetimeModel, method, None)
+                    if callable(c):
+                        data = np.zeros_like(self.T_sample_points)
 
-                    for n in range(0, len(self.T_sample_points)):
-                        M_PBH.set_value(self.M_sample_points[n])
-                        data[n] = c(self.T_sample_points[n], M_PBH)
+                        M_PBH = self._engine.BlackHoleType(self._params, Kilogram, 'GeV')
 
-                self.rates[method.removeprefix('_rate_')] = data
+                        for n in range(0, len(self.T_sample_points)):
+                            M_PBH.set_value(self.M_sample_points[n])
+                            data[n] = c(self.T_sample_points[n], M_PBH)
+
+                    self.rates[method.removeprefix('_rate_')] = data
 
 
     def _integrate(self, LifetimeModel, Observer):
@@ -369,7 +371,8 @@ class PBHInstance:
     # collapse_fraction: fraction of Hubble volume that collapses to PBH
     # num_sample_ponts: number of T samples to take
     def __init__(self, params, T_rad_init: float, models=_DEFAULT_MODEL_SET,
-                 accretion_efficiency_F=0.5, collapse_fraction_f=0.5, delta=0.0, num_samples=NumTSamplePoints):
+                 accretion_efficiency_F=0.5, collapse_fraction_f=0.5, delta=0.0, num_samples=NumTSamplePoints,
+                 compute_rates=False):
         self._params = params
 
         engine_RS = RS5D.Model(params)
@@ -400,78 +403,90 @@ class PBHInstance:
             if label == 'GreybodyRS5D':
                 model = RS5D_greybody.LifetimeModel(engine_RS, accretion_efficiency_F=accretion_efficiency_F,
                                                     use_effective_radius=True)
-                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples)
+                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples,
+                                                         compute_rates=compute_rates)
 
             elif label == 'GreybodyStandard4D':
                 model = Standard4D_greybody.LifetimeModel(engine_4D, accretion_efficiency_F=accretion_efficiency_F,
                                                           use_effective_radius=True)
-                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples)
+                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples,
+                                                         compute_rates=compute_rates)
 
             elif label == 'StefanBoltzmannRS5D':
                 model = RS5D_StefanBoltzmann.LifetimeModel(engine_RS,
                                                            accretion_efficiency_F=accretion_efficiency_F,
                                                            use_effective_radius=True, use_Page_suppression=True)
-                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples)
+                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples,
+                                                         compute_rates=compute_rates)
 
             elif label == 'StefanBoltzmannStandard4D':
                 model = Standard4D_StefanBoltzmann.LifetimeModel(engine_4D,
                                                                  accretion_efficiency_F=accretion_efficiency_F,
                                                                  use_effective_radius=True, use_Page_suppression=True)
-                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples)
+                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples,
+                                                         compute_rates=compute_rates)
 
             elif label == 'StefanBoltzmannRS5D-noreff':
                 model = RS5D_StefanBoltzmann.LifetimeModel(engine_RS,
                                                            accretion_efficiency_F=accretion_efficiency_F,
                                                            use_effective_radius=False, use_Page_suppression=True)
-                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples)
+                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples,
+                                                         compute_rates=compute_rates)
 
             elif label == 'StefanBoltzmannStandard4D-noreff':
                 model = Standard4D_StefanBoltzmann.LifetimeModel(engine_4D,
                                                                  accretion_efficiency_F=accretion_efficiency_F,
                                                                  use_effective_radius=False, use_Page_suppression=True)
-                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples)
+                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples,
+                                                         compute_rates=compute_rates)
 
             elif label == 'StefanBoltzmannRS5D-fixedg':
                 model = RS5D_StefanBoltzmann.LifetimeModel(engine_RS,
                                                            accretion_efficiency_F=accretion_efficiency_F,
                                                            use_effective_radius=True, use_Page_suppression=True,
                                                            fixed_g4=gstar_full_SM, fixed_g5=5.0)
-                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples)
+                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples,
+                                                         compute_rates=compute_rates)
 
             elif label == 'StefanBoltzmannStandard4D-fixedg':
                 model = Standard4D_StefanBoltzmann.LifetimeModel(engine_4D,
                                                                  accretion_efficiency_F=accretion_efficiency_F,
                                                                  use_effective_radius=True, use_Page_suppression=True,
                                                                  fixed_g4=gstar_full_SM)
-                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples)
+                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples,
+                                                         compute_rates=compute_rates)
 
             elif label == 'StefanBoltzmannRS5D-fixedN':
                 model = RS5D_StefanBoltzmann.LifetimeModel(engine_RS_fixedN,
                                                            accretion_efficiency_F=accretion_efficiency_F,
                                                            use_effective_radius=True, use_Page_suppression=True,
                                                            fixed_g4=gstar_full_SM, fixed_g5=5.0)
-                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples)
+                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples,
+                                                         compute_rates=compute_rates)
 
             elif label == 'StefanBoltzmannStandard4D-fixedN':
                 model = Standard4D_StefanBoltzmann.LifetimeModel(engine_4D_fixedN,
                                                                  accretion_efficiency_F=accretion_efficiency_F,
                                                                  use_effective_radius=True, use_Page_suppression=True,
                                                                  fixed_g4=gstar_full_SM)
-                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples)
+                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples,
+                                                         compute_rates=compute_rates)
 
             elif label == 'StefanBoltzmannRS5D-noPage':
                 model = RS5D_StefanBoltzmann.LifetimeModel(engine_RS,
                                                            accretion_efficiency_F=accretion_efficiency_F,
                                                            use_effective_radius=True, use_Page_suppression=False,
                                                            fixed_g4=gstar_full_SM, fixed_g5=5.0)
-                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples)
+                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples,
+                                                         compute_rates=compute_rates)
 
             elif label == 'StefanBoltzmannStandard4D-noPage':
                 model = Standard4D_StefanBoltzmann.LifetimeModel(engine_4D,
                                                                  accretion_efficiency_F=accretion_efficiency_F,
                                                                  use_effective_radius=True, use_Page_suppression=False,
                                                                  fixed_g4=gstar_full_SM)
-                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples)
+                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples,
+                                                         compute_rates=compute_rates)
 
             else:
                 raise RuntimeError('LifetimeKit.PBHInstance: unknown model type "{label}"'.format(label=label))
