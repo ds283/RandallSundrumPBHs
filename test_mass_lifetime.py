@@ -12,12 +12,12 @@ params = lkit.RS5D.Parameters(1E12)
 #           'StefanBoltzmannRS5D-noPage', 'StefanBoltzmannStandard4D-noPage']
 models = ['GreybodyRS5D', 'GreybodyStandard4D', 'StefanBoltzmannRS5D', 'StefanBoltzmannRS5D-noreff',
           'StefanBoltzmannRS5D-fixedg', 'StefanBoltzmannRS5D-fixedN', 'StefanBoltzmannRS5D-noPage']
-soln = lkit.PBHInstance(params, 1E10, models=models)
+soln = lkit.PBHInstance(params, 1E10, models=models, compute_rates=True)
 soln.mass_plot('mass_history.pdf')
 
 for label in soln.lifetimes:
     history = soln.lifetimes[label]
-    history.rates_plot('{label}_rate_history.pdf'.format(label=label), rates=['gluons', 'photons', 'EW_bosons', 'graviton4D', 'graviton5D', 'leptons', 'evaporation'])
+    history.rates_plot('{label}_rate_history.png'.format(label=label), rates=['gluons', 'photons', 'EW_bosons', 'graviton4D', 'graviton5D', 'leptons', 'evaporation'])
     history.rates_csv('{label}_rate_history.csv'.format(label=label), rates=['gluons', 'photons', 'EW_bosons', 'graviton4D', 'graviton5D', 'leptons', 'evaporation', 'accretion'])
 
     print('-- {label}'.format(label=label))
