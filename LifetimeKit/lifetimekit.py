@@ -314,8 +314,8 @@ class PBHLifetimeModel:
 
                 plt.loglog(T_values, history, label='{key}'.format(key=label))
 
-        plt.xlabel('Temperature T / {unit}'.format(unit=temperature_units))
-        plt.ylabel('Mass change rate / {massunit}/{tunit}'.format(massunit=mass_units, tunit=temperature_units))
+        plt.xlabel('Radiation tmperature $T_{{\mathrm{{rad}}}}$ / {unit}'.format(unit=temperature_units))
+        plt.ylabel('$|dM/dt|$ / {massunit}/{tunit}'.format(massunit=mass_units, tunit=time_units))
         plt.legend()
         plt.savefig(filename)
 
@@ -346,7 +346,7 @@ class PBHLifetimeModel:
 
         for label in rates:
             if label in self.rates:
-                history = np.abs(self.rates[label] / mass_units_to_GeV / time_units_to_seconds)
+                history = self.rates[label] / mass_units_to_GeV / time_units_to_seconds
 
                 data[label] = history
 
