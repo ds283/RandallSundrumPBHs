@@ -1,13 +1,8 @@
 import math
 
-from ...models_base import BaseStefanBoltzmannLifetimeModel
-from ...constants import Page_suppression_factor
-
 from ..cosmology.standard4D import Model, BlackHole
-
-Const_Reff_4D = 3.0 * math.sqrt(3.0) / 2.0
-
-Const_4Pi = 4.0 * math.pi
+from ...models_base import BaseStefanBoltzmannLifetimeModel, StefanBoltzmann4D, build_cumulative_g_table
+from ...particle_data import Standard4D_graviton_table
 
 class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
     '''
@@ -26,85 +21,55 @@ class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
         '''
 
         # invoke superclass constructor
-        super().__init__()
+        super().__init__(engine, Model, BlackHole,
+                         accretion_efficiency_F=accretion_efficiency_F,
+                         use_effective_radius=use_effective_radius,
+                         use_Page_suppression=use_Page_suppression,
+                         extra_4D_states=Standard4D_graviton_table)
 
-        if engine is None or not isinstance(engine, Model):
-            raise RuntimeError('Standard4D.StefanBoltzmann.LifetimeModel: supplied engine instance is not usable')
+        self._stefanboltzmann_model = StefanBoltzmann4D(self._params.StefanBoltzmannConstant4D,
+                                                        use_effective_radius=use_effective_radius,
+                                                        use_Page_suppression=use_Page_suppression)
 
-        self.engine = engine
-        self._params = engine.params
-        self._SB_4D = self._params.StefanBoltzmannConstant4D
-
-        # create a PBHModel instance; the value assigned to the mass doesn't matter
-        self._M_PBH = BlackHole(self.engine.params, 1.0, units='gram')
-
-        self._accretion_efficiency_F = accretion_efficiency_F
-        self._use_effective_radius = use_effective_radius
-        self._use_Page_suppression = use_Page_suppression
         self._fixed_g4 = fixed_g4
 
         self._logM_end = math.log(self._params.M4)
 
-    def _rate_accretion(self, T_rad, M_PBH):
-        # compute horizon radius in 1/GeV
-        rh = M_PBH.radius
-        rh_sq = rh*rh
-
-        # compute current energy density rho(T) at this radiation temperature
-        rho = self.engine.rho_radiation(T=T_rad)
-
-        # get alpha, the coefficient that turns rh into the effective radius, r_eff = alpha * rh
-        alpha = M_PBH.alpha if self._use_effective_radius else 1.0
-        alpha_sq = alpha*alpha
-
-        dM_dt = math.pi * self._accretion_efficiency_F * alpha_sq * rh_sq * rho
-
-        return dM_dt
-
     def _rate_evaporation(self, T_rad, M_PBH):
-        # compute horizon radius in 1/GeV
-        rh = M_PBH.radius
-        rh_sq = rh*rh
-
-        # get alpha, the coefficient that turns rh into the effective radius, r_eff = alpha * rh
-        alpha = M_PBH.alpha if self._use_effective_radius else 1.0
-        alpha_sq = alpha*alpha
-
-        t = M_PBH.t   # only need 4D result
-        t4 = t*t*t*t
-
-        # compute Hawking temperature and effective number of particle species active in the Hawking quanta
         T_Hawking = M_PBH.T_Hawking
 
-        # effective number of radiated species is SM + 2 to count 4D graviton states
-        # (but is this an overcounting? we know from the greybody calculation that emission into gravitons
-        # is basically negligible in 4D)
-        g4_evap = (self._fixed_g4 if self._fixed_g4 is not None else self.g4(T_Hawking)) + 2.0
+        # + 2.0 accounts for 2 graviton states
+        g4 = self._fixed_g4 if self._fixed_g4 is not None else self.g4(T_Hawking)
+        return self._stefanboltzmann_model.rate(M_PBH, g4=g4)
 
-        evap_prefactor = Const_4Pi * alpha_sq / (t4 * rh_sq)
-        evap_dof = g4_evap * self._SB_4D
-
-        dM_dt = -evap_prefactor * evap_dof / (Page_suppression_factor if self._use_Page_suppression else 1.0)
-
-        return dM_dt
+    def _rate_stefanboltzmann(self, T_rad, M_PBH):
+        """
+        Convenience rate function to return Stefan-Boltzmann emission rate
+        for a single 4D degree of freedom, using all existing settings
+        (effetive radius, Page suppression, etc.)
+        :param T_rad:
+        :param M_PBH:
+        :return:
+        """
+        return self._private_stefanboltzmann_model.rate(M_PBH, g4=1.0)
 
     # step the PBH mass, accounting for accretion and evaporation
     def __call__(self, logT_rad, logM_asarray):
         # for some purposes we need the temperature of the radiation bath expressed in GeV
         T_rad = math.exp(logT_rad)
 
-        # also the PBH mass, and reset the PBH model object self._M_PBH to its value
+        # also the PBH mass, and reset the PBH model object self._PBH to its value
         logM = logM_asarray.item()
         M_PBH = math.exp(logM)
-        self._M_PBH.set_value(M_PBH, 'GeV')
+        self._PBH.set_value(M_PBH, 'GeV')
 
         # compute current Hubble rate at this radiation temperature
         H = self.engine.Hubble(T=T_rad)
 
         # ACCRETION
-        dlogM_dlogT = -self._rate_accretion(T_rad, self._M_PBH) / (self._M_PBH.mass * H)
+        dlogM_dlogT = -self._rate_accretion(T_rad, self._PBH) / (self._PBH.mass * H)
 
         # EVAPORATION
-        dlogM_dlogT += -self._rate_evaporation(T_rad, self._M_PBH) / (self._M_PBH.mass * H)
+        dlogM_dlogT += -self._rate_evaporation(T_rad, self._PBH) / (self._PBH.mass * H)
 
         return dlogM_dlogT

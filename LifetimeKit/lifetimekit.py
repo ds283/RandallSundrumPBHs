@@ -22,6 +22,9 @@ NumTSamplePoints = 200
 # default models to compute
 _DEFAULT_MODEL_SET = ['StefanBoltzmannRS5D', 'GreybodyRS5D', 'StefanBoltzmannStandard4D', 'GreybodyStandard4D']
 
+_UNIT_ERROR_MESSAGE = 'PBHLifetimeModel: unit "{unit}" not understood in constructor'
+MISSING_HISTORY_MESSAGE = 'History "{label}" not calculated for this PBH lifetime model'
+
 class LifetimeObserver:
     '''
     LifetimeObserver is a policy object that decides when to store data about the computed
@@ -124,7 +127,8 @@ class PBHLifetimeModel:
     _time_conversions = {'second': 1.0, 'year': 60.0*60.0*24.0*365.0}
 
 
-    def __init__(self, M_init, T_rad_init, LifetimeModel, num_samples=NumTSamplePoints, compute_rates=False):
+    def __init__(self, M_init, T_rad_init, LifetimeModel, num_samples=NumTSamplePoints, compute_rates=False,
+                 verbose=False):
         '''
         Capture initial values
         :param M_init: initial PBH mass, expressed in GeV
@@ -135,6 +139,9 @@ class PBHLifetimeModel:
         # LifetimeModel should include an engine field to which we can refer
         self._engine = LifetimeModel.engine
         self._params = self._engine.params
+
+        # print verbose debugging/information messages
+        self._verbose = verbose
 
         self.M_init = M_init
         self.T_rad_init = T_rad_init
@@ -186,17 +193,21 @@ class PBHLifetimeModel:
         if compute_rates:
             for method in dir(LifetimeModel):
                 if method.startswith('_rate_'):
+                    rate_name = method.removeprefix('_rate_')
+
                     c = getattr(LifetimeModel, method, None)
                     if callable(c):
-                        data = np.zeros_like(self.T_sample_points)
+                        raw_rate = np.zeros_like(self.T_sample_points)
 
                         M_PBH = self._engine.BlackHoleType(self._params, Kilogram, 'GeV')
 
                         for n in range(0, len(self.T_sample_points)):
                             M_PBH.set_value(self.M_sample_points[n])
-                            data[n] = c(self.T_sample_points[n], M_PBH)
 
-                    self.rates[method.removeprefix('_rate_')] = data
+                            # raw_rate is the plain emission rate, measured in mass/time
+                            raw_rate[n] = c(self.T_sample_points[n], M_PBH)
+
+                    self.rates[rate_name] = raw_rate
 
 
     def _integrate(self, LifetimeModel, Observer):
@@ -283,23 +294,23 @@ class PBHLifetimeModel:
         # record the shift due to using the analytic model
         self.T_shift = Ti_rad - self.T_lifetime
 
-    def rates_plot(self, filename, rates=None, mass_units='gram', time_units='year', temperature_units='Kelvin'):
+    def _validate_units(self, mass_units=None, time_units=None, temperature_units=None):
         # check desired units are sensible
-        if mass_units not in self._mass_conversions:
-            raise RuntimeError('PBHLifetimeModel.rates_plot(): unit "{unit}" not understood in '
-                               'constructor'.format(unit=mass_units))
+        if mass_units is not None and mass_units not in self._mass_conversions:
+            raise RuntimeError(_UNIT_ERROR_MESSAGE.format(unit=mass_units))
 
-        if temperature_units not in self._temperature_conversions:
-            raise RuntimeError('PBHLifetimeModel.rates_plot: unit "{unit}" not understood in '
-                               'constructor'.format(unit=temperature_units))
+        if time_units is not None and time_units not in self._time_conversions:
+            raise RuntimeError(_UNIT_ERROR_MESSAGE.format(unit=time_units))
 
-        if time_units not in self._time_conversions:
-            raise RuntimeError('PBHLifetimeModel.rates_plot: unit "{unit}" not understood in '
-                               'constructor'.format(unit=time_units))
+        if temperature_units is not None and temperature_units not in self._temperature_conversions:
+            raise RuntimeError(_UNIT_ERROR_MESSAGE.format(unit=temperature_units))
+
+    def rates_plot(self, filename, show_rates=None, mass_units='gram', time_units='year', temperature_units='Kelvin'):
+        self._validate_units(mass_units=mass_units, time_units=time_units, temperature_units=temperature_units)
 
         # if no models specified, plot them all
-        if rates is None:
-            rates = self.rates.keys()
+        if show_rates is None:
+            show_rates = self.rates.keys()
 
         mass_units_to_GeV = self._mass_conversions[mass_units]
         temperature_units_to_GeV = self._temperature_conversions[temperature_units]
@@ -308,34 +319,57 @@ class PBHLifetimeModel:
         plt.figure()
 
         T_values = self.T_sample_points / temperature_units_to_GeV
-        for label in rates:
+        for label in show_rates:
             if label in self.rates:
                 history = np.abs(self.rates[label] / mass_units_to_GeV / time_units_to_seconds)
 
                 plt.loglog(T_values, history, label='{key}'.format(key=label))
+            else:
+                if self._verbose:
+                    print(MISSING_HISTORY_MESSAGE.format(label=label))
 
         plt.xlabel('Radiation tmperature $T_{{\mathrm{{rad}}}}$ / {unit}'.format(unit=temperature_units))
         plt.ylabel('$|dM/dt|$ / {massunit}/{tunit}'.format(massunit=mass_units, tunit=time_units))
         plt.legend()
         plt.savefig(filename)
 
-    def rates_csv(self, filename, rates=None, mass_units='gram', time_units='year', temperature_units='Kelvin'):
-        # check desired units are sensible
-        if mass_units not in self._mass_conversions:
-            raise RuntimeError('PBHLifetimeModel.rates_plot(): unit "{unit}" not understood in '
-                               'constructor'.format(unit=mass_units))
+    def rates_relative_plot(self, filename, show_rates=None, compare_rate='stefanboltzmann', temperature_units='Kelvin'):
+        # if no models specified, plot them all
+        if show_rates is None:
+            show_rates = self.rates.keys()
 
-        if temperature_units not in self._temperature_conversions:
-            raise RuntimeError('PBHLifetimeModel.rates_plot: unit "{unit}" not understood in '
-                               'constructor'.format(unit=temperature_units))
+        temperature_units_to_GeV = self._temperature_conversions[temperature_units]
 
-        if time_units not in self._time_conversions:
-            raise RuntimeError('PBHLifetimeModel.rates_plot: unit "{unit}" not understood in '
-                               'constructor'.format(unit=time_units))
+        plt.figure()
+
+        T_values = self.T_sample_points / temperature_units_to_GeV
+
+        if compare_rate not in self.rates:
+            raise RuntimeError('Comparison rate label "{label}" not present in computed '
+                               'rates'.format(label=compare_rate))
+
+        compare_history = self.rates[compare_rate]
+
+        for label in show_rates:
+            if label in self.rates:
+                history = self.rates[label] / compare_history
+
+                plt.semilogx(T_values, history, label='{key}'.format(key=label))
+            else:
+                if self._verbose:
+                    print(MISSING_HISTORY_MESSAGE.format(label=label))
+
+        plt.xlabel('Radiation tmperature $T_{{\mathrm{{rad}}}}$ / {unit}'.format(unit=temperature_units))
+        plt.ylabel('$|dM/dt|$ relative to {label}'.format(label=compare_rate))
+        plt.legend()
+        plt.savefig(filename)
+
+    def rates_csv(self, filename, show_rates=None, mass_units='gram', time_units='year', temperature_units='Kelvin'):
+        self._validate_units(mass_units=mass_units, time_units=time_units, temperature_units=temperature_units)
 
         # if no models specified, plot them all
-        if rates is None:
-            rates = self.rates.keys()
+        if show_rates is None:
+            show_rates = self.rates.keys()
 
         mass_units_to_GeV = self._mass_conversions[mass_units]
         temperature_units_to_GeV = self._temperature_conversions[temperature_units]
@@ -344,11 +378,14 @@ class PBHLifetimeModel:
         T_values = self.T_sample_points / temperature_units_to_GeV
         data = {'T_rad': T_values}
 
-        for label in rates:
+        for label in show_rates:
             if label in self.rates:
                 history = self.rates[label] / mass_units_to_GeV / time_units_to_seconds
 
                 data[label] = history
+            else:
+                if self._verbose:
+                    print(MISSING_HISTORY_MESSAGE.format(label=label))
 
         df = pd.DataFrame(data)
         df.index.name = 'index'
