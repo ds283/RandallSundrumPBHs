@@ -68,13 +68,13 @@ class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
     def _rate_stefanboltzmann(self, T_rad, M_PBH):
         """
         Convenience rate function to return Stefan-Boltzmann emission rate
-        for a single 5D degree of freedom, using all existing settings
+        for a single 4D degree of freedom, using all existing settings
         (effetive radius, Page suppression, etc.)
         :param T_rad:
         :param M_PBH:
         :return:
         """
-        return self._stefanboltzmann_model.rate(M_PBH, g4=0.0, g5=1.0)
+        return self._stefanboltzmann_model.rate(M_PBH, g4=1.0, g5=0.0)
 
     # step the PBH mass, accounting for accretion and evaporation
     def __call__(self, logT_rad, logM_asarray):
