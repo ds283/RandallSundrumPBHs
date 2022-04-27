@@ -38,7 +38,6 @@ class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
     def _rate_evaporation(self, T_rad, M_PBH):
         T_Hawking = M_PBH.T_Hawking
 
-        # + 2.0 accounts for 2 graviton states
         g4 = self._fixed_g4 if self._fixed_g4 is not None else self.g4(T_Hawking)
         return self._stefanboltzmann_model.rate(M_PBH, g4=g4)
 
@@ -46,7 +45,7 @@ class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
         """
         Convenience rate function to return Stefan-Boltzmann emission rate
         for a single 4D degree of freedom, using all existing settings
-        (effetive radius, Page suppression, etc.)
+        (effective radius, Page suppression, etc.)
         :param T_rad:
         :param M_PBH:
         :return:

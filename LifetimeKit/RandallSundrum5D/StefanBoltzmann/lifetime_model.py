@@ -58,8 +58,6 @@ class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
     def _rate_evaporation(self, T_rad, M_PBH):
         T_Hawking = M_PBH.T_Hawking
 
-        # no need to add + 2.0 for 4D graviton states here; they are absorbed into the 5D
-        # graviton states
         g4 = self._fixed_g4 if self._fixed_g4 is not None else self.g4(T_Hawking)
         g5 = self._fixed_g5 if self._fixed_g5 is not None else self.g5(T_Hawking)
 
