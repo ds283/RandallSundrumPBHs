@@ -51,7 +51,7 @@ class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
         :param M_PBH:
         :return:
         """
-        return self._private_stefanboltzmann_model.rate(M_PBH, g4=1.0)
+        return self._stefanboltzmann_model.rate(M_PBH, g4=1.0)
 
     # step the PBH mass, accounting for accretion and evaporation
     def __call__(self, logT_rad, logM_asarray):
