@@ -120,9 +120,9 @@ class BaseCosmology:
 
 
     def g(self, T):
-        '''
+        """
         Compute number of relativistic degrees of freedom in the radiation bath at temperature T
-        '''
+        """
 
         # find where radiation temperature lies within out threshold list
         index = np.searchsorted(self.SM_thresholds, T, side='left')
@@ -276,10 +276,10 @@ class BaseStefanBoltzmannLifetimeModel(BondiHoyleLyttletonAccretionModel):
 
 
     def g4(self, T_Hawking):
-        '''
+        """
         Compute number of relativistic degrees of freedom available for Hawking quanta to radiate into,
         based on Standard Model particles
-        '''
+        """
 
         # find where T_Hawking lies within out threshold list
         index = np.searchsorted(self._thresholds, T_Hawking, side='left')

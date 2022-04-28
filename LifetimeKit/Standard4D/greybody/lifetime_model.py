@@ -8,20 +8,20 @@ from ..cosmology.standard4D import Model, BlackHole
 Const_2Pi = 2.0 * math.pi
 
 class LifetimeModel(BaseGreybodyLifetimeModel):
-    '''
+    """
     Evaluate RHS of mass evolution model (assuming a standard 4-dimensional models),
     using a Stefan-Boltzmann limit for the evaporation term
     (i.e. the integrated Hawking flux)
-    '''
+    """
     def __init__(self, engine: Model, accretion_efficiency_F=0.3, use_Page_suppression=True,
                  use_effective_radius=True):
-        '''
+        """
         Instantiate a StefanBoltzmann4DLifetimeModel object
         :param engine: a StandardModel instance to use for calculations
         :param accretion_efficiency_F: efficiency factor for Bondi-Hoyle-Lyttleton accretion
         :param use_effective_radius: whether accretion should use an effective radius rather than the horizon radius;
         for a greybody lifetime model this applies only to accretion
-        '''
+        """
 
         # invoke superclass constructor
         super().__init__(engine, Model, BlackHole,

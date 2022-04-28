@@ -7,20 +7,20 @@ from ...models_base import BaseStefanBoltzmannLifetimeModel, build_cumulative_g_
 from ...particle_data import RS_bulk_particle_table
 
 class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
-    '''
+    """
     Evaluate RHS of mass evolution model (assuming a Randall-Sundrum models),
     using a Stefan-Boltzmann limit for the evaporation term
     (i.e. the integrated Hawking flux)
-    '''
+    """
     def __init__(self, engine: Model, accretion_efficiency_F=0.3,
                  use_effective_radius=True, use_Page_suppression=True,
                  fixed_g4=None, fixed_g5=None):
-        '''
+        """
         Instantiate a StefanBoltzmann5DLifetimeModel object
         :param engine: a RandallSundrumModel instance to use for calculations
         :param accretion_efficiency_F: efficiency factor for Bondi-Hoyle-Lyttleton accretion
         :param use_effective_radius: whether accretion should use an effective radius rather than the horizon radius
-        '''
+        """
 
         # invoke superclass constructor
         super().__init__(engine, Model, BlackHole,
@@ -43,10 +43,10 @@ class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
         self._logM_end = math.log(self._params.M4)
 
     def g5(self, T_Hawking):
-        '''
+        """
         Compute number of relativistic degrees of freedom available for Hawking quanta to radiate into
         based on bulk species
-        '''
+        """
 
         # find where T_Hawking lies within out threshold list
         index = np.searchsorted(self.bulk_thresholds, T_Hawking, side='left')

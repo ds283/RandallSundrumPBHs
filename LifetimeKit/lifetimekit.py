@@ -26,14 +26,14 @@ _UNIT_ERROR_MESSAGE = 'PBHLifetimeModel: unit "{unit}" not understood in constru
 MISSING_HISTORY_MESSAGE = 'History "{label}" not calculated for this PBH lifetime model'
 
 class LifetimeObserver:
-    '''
+    """
     LifetimeObserver is a policy object that decides when to store data about the computed
     PBH model (i.e. mass as a function of T), and also checks whether the integration should abort
     because evaporation has proceeded to the point where a relic has formed
-    '''
+    """
 
     def __init__(self, engine, sample_grid, mass_grid, x_grid, relic_mass):
-        '''
+        """
         Instantiate a LifetimeObserver instance.
         The constructor captures model engine instance. _sample_grid should be a numpy 1d array representing
         points where we want to sample the solution M(T), and mass_grid is an (empty) numpy 1d array of the same shape
@@ -42,7 +42,7 @@ class LifetimeObserver:
         :param sample_grid: soln_grid of sample points for independent variable (here log T)
         :param mass_grid: soln_grid of sample points for dependent variable (here M)
         :param x_grid: soln_grid of sample points for dependent variable (here x)
-        '''
+        """
         if engine is None:
             raise RuntimeError('LifetimeObserver: supplied model instance is None')
 
@@ -77,13 +77,13 @@ class LifetimeObserver:
 
     # observation step should sample the solution if needed, and check whether the integration should end
     def __call__(self, logT_rad, logM_asarray):
-        '''
+        """
         Execute an observation step. This should sample the solution if needed, storing the current value in
         self._mass_grid, and advance self.sample_grid_current_index (and update self.next_sample_point)
         :param logT_rad: current value of log T for the radiation bath
         :param logx_asarray: current value of log x, where x is the PBH mass fraction x = M/M_H
         :return:
-        '''
+        """
         # for some calculations we cannot avoid using the temperature of the radiation bath
         # expressed in GeV
         T_rad = math.exp(logT_rad)
@@ -129,13 +129,13 @@ class PBHLifetimeModel:
 
     def __init__(self, M_init, T_rad_init, LifetimeModel, num_samples=NumTSamplePoints, compute_rates=False,
                  verbose=False):
-        '''
+        """
         Capture initial values
         :param M_init: initial PBH mass, expressed in GeV
         :param T_rad_init: temperature of radiation bath at formation, expressed in GeV
         :param LifetimeModel: model to use for lifetime calculations
         :param num_samples: number of samples to extract
-        '''
+        """
         # LifetimeModel should include an engine field to which we can refer
         self._engine = LifetimeModel.engine
         self._params = self._engine.params
@@ -211,12 +211,12 @@ class PBHLifetimeModel:
 
 
     def _integrate(self, LifetimeModel, Observer):
-        '''
+        """
 
         :param LifetimeModel: callable representing RHS of ODE system
         :param Observer: callable representing solution observer (to record solution at specified sample points)
         :return:
-        '''
+        """
         # set up stepper; need to use on that supports solout, which the SUNDIALS ones don't seem to do
         stepper = ode(LifetimeModel).set_integrator('dopri5', rtol=1E-8, nsteps=5000)
         stepper.set_solout(Observer)

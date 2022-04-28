@@ -18,20 +18,20 @@ class ProgressBarActor:
         self.event = Event()
 
     def update(self, num_items_completed: int) -> None:
-        '''
+        """
         Updates the ProgressBar with the incremental number of items that were just completed
-        '''
+        """
         self.counter += num_items_completed
         self.delta += num_items_completed
         self.event.set()
 
     async def wait_for_update(self) -> Tuple[int, int]:
-        '''
+        """
         Blocking call.
 
         Waits until somebody calls update(), then returns a tuple of the number of updates since the last call
         to wait_for_update(), and the total number of completed items.
-        '''
+        """
         await self.event.wait()
         self.event.clear()
         saved_delta = self.delta
@@ -39,9 +39,9 @@ class ProgressBarActor:
         return saved_delta, self.counter
 
     def get_countter(self) -> int:
-        '''
+        """
         Returns the total number of complete items
-        '''
+        """
         return self.counter
 
 
