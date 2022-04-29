@@ -7,7 +7,7 @@ xi0_spin0_4D = 0.00187
 b_spin0_4D = 0.395
 c_spin0_4D = 1.186
 
-xi0_spin0pt5_4D = 0.001013
+xi0_spin0pt5_4D = 0.00103
 b_spin0pt5_4D = 0.337
 c_spin0pt5_4D = 1.221
 
