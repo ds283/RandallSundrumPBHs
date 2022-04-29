@@ -55,24 +55,24 @@ class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
 
         return self.bulk_g_values[index]
 
-    def _rate_evaporation(self, T_rad, M_PBH):
-        T_Hawking = M_PBH.T_Hawking
+    def _rate_evaporation(self, T_rad, PBH):
+        T_Hawking = PBH.T_Hawking
 
         g4 = self._fixed_g4 if self._fixed_g4 is not None else self.g4(T_Hawking)
         g5 = self._fixed_g5 if self._fixed_g5 is not None else self.g5(T_Hawking)
 
-        return self._stefanboltzmann_model.rate(M_PBH, g4=g4, g5=g5)
+        return self._stefanboltzmann_model.rate(PBH, g4=g4, g5=g5)
 
-    def _rate_stefanboltzmann(self, T_rad, M_PBH):
+    def _rate_stefanboltzmann(self, T_rad, PBH):
         """
         Convenience rate function to return Stefan-Boltzmann emission rate
         for a single 4D degree of freedom, using all existing settings
         (effetive radius, Page suppression, etc.)
         :param T_rad:
-        :param M_PBH:
+        :param PBH:
         :return:
         """
-        return self._stefanboltzmann_model.rate(M_PBH, g4=1.0, g5=0.0)
+        return self._stefanboltzmann_model.rate(PBH, g4=1.0, g5=0.0)
 
     # step the PBH mass, accounting for accretion and evaporation
     def __call__(self, logT_rad, logM_asarray):
@@ -81,8 +81,8 @@ class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
 
         # also the PBH mass, and reset the PBH model object self._PBH to its value
         logM = logM_asarray.item()
-        M_PBH = math.exp(logM)
-        self._PBH.set_value(M_PBH, 'GeV')
+        PBH = math.exp(logM)
+        self._PBH.set_value(PBH, 'GeV')
 
         # compute current Hubble rate at this radiation temperature
         H = self.engine.Hubble(T=T_rad)

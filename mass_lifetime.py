@@ -131,7 +131,7 @@ def is_valid(M5: float, Tinit: float, f: float):
 
         # constructing a PBHModel with this mass will raise an exception if the mass is out of bounds
         # could possibly just write in the test here, but this way we abstract it into the PBHModel class
-        M_PBH = lkit.RS5D.BlackHole(params, M_init, units='GeV')
+        PBH = lkit.RS5D.BlackHole(params, M_init, units='GeV')
     except RuntimeError as e:
         return False
 

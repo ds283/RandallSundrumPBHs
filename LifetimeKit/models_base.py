@@ -144,16 +144,16 @@ class BondiHoyleLyttletonAccretionModel:
         self._use_effective_radius = use_effective_radius
         self._use_Page_suppression = use_Page_suppression
 
-    def rate(self, T_rad, M_PBH):
+    def rate(self, T_rad, PBH):
         # compute horizon radius in 1/GeV
-        rh = M_PBH.radius
+        rh = PBH.radius
         rh_sq = rh*rh
 
         # compute current energy density rho(T) at this radiation temperature
         rho = self.engine.rho_radiation(T=T_rad)
 
         # get alpha, the coefficient that turns rh into the effective radius, r_eff = alpha * rh
-        alpha = M_PBH.alpha if self._use_effective_radius else 1.0
+        alpha = PBH.alpha if self._use_effective_radius else 1.0
         alpha_sq = alpha*alpha
 
         dM_dt = math.pi * self._accretion_efficiency_F * alpha_sq * rh_sq * rho
@@ -169,22 +169,22 @@ class StefanBoltzmann4D:
     Shared implementation of Stefan-Boltzmann law in 4D
     """
 
-    def __init__(self, SB_4D, use_effective_radius=True, use_Page_suppression=True):
+    def __init__(self, SB_4D: float, use_effective_radius=True, use_Page_suppression=True):
         self._use_effective_radius = use_effective_radius
         self._use_Page_suppression = use_Page_suppression
 
         self._SB_4D = SB_4D
 
-    def rate(self, M_PBH, g4=1.0):
+    def rate(self, PBH, g4=1.0):
         # compute horizon radius in 1/GeV
-        rh = M_PBH.radius
+        rh = PBH.radius
         rh_sq = rh*rh
 
         # get alpha, the coefficient that turns rh into the effective radius, r_eff = alpha * rh
-        alpha = M_PBH.alpha if self._use_effective_radius else 1.0
+        alpha = PBH.alpha if self._use_effective_radius else 1.0
         alpha_sq = alpha*alpha
 
-        t = M_PBH.t
+        t = PBH.t
         t4 = t*t*t*t
 
         evap_prefactor = Const_4Pi * alpha_sq / (t4 * rh_sq)
@@ -200,23 +200,23 @@ class StefanBoltzmann5D:
     Shared implementation of Stefan-Boltzmannn law in 5D
     """
 
-    def __init__(self, SB_4D, SB_5D, use_effective_radius=True, use_Page_suppression=True):
+    def __init__(self, SB_4D: float, SB_5D: float, use_effective_radius=True, use_Page_suppression=True):
         self._use_effective_radius = use_effective_radius
         self._use_Page_suppression = use_Page_suppression
 
         self._SB_4D = SB_4D
         self._SB_5D = SB_5D
 
-    def rate(self, M_PBH, g4=0.0, g5=1.0):
+    def rate(self, PBH, g4=0.0, g5=1.0):
         # compute horizon radius in 1/GeV
-        rh = M_PBH.radius
+        rh = PBH.radius
         rh_sq = rh*rh
 
         # get alpha, the coefficient that turns rh into the effective radius, r_eff = alpha * rh
-        alpha = M_PBH.alpha if self._use_effective_radius else 1.0
+        alpha = PBH.alpha if self._use_effective_radius else 1.0
         alpha_sq = alpha*alpha
 
-        t = M_PBH.t
+        t = PBH.t
         t4 = t*t*t*t
 
         evap_prefactor = Const_4Pi * alpha_sq / (t4 * rh_sq)
@@ -266,6 +266,10 @@ class BaseStefanBoltzmannLifetimeModel(BondiHoyleLyttletonAccretionModel):
         # build table of mass thresholds associated with Hawking quanta; this is used in the Stefan-Boltzmann
         # approximation
         particle_table = SM_particle_table
+
+        # extra particle states allow us to add extra dofs to the Standard Model ones, if needed.
+        # Examples might be the 4D graviton states. We don't always need those, e.g. in a 5D graviton
+        # model where the graviton emission needs to be handled differently.
         if extra_4D_states is not None:
             particle_table = particle_table | extra_4D_states
 
@@ -286,19 +290,8 @@ class BaseStefanBoltzmannLifetimeModel(BondiHoyleLyttletonAccretionModel):
 
         return self._g_values[index]
 
-    def _rate_accretion(self, T_rad, M_PBH):
-        return self._accretion_model.rate(T_rad, M_PBH)
-
-    def _rate_stefanboltzmann(self, T_rad, M_PBH):
-        """
-        Convenience rate function to return Stefan-Boltzmann emission rate
-        for a single 4D degree of freedom, using all existing settings
-        (effetive radius, Page suppression, etc.)
-        :param T_rad:
-        :param M_PBH:
-        :return:
-        """
-        return self._private_stefanboltzmann_model.rate(M_PBH, g4=1.0)
+    def _rate_accretion(self, T_rad, PBH):
+        return self._accretion_model.rate(T_rad, PBH)
 
 
 class BaseGreybodyLifetimeModel(BondiHoyleLyttletonAccretionModel):
@@ -339,19 +332,19 @@ class BaseGreybodyLifetimeModel(BondiHoyleLyttletonAccretionModel):
         # cache a list of greybody fitting functions
         self.massless_xi, self.massive_xi, self.xi_dict = build_greybody_xi(SM_particle_table)
 
-    def _sum_xi_list(self, T_rad, M_PBH, species):
+    def _sum_xi_list(self, T_rad, PBH, species):
         """
         compute horizon radius in 1/GeV for the species enumerated in 'speies'
         :param T_rad: current temperature of the radiation bath
-        :param M_PBH: current black hole object, used to abstract Hawking temperature calculation
+        :param PBH: current black hole object, used to abstract Hawking temperature calculation
         :param species: list of names of species to include
         :return: emission rate in Mass/Time = [Energy]^2
         """
-        rh = M_PBH.radius
+        rh = PBH.radius
         rh_sq = rh*rh
 
         # compute Hawking temperature
-        T_Hawking = M_PBH.T_Hawking
+        T_Hawking = PBH.T_Hawking
 
         dM_dt = 0.0
         for label in species:
@@ -370,23 +363,23 @@ class BaseGreybodyLifetimeModel(BondiHoyleLyttletonAccretionModel):
 
         return -dM_dt / (Const_2Pi * rh_sq)
 
-    def _rate_accretion(self, T_rad, M_PBH):
-        return self._accretion_model.rate(T_rad, M_PBH)
+    def _rate_accretion(self, T_rad, PBH):
+        return self._accretion_model.rate(T_rad, PBH)
 
-    def _rate_quarks(self, T_rad, M_PBH):
+    def _rate_quarks(self, T_rad, PBH):
         quarks = ['up quark', 'down quark', 'strange quark', 'charm quark', 'top quark', 'bottom quark']
-        return self._sum_xi_list(T_rad, M_PBH, quarks)
+        return self._sum_xi_list(T_rad, PBH, quarks)
 
-    def _rate_leptons(self, T_rad, M_PBH):
+    def _rate_leptons(self, T_rad, PBH):
         leptons = ['electron', 'muon', 'tau', 'neutrino']
-        return self._sum_xi_list(T_rad, M_PBH, leptons)
+        return self._sum_xi_list(T_rad, PBH, leptons)
 
-    def _rate_photons(self, T_rad, M_PBH):
-        return self._sum_xi_list(T_rad, M_PBH, ['photon'])
+    def _rate_photons(self, T_rad, PBH):
+        return self._sum_xi_list(T_rad, PBH, ['photon'])
 
-    def _rate_gluons(self, T_rad, M_PBH):
-        return self._sum_xi_list(T_rad, M_PBH, ['gluon'])
+    def _rate_gluons(self, T_rad, PBH):
+        return self._sum_xi_list(T_rad, PBH, ['gluon'])
 
-    def _rate_EW_bosons(self, T_rad, M_PBH):
+    def _rate_EW_bosons(self, T_rad, PBH):
         EW_bosons = ['Higgs', 'Z boson', 'W boson']
-        return self._sum_xi_list(T_rad, M_PBH, EW_bosons)
+        return self._sum_xi_list(T_rad, PBH, EW_bosons)

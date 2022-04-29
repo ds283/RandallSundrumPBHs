@@ -44,45 +44,45 @@ class LifetimeModel(BaseGreybodyLifetimeModel):
 
         self._logM_end = math.log(self._params.M4)
 
-    def _rate_evaporation(self, T_rad, M_PBH):
+    def _rate_evaporation(self, T_rad, PBH):
         """
         Compute evaporation rate at a specified temperature of the radiation bath
         and specified black hole properties
         :param T_rad:
-        :param M_PBH:
+        :param PBH:
         :return:
         """
         # compute horizon radius in 1/GeV
-        rh = M_PBH.radius
+        rh = PBH.radius
         rh_sq = rh*rh
 
         # compute Hawking temperature
-        T_Hawking = M_PBH.T_Hawking
+        T_Hawking = PBH.T_Hawking
 
         # sum over greybody factors to get evaporation rate
         dM_dt = -(self.massless_xi + sum([xi(T_Hawking) for xi in self.massive_xi])) / (Const_2Pi * rh_sq)
 
         return dM_dt
 
-    def _rate_graviton5D(self, T_rad, M_PBH):
+    def _rate_graviton5D(self, T_rad, PBH):
         """
         Compute emission rate into 5D gravitons
         :param T_rad:
-        :param M_PBH:
+        :param PBH:
         :return:
         """
-        return self._sum_xi_list(T_rad, M_PBH, ['5D graviton'])
+        return self._sum_xi_list(T_rad, PBH, ['5D graviton'])
 
-    def _rate_stefanboltzmann(self, T_rad, M_PBH):
+    def _rate_stefanboltzmann(self, T_rad, PBH):
         """
         Convenience rate function to return Stefan-Boltzmann emission rate
         for a single 4D degree of freedom, using all existing settings
         (effetive radius, Page suppression, etc.)
         :param T_rad:
-        :param M_PBH:
+        :param PBH:
         :return:
         """
-        return self._stefanboltzmann_model.rate(M_PBH, g4=1.0, g5=0.0)
+        return self._stefanboltzmann_model.rate(PBH, g4=1.0, g5=0.0)
 
     # step the PBH mass, accounting for accretion and evaporation
     def __call__(self, logT_rad, logM_asarray):
@@ -91,8 +91,8 @@ class LifetimeModel(BaseGreybodyLifetimeModel):
 
         # also the PBH mass, and reset the PBH model object self._PBH to its value
         logM = logM_asarray.item()
-        M_PBH = math.exp(logM)
-        self._PBH.set_value(M_PBH, 'GeV')
+        PBH_mass = math.exp(logM)
+        self._PBH.set_value(PBH_mass, 'GeV')
 
         # compute current Hubble rate at this radiation temperature
         H = self.engine.Hubble(T=T_rad)

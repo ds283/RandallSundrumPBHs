@@ -89,15 +89,15 @@ class LifetimeObserver:
         T_rad = math.exp(logT_rad)
 
         # extract current value of PBH mass, in GeV
-        M_PBH = math.exp(logM_asarray.item())
+        PBH = math.exp(logM_asarray.item())
 
         # write solution into M-soln_grid if we have passed an observation point
         if self.next_sample_point is not None and logT_rad < self.next_sample_point:
             # compute mass as a fraction of the Hubble volume mass
-            x = M_PBH / self._engine.M_Hubble(T=T_rad)
+            x = PBH / self._engine.M_Hubble(T=T_rad)
 
             # store these values
-            self._mass_grid[self.sample_grid_current_index] = M_PBH
+            self._mass_grid[self.sample_grid_current_index] = PBH
             self._x_grid[self.sample_grid_current_index] = x
 
             self.sample_grid_current_index += 1
@@ -109,7 +109,7 @@ class LifetimeObserver:
         # check whether integration should halt because we have decreased the PBH mass below the 4D Planck scale M4.
         # If this happens, we either get a relic, or at least the standard calculation of Hawking radiation is
         # invalidated, so either way we should stop
-        if M_PBH < self.relic_mass:
+        if PBH < self.relic_mass:
             self.terminated = True
             return -1
 
@@ -197,17 +197,17 @@ class PBHLifetimeModel:
 
                     c = getattr(LifetimeModel, method, None)
                     if callable(c):
-                        raw_rate = np.zeros_like(self.T_sample_points)
+                        rate = np.zeros_like(self.T_sample_points)
 
-                        M_PBH = self._engine.BlackHoleType(self._params, Kilogram, 'GeV')
+                        PBH = self._engine.BlackHoleType(self._params, Kilogram, 'GeV')
 
                         for n in range(0, len(self.T_sample_points)):
-                            M_PBH.set_value(self.M_sample_points[n])
+                            PBH.set_value(self.M_sample_points[n])
 
-                            # raw_rate is the plain emission rate, measured in mass/time
-                            raw_rate[n] = c(self.T_sample_points[n], M_PBH)
+                            # rate is the plain emission rate, measured in GeV^2 = mass/time
+                            rate[n] = c(self.T_sample_points[n], PBH)
 
-                    self.rates[rate_name] = raw_rate
+                    self.rates[rate_name] = rate
 
 
     def _integrate(self, LifetimeModel, Observer):
@@ -281,14 +281,14 @@ class PBHLifetimeModel:
         # that we're close to the point of evaporation down to a relic
 
         # create an instance of the appropriate black hole type
-        M_PBH = self._engine.BlackHoleType(self._engine.params, M, 'GeV')
+        PBH = self._engine.BlackHoleType(self._engine.params, M, 'GeV')
 
         # get current radiation temperature in GeV
         Ti_rad = math.exp(stepper.t)
 
         # compute the final relic formation time using an analytic estimation
         self.T_lifetime = \
-            M_PBH.compute_analytic_Trad_final(Ti_rad, self._relic_scale,
+            PBH.compute_analytic_Trad_final(Ti_rad, self._relic_scale,
                                               use_effective_radius=LifetimeModel._use_effective_radius)
 
         # record the shift due to using the analytic model
