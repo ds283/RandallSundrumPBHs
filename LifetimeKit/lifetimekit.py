@@ -439,13 +439,13 @@ class PBHInstance:
         for label in models:
             if label == 'GreybodyRS5D':
                 model = RS5D_greybody.LifetimeModel(engine_RS, accretion_efficiency_F=accretion_efficiency_F,
-                                                    use_effective_radius=True)
+                                                    use_effective_radius=True, use_Page_suppression=True)
                 self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples,
                                                          compute_rates=compute_rates)
 
             elif label == 'GreybodyStandard4D':
                 model = Standard4D_greybody.LifetimeModel(engine_4D, accretion_efficiency_F=accretion_efficiency_F,
-                                                          use_effective_radius=True)
+                                                          use_effective_radius=True, use_Page_suppression=True)
                 self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples,
                                                          compute_rates=compute_rates)
 
@@ -540,7 +540,7 @@ class PBHInstance:
             raise RuntimeError('PBHLifetimeModel.lifetime_plot: unit "{unit}" not understood in '
                                'constructor'.format(unit=temperature_units))
 
-        # if no models specifies, plot them all
+        # if no models specified, plot them all
         if models is None:
             models = self.lifetimes.keys()
 
