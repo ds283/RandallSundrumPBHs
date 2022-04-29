@@ -219,8 +219,6 @@ class StefanBoltzmann5D:
         t = M_PBH.t
         t4 = t*t*t*t
 
-        # compute Hawking temperature and effective number of particle species active in the Hawking quanta
-
         evap_prefactor = Const_4Pi * alpha_sq / (t4 * rh_sq)
         evap_dof = (g4 * self._SB_4D + Const_PiOver2 * alpha * g5 * self._SB_5D / t)
 
