@@ -33,10 +33,10 @@ SM_particle_table = \
   'tau': {'mass': 1.77686, 'dof': 4, 'spin-weight': fermion_weight, 'xi0': xi0_spin0pt5_4D, 'b': b_spin0pt5_4D, 'c': c_spin0pt5_4D, 'xi-per-dof': True},
   'up quark': {'mass': 2.2E-3, 'dof': 12, 'spin-weight': fermion_weight, 'xi0': xi0_spin0pt5_4D, 'b': b_spin0pt5_4D, 'c': c_spin0pt5_4D, 'xi-per-dof': True},
   'down quark': {'mass': 4.7E-3, 'dof': 12, 'spin-weight': fermion_weight, 'xi0': xi0_spin0pt5_4D, 'b': b_spin0pt5_4D, 'c': c_spin0pt5_4D, 'xi-per-dof': True},
-  'charm quark': {'mass': 1.27, 'dof': 12, 'spin-weight': fermion_weight, 'xi0': xi0_spin0pt5_4D, 'b': b_spin0pt5_4D, 'c': c_spin0pt5_4D, 'xi-per-dof': True},
   'strange quark': {'mass': 9.6E-2, 'dof': 12, 'spin-weight': fermion_weight, 'xi0': xi0_spin0pt5_4D, 'b': b_spin0pt5_4D, 'c': c_spin0pt5_4D, 'xi-per-dof': True},
-  'top quark': {'mass': 1.7321E2, 'dof': 12, 'spin-weight': fermion_weight, 'xi0': xi0_spin0pt5_4D, 'b': b_spin0pt5_4D, 'c': c_spin0pt5_4D, 'xi-per-dof': True},
-  'bottom quark': {'mass': 4.18, 'dof': 12, 'spin-weight': fermion_weight, 'xi0': xi0_spin0pt5_4D, 'b': b_spin0pt5_4D, 'c': c_spin0pt5_4D, 'xi-per-dof': True}}
+  'charm quark': {'mass': 1.27, 'dof': 12, 'spin-weight': fermion_weight, 'xi0': xi0_spin0pt5_4D, 'b': b_spin0pt5_4D, 'c': c_spin0pt5_4D, 'xi-per-dof': True},
+  'bottom quark': {'mass': 4.18, 'dof': 12, 'spin-weight': fermion_weight, 'xi0': xi0_spin0pt5_4D, 'b': b_spin0pt5_4D, 'c': c_spin0pt5_4D, 'xi-per-dof': True},
+  'top quark': {'mass': 1.7321E2, 'dof': 12, 'spin-weight': fermion_weight, 'xi0': xi0_spin0pt5_4D, 'b': b_spin0pt5_4D, 'c': c_spin0pt5_4D, 'xi-per-dof': True}}
 
 # NOTE Friedlander et al. report xi values *per dof* except for gravitons, for which all dofs are
 # already included in the xi0 value
