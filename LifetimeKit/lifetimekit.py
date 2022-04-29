@@ -32,12 +32,13 @@ class LifetimeObserver:
     because evaporation has proceeded to the point where a relic has formed
     """
 
-    def __init__(self, engine, sample_grid, mass_grid, x_grid, relic_mass):
+    def __init__(self, engine, sample_grid, mass_grid, x_grid, T_Hawking_grid, relic_mass):
         """
         Instantiate a LifetimeObserver instance.
         The constructor captures model engine instance. _sample_grid should be a numpy 1d array representing
         points where we want to sample the solution M(T), and mass_grid is an (empty) numpy 1d array of the same shape
         into which the answer will be written
+        :param T_Hawking_grid:
         :param engine: RandallSundrumModel instance to use for computations
         :param sample_grid: soln_grid of sample points for independent variable (here log T)
         :param mass_grid: soln_grid of sample points for dependent variable (here M)
@@ -52,15 +53,20 @@ class LifetimeObserver:
         # capture models engine
         self._engine = engine
 
+        # instantiate BlackHole object corresponding to this engine
+        self._PBH = self._engine.BlackHoleType(self._engine.params, 1.0, 'gram')
+
         # self.terminated is a flag that is set when the integration should terminate because a relic
         # has formed; self.relic_mass records the PBH mass where we declare a relic forms
         self.relic_mass = relic_mass
         self.terminated = False
 
-        # capture reference to sample soln_grid and data soln_grid
+        # capture reference to sample grid, mass history grid, x history grid (x=PBH mass/horizon mass),
+        # and Hawking temperature history grid
         self._sample_grid = sample_grid
         self._mass_grid = mass_grid
         self._x_grid = x_grid
+        self._T_Hawking_grid = T_Hawking_grid
 
         self._sample_grid_length = sample_grid.size
 
@@ -89,16 +95,18 @@ class LifetimeObserver:
         T_rad = math.exp(logT_rad)
 
         # extract current value of PBH mass, in GeV
-        PBH = math.exp(logM_asarray.item())
+        PBH_mass = math.exp(logM_asarray.item())
+        self._PBH.set_value(PBH_mass, 'GeV')
 
         # write solution into M-soln_grid if we have passed an observation point
         if self.next_sample_point is not None and logT_rad < self.next_sample_point:
             # compute mass as a fraction of the Hubble volume mass
-            x = PBH / self._engine.M_Hubble(T=T_rad)
+            x = PBH_mass / self._engine.M_Hubble(T=T_rad)
 
             # store these values
-            self._mass_grid[self.sample_grid_current_index] = PBH
+            self._mass_grid[self.sample_grid_current_index] = PBH_mass
             self._x_grid[self.sample_grid_current_index] = x
+            self._T_Hawking_grid[self.sample_grid_current_index] = self._PBH.T_Hawking
 
             self.sample_grid_current_index += 1
             if self.sample_grid_current_index < self._sample_grid_length:
@@ -109,7 +117,7 @@ class LifetimeObserver:
         # check whether integration should halt because we have decreased the PBH mass below the 4D Planck scale M4.
         # If this happens, we either get a relic, or at least the standard calculation of Hawking radiation is
         # invalidated, so either way we should stop
-        if PBH < self.relic_mass:
+        if PBH_mass < self.relic_mass:
             self.terminated = True
             return -1
 
@@ -162,12 +170,14 @@ class PBHLifetimeModel:
         self.logT_sample_points = np.log(self.T_sample_points)
 
         # reserve space for mass history, expressed as a PBH mass in GeV and as a fraction x of the
-        # currently Hubble mass M_H, x = M/M_H
+        # currently Hubble mass M_H, x = M/M_H. Also, we store the history of the Hawking temperature
         self.M_sample_points = np.zeros_like(self.logT_sample_points)
         self.x_sample_points = np.zeros_like(self.logT_sample_points)
+        self.T_Hawking_sample_points = np.zeros_like(self.logT_sample_points)
+
 
         # set lifetime to default value of None, indicating that we could not compute it; we'll overwrite
-        # this value later
+        # this value later if the integration is successful
         self.T_lifetime = None
 
         # if we have to use an analytic solution to get all the way down to the relic scale,
@@ -181,7 +191,7 @@ class PBHLifetimeModel:
         # four-dimensional Planck scale (which is usually what we want)
         self._relic_scale = self._params.M4
         observer = LifetimeObserver(self._engine, self.logT_sample_points, self.M_sample_points, self.x_sample_points,
-                                    self._relic_scale)
+                                    self.T_Hawking_sample_points, self._relic_scale)
 
         # run the integration
         self._integrate(LifetimeModel, observer)
@@ -202,7 +212,7 @@ class PBHLifetimeModel:
                         PBH = self._engine.BlackHoleType(self._params, Kilogram, 'GeV')
 
                         for n in range(0, len(self.T_sample_points)):
-                            PBH.set_value(self.M_sample_points[n])
+                            PBH.set_value(self.M_sample_points[n], 'GeV')
 
                             # rate is the plain emission rate, measured in GeV^2 = mass/time
                             rate[n] = c(self.T_sample_points[n], PBH)
@@ -255,6 +265,7 @@ class PBHLifetimeModel:
             self.logT_sample_points = np.resize(self.logT_sample_points, index)
             self.M_sample_points = np.resize(self.M_sample_points, index)
             self.x_sample_points = np.resize(self.x_sample_points, index)
+            self.T_Hawking_sample_points = np.resize(self.T_Hawking_sample_points, index)
 
         M = math.exp(stepper.y.item())
         T_rad = math.exp(stepper.t)
@@ -529,7 +540,7 @@ class PBHInstance:
                 raise RuntimeError('LifetimeKit.PBHInstance: unknown model type "{label}"'.format(label=label))
 
 
-    # produce plot of PBH mass over its lifetime, as a function of temperature T
+    # produce plot of PBH mass over its lifetime, as a function of the radiation temperature T
     def mass_plot(self, filename, models=None, mass_units='gram', temperature_units='Kelvin'):
         # check desired units are sensible
         if mass_units not in self._mass_conversions:
@@ -552,12 +563,41 @@ class PBHInstance:
         for label in models:
             if label in self.lifetimes:
                 history = self.lifetimes[label]
-                T_values = history.T_sample_points / temperature_units_to_GeV
+                Trad_values = history.T_sample_points / temperature_units_to_GeV
                 M_values = history.M_sample_points / mass_units_to_GeV
 
-                plt.loglog(T_values, M_values, label='{key}'.format(key=label))
+                plt.loglog(Trad_values, M_values, label='{key}'.format(key=label))
 
-        plt.xlabel('Temperature T / {unit}'.format(unit=temperature_units))
-        plt.ylabel('PBH mass / {unit}'.format(unit=mass_units))
+        plt.xlabel('Temperature $T$ / {unit}'.format(unit=temperature_units))
+        plt.ylabel('PBH mass $M_{{\mathrm{{PBH}}}}$ / {unit}'.format(unit=mass_units))
+        plt.legend()
+        plt.savefig(filename)
+
+
+    # produce plot of PBH Hawking temperature over its lifetime, as a function of the radiation temperature T
+    def T_Hawking_plot(self, filename, models=None, temperature_units='Kelvin'):
+        # check desired units are sensible
+        if temperature_units not in self._temperature_conversions:
+            raise RuntimeError('PBHLifetimeModel.lifetime_plot: unit "{unit}" not understood in '
+                               'constructor'.format(unit=temperature_units))
+
+        # if no models specified, plot them all
+        if models is None:
+            models = self.lifetimes.keys()
+
+        temperature_units_to_GeV = self._temperature_conversions[temperature_units]
+
+        plt.figure()
+
+        for label in models:
+            if label in self.lifetimes:
+                history = self.lifetimes[label]
+                Trad_values = history.T_sample_points / temperature_units_to_GeV
+                TH_values = history.T_Hawking_sample_points / temperature_units_to_GeV
+
+                plt.loglog(Trad_values, TH_values, label='{key}'.format(key=label))
+
+        plt.xlabel('Temperature $T$ / {unit}'.format(unit=temperature_units))
+        plt.ylabel('Hawking temperature $T_{{\mathrm{{H}}}}$ / {unit}'.format(unit=temperature_units))
         plt.legend()
         plt.savefig(filename)
