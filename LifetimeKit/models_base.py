@@ -353,7 +353,7 @@ class BaseGreybodyLifetimeModel(BondiHoyleLyttletonAccretionModel):
         rh_sq = rh*rh
 
         # compute Hawking temperature
-        T_Hawking = self._PBH.T_Hawking
+        T_Hawking = M_PBH.T_Hawking
 
         dM_dt = 0.0
         for label in species:
@@ -366,11 +366,11 @@ class BaseGreybodyLifetimeModel(BondiHoyleLyttletonAccretionModel):
             # This happens when the species is massless, because then its emission rate is not temperature
             # dependent.
             if callable(record):
-                dM_dt += -record(T_Hawking)
+                dM_dt += record(T_Hawking)
             else:
-                dM_dt += -record
+                dM_dt += record
 
-        return dM_dt / (Const_2Pi * rh_sq)
+        return -dM_dt / (Const_2Pi * rh_sq)
 
     def _rate_accretion(self, T_rad, M_PBH):
         return self._accretion_model.rate(T_rad, M_PBH)
