@@ -367,7 +367,7 @@ class BaseGreybodyLifetimeModel(BondiHoyleLyttletonAccretionModel):
         return self._accretion_model.rate(T_rad, PBH)
 
     def _rate_quarks(self, T_rad, PBH):
-        quarks = ['up quark', 'down quark', 'strange quark', 'charm quark', 'top quark', 'bottom quark']
+        quarks = ['up quark', 'down quark', 'strange quark', 'charm quark', 'bottom quark', 'top quark']
         return self._sum_xi_list(T_rad, PBH, quarks)
 
     def _rate_leptons(self, T_rad, PBH):
