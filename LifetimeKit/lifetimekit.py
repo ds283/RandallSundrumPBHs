@@ -328,7 +328,7 @@ class PBHLifetimeModel:
                 if self._verbose:
                     print(MISSING_HISTORY_MESSAGE.format(label=label))
 
-        plt.xlabel('Radiation tmperature $T_{{\mathrm{{rad}}}}$ / {unit}'.format(unit=temperature_units))
+        plt.xlabel('Radiation temperature $T_{{\mathrm{{rad}}}}$ / {unit}'.format(unit=temperature_units))
         plt.ylabel('$|dM/dt|$ / {massunit}/{tunit}'.format(massunit=mass_units, tunit=time_units))
         plt.legend()
         plt.savefig(filename)
@@ -359,7 +359,7 @@ class PBHLifetimeModel:
                 if self._verbose:
                     print(MISSING_HISTORY_MESSAGE.format(label=label))
 
-        plt.xlabel('Radiation tmperature $T_{{\mathrm{{rad}}}}$ / {unit}'.format(unit=temperature_units))
+        plt.xlabel('Radiation temperature $T_{{\mathrm{{rad}}}}$ / {unit}'.format(unit=temperature_units))
         plt.ylabel('$|dM/dt|$ relative to {label}'.format(label=compare_rate))
         plt.legend()
         plt.savefig(filename)
