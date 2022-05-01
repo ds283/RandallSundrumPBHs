@@ -17,7 +17,7 @@ models = ['GreybodyRS5D', 'GreybodyStandard4D', 'StefanBoltzmannRS5D', 'StefanBo
 # soln = lkit.PBHInstance(params, 9.8115e7, models=models, compute_rates=True)
 soln = lkit.PBHInstance(params, 8.4124e12, models=models, compute_rates=True)
 soln.mass_plot('mass_history.pdf')
-soln.T_Hawking_plot('T_Hawking_history.pdf')
+soln.T_Hawking_plot('T_Hawking_history.pdf', temperature_units='GeV')
 
 for label in soln.lifetimes:
     history = soln.lifetimes[label]
