@@ -3,8 +3,23 @@ import LifetimeKit as lkit
 import seaborn as sns
 sns.set()
 
-# params = lkit.RS5D.Parameters(3.7584e11)
-params = lkit.RS5D.Parameters(1.4652e14)
+# black hole that has not evaporated by present day with M < 1E15 g
+M5_value = 1.9035e10
+T_init = 6.0578e6
+
+# 4D black hole for comparison with above. This one does evaporate by the present day, so what is different?
+# M5_value = 1.9035e10
+# T_init = 6.5954e84
+
+# black hole in 5D regime for testing effective number of 5D Stefan-Boltzmann degrees of freedom
+# M5_value = 3.7584e11
+# T_init = 9.8115e7
+
+# canonical test case
+# M5_value = 1.4652e14
+# T_init = 8.4124e12
+
+params = lkit.RS5D.Parameters(M5_value)
 
 # models = ['GreybodyRS5D', 'GreybodyStandard4D', 'StefanBoltzmannRS5D', 'StefanBoltzmannStandard4D',
 #           'StefanBoltzmannRS5D-noreff', 'StefanBoltzmannStandard4D-noreff',
@@ -14,8 +29,7 @@ params = lkit.RS5D.Parameters(1.4652e14)
 models = ['GreybodyRS5D', 'GreybodyStandard4D', 'StefanBoltzmannRS5D', 'StefanBoltzmannStandard4D',
           'StefanBoltzmannRS5D-noreff', 'StefanBoltzmannRS5D-fixedg', 'StefanBoltzmannRS5D-fixedN',
           'StefanBoltzmannRS5D-noPage']
-# soln = lkit.PBHInstance(params, 9.8115e7, models=models, compute_rates=True)
-soln = lkit.PBHInstance(params, 8.4124e12, models=models, compute_rates=True)
+soln = lkit.PBHInstance(params, T_init, models=models, compute_rates=True, accretion_efficiency_F=0.05)
 soln.mass_plot('mass_history.pdf')
 soln.T_Hawking_plot('T_Hawking_history.pdf', temperature_units='GeV')
 
