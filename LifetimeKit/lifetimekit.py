@@ -568,7 +568,7 @@ class PBHInstance:
 
                 plt.loglog(Trad_values, M_values, label='{key}'.format(key=label))
 
-        plt.xlabel('Temperature $T$ / {unit}'.format(unit=temperature_units))
+        plt.xlabel('Radiation temperature $T$ / {unit}'.format(unit=temperature_units))
         plt.ylabel('PBH mass $M_{{\mathrm{{PBH}}}}$ / {unit}'.format(unit=mass_units))
         plt.legend()
         plt.savefig(filename)
@@ -597,7 +597,7 @@ class PBHInstance:
 
                 plt.loglog(Trad_values, TH_values, label='{key}'.format(key=label))
 
-        plt.xlabel('Temperature $T$ / {unit}'.format(unit=temperature_units))
+        plt.xlabel('Radiation temperature $T$ / {unit}'.format(unit=temperature_units))
         plt.ylabel('Hawking temperature $T_{{\mathrm{{H}}}}$ / {unit}'.format(unit=temperature_units))
         plt.legend()
         plt.savefig(filename)
