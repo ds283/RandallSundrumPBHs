@@ -29,7 +29,7 @@ params = lkit.RS5D.Parameters(M5_value)
 models = ['GreybodyRS5D', 'GreybodyStandard4D', 'StefanBoltzmannRS5D', 'StefanBoltzmannStandard4D',
           'StefanBoltzmannRS5D-noreff', 'StefanBoltzmannRS5D-fixedg', 'StefanBoltzmannRS5D-fixedN',
           'StefanBoltzmannRS5D-noPage']
-soln = lkit.PBHInstance(params, T_init, models=models, compute_rates=True, accretion_efficiency_F=0.05)
+soln = lkit.PBHInstance(params, T_init, models=models, compute_rates=True)
 soln.mass_plot('mass_history.pdf')
 soln.T_Hawking_plot('T_Hawking_history.pdf', temperature_units='GeV')
 
