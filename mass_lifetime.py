@@ -18,6 +18,7 @@ def compute_lifetime(data, pba: ActorHandle):
     serial = data['serial']
     M5_serial = data['M5_serial']
     T_serial = data['T_serial']
+    F_serial = data['F_serial']
 
     M5 = data['M5']
     Tinit = data['Tinit']
@@ -54,7 +55,7 @@ def compute_lifetime(data, pba: ActorHandle):
 
     pba.update.remote(1)
 
-    return {'serial': serial, 'M5_serial': M5_serial, 'T_serial': T_serial,
+    return {'serial': serial, 'M5_serial': M5_serial, 'T_serial': T_serial, 'F_serial': F_serial,
             'Minit_5D': solution.M_init_5D, 'Minit_4D': solution.M_init_4D, 'Tinit': Tinit, 'F': F, 'f': f, 'M5': M5,
             'GB_5D_lifetime': GB5D.T_lifetime, 'GB_5D_shift': GB5D.T_shift, 'GB_5D_compute': GB5D.compute_time,
             'GB_4D_lifetime': GB4D.T_lifetime, 'GB_4D_shift': GB4D.T_shift, 'GB_4D_compute': GB4D.compute_time,
@@ -73,11 +74,12 @@ def compute_lifetime(data, pba: ActorHandle):
 def map(f, obj, actor):
     return f(obj, actor)
 
-# build soln_grid of M5/Tinit sample points
+# build soln_grid of M5/Tinit/F sample points
 M5_grid = np.geomspace(2E8, 5E17, 400)
 Tinit_grid = np.geomspace(1E5, 5E17, 400)
+F_grid = np.geomspace(0.001, 1.0, 20)
 
-# generate serial numbers for M5 & Tinit sample grids and write these out
+# generate serial numbers for M5  sample grids and write these out
 M5_grid_size = len(M5_grid)
 grid_M5_serials = np.zeros(M5_grid_size)
 grid_M5_values = np.zeros(M5_grid_size)
@@ -96,6 +98,7 @@ m5_df = pd.DataFrame(data={'serial': grid_M5_serials, 'M5_GeV': grid_M5_values,
 m5_df.set_index('serial', inplace=True)
 m5_df.to_csv('M5_grid.csv')
 
+# generate serial numbers for T_init sample grid
 Tinit_grid_size = len(Tinit_grid)
 grid_Tinit_serials = np.zeros(Tinit_grid_size)
 grid_Tinit_GeV = np.zeros(Tinit_grid_size)
@@ -109,8 +112,20 @@ Tinit_df = pd.DataFrame(data={'serial': grid_Tinit_serials, 'Tinit_GeV': grid_Ti
 Tinit_df.set_index('serial', inplace=True)
 Tinit_df.to_csv('Tinit_grid.csv')
 
-# now combine M5 & Tinit grids into a single large grid
-data_all = itertools.product(enumerate(M5_grid), enumerate(Tinit_grid))
+# generate serial numbers for F sample grid
+F_grid_size = len(F_grid)
+grid_F_serials = np.zeros(F_grid_size)
+grid_F_values = np.zeros(F_grid_size)
+for serial, F in enumerate(F_grid):
+    grid_F_serials[serial] = serial
+    grid_F_values[serial] = F
+
+F_df = pd.DataFrame(data={'serial': grid_F_serials, 'F': grid_F_values})
+F_df.set_index('serial', inplace=True)
+F_df.to_csv('F_grid.csv')
+
+# now combine M5, Tinit and F grids into a single large grid
+data_all = itertools.product(enumerate(M5_grid), enumerate(Tinit_grid), enumerate(F_grid))
 
 # data_grid now includes all combinations, even where Tinit is larger than M5 (which should not be allowed),
 # or the PBH mass that forms would already be a relic
@@ -137,13 +152,15 @@ def is_valid(M5: float, Tinit: float, f: float):
 
     return True
 
-data = [(M5_serial, T_serial, M5, Tinit) for ((M5_serial, M5), (T_serial, Tinit)) in data_all if is_valid(M5, Tinit, 0.5)]
+
+data = [(M5_serial, T_serial, F_serial, M5, Tinit, F) for ((M5_serial, M5), (T_serial, Tinit), (F_serial, F)) in
+        data_all if is_valid(M5, Tinit, 0.5)]
 num_tasks = len(data)
 print('-- Sample grid contains {N} valid entries'.format(N=num_tasks))
 
 # assign a serial number to each configuration
 data_grid = [{'serial': serial, 'M5_serial': M5_serial, 'T_serial': T_serial, 'M5': M5, 'Tinit': Tinit,
-              'F': 0.1, 'f': 0.5} for serial, (M5_serial, T_serial, M5, Tinit) in enumerate(data)]
+              'F_serial': F_serial, 'F': F, 'f': 0.5} for serial, (M5_serial, T_serial, F_serial, M5, Tinit, F) in enumerate(data)]
 
 with lkit.Timer() as compute_timer:
     pb = ProgressBar(num_tasks)
@@ -165,6 +182,7 @@ df_index = range(0, work_size)
 # set up numpy arrays to hold outputs
 M5_serial = np.zeros(work_size)
 T_serial = np.zeros(work_size)
+F_serial = np.zeros(work_size)
 
 M5 = np.zeros(work_size)
 F = np.zeros(work_size)
@@ -244,6 +262,7 @@ for line in soln_grid:
     serial = line['serial']
     M5_serial[serial] = line['M5_serial']
     T_serial[serial] = line['T_serial']
+    F_serial[serial] = line['F_serial']
 
     M5[serial] = line['M5']
     F[serial] = line['F']
@@ -321,6 +340,7 @@ for line in soln_grid:
 
 df = pd.DataFrame(data={'M5_serial': M5_serial,
                         'T_serial': T_serial,
+                        'F_serial': F_serial,
                         'M5_GeV': M5,
                         'accretion_F': F,
                         'collapse_f': f,
