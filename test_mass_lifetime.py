@@ -3,9 +3,13 @@ import LifetimeKit as lkit
 import seaborn as sns
 sns.set()
 
+# a black hole configuration that evaporates quite early, for testing impact of changing F et al.
+M5_value = 1.3209e16
+T_init = 2.7495e15
+
 # black hole that has not evaporated by present day with M < 1E15 g
-M5_value = 1.9035e10
-T_init = 6.0578e6
+# M5_value = 1.9035e10
+# T_init = 6.0578e6
 
 # 4D black hole for comparison with above. This one does evaporate by the present day, so what is different?
 # M5_value = 1.9035e10
@@ -29,7 +33,7 @@ params = lkit.RS5D.Parameters(M5_value)
 models = ['GreybodyRS5D', 'GreybodyStandard4D', 'StefanBoltzmannRS5D', 'StefanBoltzmannStandard4D',
           'StefanBoltzmannRS5D-noreff', 'StefanBoltzmannRS5D-fixedg', 'StefanBoltzmannRS5D-fixedN',
           'StefanBoltzmannRS5D-noPage']
-soln = lkit.PBHInstance(params, T_init, models=models, compute_rates=True, accretion_efficiency_F=0.05)
+soln = lkit.PBHInstance(params, T_init, models=models, compute_rates=True)
 soln.mass_plot('mass_history.pdf')
 soln.T_Hawking_plot('T_Hawking_history.pdf', temperature_units='GeV')
 
