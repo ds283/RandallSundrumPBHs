@@ -3,9 +3,13 @@ import LifetimeKit as lkit
 import seaborn as sns
 sns.set()
 
+# a black hole configuration that evaporates quite early, for testing impact of changing F et al.
+M5_value = 1.3209e16
+T_init = 2.7495e15
+
 # black hole that has not evaporated by present day with M < 1E15 g
-M5_value = 1.9035e10
-T_init = 6.0578e6
+# M5_value = 1.9035e10
+# T_init = 6.0578e6
 
 # 4D black hole for comparison with above. This one does evaporate by the present day, so what is different?
 # M5_value = 1.9035e10
