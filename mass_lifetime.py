@@ -11,9 +11,6 @@ import LifetimeKit as lkit
 import itertools
 
 
-# adapted from https://docs.ray.io/en/latest/ray-core/examples/progress_bar.html
-
-
 def compute_lifetime(data, pba: ActorHandle):
     serial = data['serial']
     M5_serial = data['M5_serial']
