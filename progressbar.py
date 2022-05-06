@@ -6,6 +6,8 @@ from ray.actor import ActorHandle
 from tqdm import tqdm
 
 
+# adapted from https://docs.ray.io/en/latest/ray-core/examples/progress_bar.html
+
 @ray.remote
 class ProgressBarActor:
     counter: int

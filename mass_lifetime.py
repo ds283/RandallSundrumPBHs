@@ -11,7 +11,39 @@ import LifetimeKit as lkit
 import itertools
 
 
-# adapted from https://docs.ray.io/en/latest/ray-core/examples/progress_bar.html
+histories = ['GB_5D', 'GB_4D',
+             'SB_5D', 'SB_4D',
+             'SB_5D_noreff', 'SB_4D_noreff',
+             'SB_5D_fixedg', 'SB_4D_fixedg',
+             'SB_5D_fixedN', 'SB_4D_fixedN',
+             'SB_5D_noPage', 'SB_4D_noPage']
+
+model_list = ['GreybodyRS5D', 'GreybodyStandard4D',
+              'StefanBoltzmannRS5D', 'StefanBoltzmannStandard4D',
+              'StefanBoltzmannRS5D-noreff', 'StefanBoltzmannStandard4D-noreff',
+              'StefanBoltzmannRS5D-fixedg', 'StefanBoltzmannStandard4D-fixedg',
+              'StefanBoltzmannRS5D-fixedN', 'StefanBoltzmannStandard4D-fixedN',
+              'StefanBoltzmannRS5D-noPage', 'StefanBoltzmannStandard4D-noPage']
+
+
+def _build_history_output_labels(h: str):
+    label_lifetime_GeV = '{h}_lifetime_GeV'.format(h=h)
+    label_lifetime_Kelvin = '{h}_lifetime_Kelvin'.format(h=h)
+    label_shift = '{h}_shift'.format(h=h)
+    label_Mfinal_GeV = '{h}_Mfinal_GeV'.format(h=h)
+    label_Mfinal_Gram = '{h}_Mfinal_Gram'.format(h=h)
+    label_compute = '{h}_compute'.format(h=h)
+
+    return label_lifetime_GeV, label_lifetime_Kelvin, label_shift, label_Mfinal_GeV, label_Mfinal_Gram, label_compute
+
+
+def _build_history_internal_labels(h: str):
+    line_lifetime = '{h}_lifetime'.format(h=h)
+    line_shift = '{h}_shift'.format(h=h)
+    line_Mfinal = '{h}_Mfinal'.format(h=h)
+    line_compute = '{h}_compute'.format(h=h)
+
+    return line_lifetime, line_shift, line_Mfinal, line_compute
 
 
 def compute_lifetime(data, pba: ActorHandle):
@@ -27,57 +59,42 @@ def compute_lifetime(data, pba: ActorHandle):
 
     params = lkit.RS5D.Parameters(M5)
 
-    model_list = ['GreybodyRS5D', 'GreybodyStandard4D',
-                  'StefanBoltzmannRS5D', 'StefanBoltzmannStandard4D',
-                  'StefanBoltzmannRS5D-noreff', 'StefanBoltzmannStandard4D-noreff',
-                  'StefanBoltzmannRS5D-fixedg', 'StefanBoltzmannStandard4D-fixedg',
-                  'StefanBoltzmannRS5D-fixedN', 'StefanBoltzmannStandard4D-fixedN',
-                  'StefanBoltzmannRS5D-noPage', 'StefanBoltzmannStandard4D-noPage']
     solution = lkit.PBHInstance(params, Tinit, models=model_list, accretion_efficiency_F=F, collapse_fraction_f=f)
 
-    GB5D = solution.lifetimes['GreybodyRS5D']
-    GB4D = solution.lifetimes['GreybodyStandard4D']
+    data = {'serial': serial, 'M5_serial': M5_serial, 'T_serial': T_serial, 'F_serial': F_serial,
+            'Minit_5D': solution.M_init_5D, 'Minit_4D': solution.M_init_4D, 'Tinit': Tinit, 'F': F, 'f': f, 'M5': M5}
 
-    SB5D = solution.lifetimes['StefanBoltzmannRS5D']
-    SB4D = solution.lifetimes['StefanBoltzmannStandard4D']
+    for i, model_label in enumerate(model_list):
+        history_label = histories[i]
 
-    SB5D_noreff = solution.lifetimes['StefanBoltzmannRS5D-noreff']
-    SB4D_noreff = solution.lifetimes['StefanBoltzmannStandard4D-noreff']
+        line_lifetime, line_shift, line_Mfinal, line_compute = _build_history_internal_labels(history_label)
+        history = solution.lifetimes[model_label]
+        history_data = {line_lifetime: history.T_lifetime,
+                        line_shift: history.T_shift,
+                        line_Mfinal: history.M_final,
+                        line_compute: history.compute_time}
 
-    SB5D_fixedg = solution.lifetimes['StefanBoltzmannRS5D-fixedg']
-    SB4D_fixedg = solution.lifetimes['StefanBoltzmannStandard4D-fixedg']
-
-    SB5D_fixedN = solution.lifetimes['StefanBoltzmannRS5D-fixedN']
-    SB4D_fixedN = solution.lifetimes['StefanBoltzmannStandard4D-fixedN']
-
-    SB5D_noPage = solution.lifetimes['StefanBoltzmannRS5D-noPage']
-    SB4D_noPage = solution.lifetimes['StefanBoltzmannStandard4D-noPage']
+        data = data | history_data
 
     pba.update.remote(1)
-
-    return {'serial': serial, 'M5_serial': M5_serial, 'T_serial': T_serial, 'F_serial': F_serial,
-            'Minit_5D': solution.M_init_5D, 'Minit_4D': solution.M_init_4D, 'Tinit': Tinit, 'F': F, 'f': f, 'M5': M5,
-            'GB_5D_lifetime': GB5D.T_lifetime, 'GB_5D_shift': GB5D.T_shift, 'GB_5D_compute': GB5D.compute_time,
-            'GB_4D_lifetime': GB4D.T_lifetime, 'GB_4D_shift': GB4D.T_shift, 'GB_4D_compute': GB4D.compute_time,
-            'SB_5D_lifetime': SB5D.T_lifetime, 'SB_5D_shift': SB5D.T_shift, 'SB_5D_compute': SB5D.compute_time,
-            'SB_4D_lifetime': SB4D.T_lifetime, 'SB_4D_shift': SB4D.T_shift, 'SB_4D_compute': SB4D.compute_time,
-            'SB_5D_noreff_lifetime': SB5D_noreff.T_lifetime, 'SB_5D_noreff_shift': SB5D_noreff.T_shift, 'SB_5D_noreff_compute': SB5D_noreff.compute_time,
-            'SB_4D_noreff_lifetime': SB4D_noreff.T_lifetime, 'SB_4D_noreff_shift': SB4D_noreff.T_shift, 'SB_4D_noreff_compute': SB4D_noreff.compute_time,
-            'SB_5D_fixedg_lifetime': SB5D_fixedg.T_lifetime, 'SB_5D_fixedg_shift': SB5D_fixedg.T_shift, 'SB_5D_fixedg_compute': SB5D_fixedg.compute_time,
-            'SB_4D_fixedg_lifetime': SB4D_fixedg.T_lifetime, 'SB_4D_fixedg_shift': SB4D_fixedg.T_shift, 'SB_4D_fixedg_compute': SB4D_fixedg.compute_time,
-            'SB_5D_fixedN_lifetime': SB5D_fixedN.T_lifetime, 'SB_5D_fixedN_shift': SB5D_fixedN.T_shift, 'SB_5D_fixedN_compute': SB5D_fixedN.compute_time,
-            'SB_4D_fixedN_lifetime': SB4D_fixedN.T_lifetime, 'SB_4D_fixedN_shift': SB4D_fixedN.T_shift, 'SB_4D_fixedN_compute': SB4D_fixedN.compute_time,
-            'SB_5D_noPage_lifetime': SB5D_noPage.T_lifetime, 'SB_5D_noPage_shift': SB5D_noPage.T_shift, 'SB_5D_noPage_compute': SB5D_noPage.compute_time,
-            'SB_4D_noPage_lifetime': SB4D_noPage.T_lifetime, 'SB_4D_noPage_shift': SB4D_noPage.T_shift, 'SB_4D_noPage_compute': SB4D_noPage.compute_time}
+    return data
 
 @ray.remote
 def map(f, obj, actor):
     return f(obj, actor)
 
 # build soln_grid of M5/Tinit/F sample points
+
+# lower limit 2E8 GeV roughly corresponds to experimental constraint T_crossover = 1E3 GeV suggested by Guedens et al.
+# TODO: Itzi suggests this has since been improved, so that may need changing
+# upper limit 5E17 GeV is close to 4D Planck scale, with just a bit of headroom
 M5_grid = np.geomspace(2E8, 5E17, 400)
+
+# lower limit 1E5 GeV is arbitrary; black holes that form at these low temperatures are always in the 4D regime
+# with the linear Hubble equation, so there is not much need to compute their properties in detail.
+# upper limit matches upper limit on M5 grid
 Tinit_grid = np.geomspace(1E5, 5E17, 400)
-F_grid = np.geomspace(0.001, 1.0, 20)
+F_grid = np.geomspace(0.001, 1.0, 40)
 
 # generate serial numbers for M5  sample grids and write these out
 M5_grid_size = len(M5_grid)
@@ -197,69 +214,22 @@ M_4D_init_gram = np.zeros(work_size)
 T_init_GeV = np.zeros(work_size)
 T_init_Kelvin = np.zeros(work_size)
 
-GB_5D_lifetime_GeV = np.zeros(work_size)
-GB_5D_lifetime_Kelvin = np.zeros(work_size)
-GB_5D_shift = np.zeros(work_size)
-GB_5D_compute = np.zeros(work_size)
+arrays = {}
 
-GB_4D_lifetime_GeV = np.zeros(work_size)
-GB_4D_lifetime_Kelvin = np.zeros(work_size)
-GB_4D_shift = np.zeros(work_size)
-GB_4D_compute = np.zeros(work_size)
+for h in histories:
+    label_lifetime_GeV, label_lifetime_Kelvin, label_shift, label_Mfinal_GeV, label_Mfinal_Gram, label_compute = \
+        _build_history_output_labels(h)
 
-SB_5D_lifetime_GeV = np.zeros(work_size)
-SB_5D_lifetime_Kelvin = np.zeros(work_size)
-SB_5D_shift = np.zeros(work_size)
-SB_5D_compute = np.zeros(work_size)
-
-SB_4D_lifetime_GeV = np.zeros(work_size)
-SB_4D_lifetime_Kelvin = np.zeros(work_size)
-SB_4D_shift = np.zeros(work_size)
-SB_4D_compute = np.zeros(work_size)
-
-SB_5D_noreff_lifetime_GeV = np.zeros(work_size)
-SB_5D_noreff_lifetime_Kelvin = np.zeros(work_size)
-SB_5D_noreff_shift = np.zeros(work_size)
-SB_5D_noreff_compute = np.zeros(work_size)
-
-SB_4D_noreff_lifetime_GeV = np.zeros(work_size)
-SB_4D_noreff_lifetime_Kelvin = np.zeros(work_size)
-SB_4D_noreff_shift = np.zeros(work_size)
-SB_4D_noreff_compute = np.zeros(work_size)
-
-SB_5D_fixedg_lifetime_GeV = np.zeros(work_size)
-SB_5D_fixedg_lifetime_Kelvin = np.zeros(work_size)
-SB_5D_fixedg_shift = np.zeros(work_size)
-SB_5D_fixedg_compute = np.zeros(work_size)
-
-SB_4D_fixedg_lifetime_GeV = np.zeros(work_size)
-SB_4D_fixedg_lifetime_Kelvin = np.zeros(work_size)
-SB_4D_fixedg_shift = np.zeros(work_size)
-SB_4D_fixedg_compute = np.zeros(work_size)
-
-SB_5D_fixedN_lifetime_GeV = np.zeros(work_size)
-SB_5D_fixedN_lifetime_Kelvin = np.zeros(work_size)
-SB_5D_fixedN_shift = np.zeros(work_size)
-SB_5D_fixedN_compute = np.zeros(work_size)
-
-SB_4D_fixedN_lifetime_GeV = np.zeros(work_size)
-SB_4D_fixedN_lifetime_Kelvin = np.zeros(work_size)
-SB_4D_fixedN_shift = np.zeros(work_size)
-SB_4D_fixedN_compute = np.zeros(work_size)
-
-SB_5D_noPage_lifetime_GeV = np.zeros(work_size)
-SB_5D_noPage_lifetime_Kelvin = np.zeros(work_size)
-SB_5D_noPage_shift = np.zeros(work_size)
-SB_5D_noPage_compute = np.zeros(work_size)
-
-SB_4D_noPage_lifetime_GeV = np.zeros(work_size)
-SB_4D_noPage_lifetime_Kelvin = np.zeros(work_size)
-SB_4D_noPage_shift = np.zeros(work_size)
-SB_4D_noPage_compute = np.zeros(work_size)
-
+    arrays[label_lifetime_GeV] = np.zeros(work_size)
+    arrays[label_lifetime_Kelvin] = np.zeros(work_size)
+    arrays[label_shift] = np.zeros(work_size)
+    arrays[label_Mfinal_GeV] = np.zeros(work_size)
+    arrays[label_Mfinal_Gram] = np.zeros(work_size)
+    arrays[label_compute] = np.zeros(work_size)
 
 for line in soln_grid:
     serial = line['serial']
+
     M5_serial[serial] = line['M5_serial']
     T_serial[serial] = line['T_serial']
     F_serial[serial] = line['F_serial']
@@ -277,126 +247,32 @@ for line in soln_grid:
     T_init_GeV[serial] = line['Tinit']
     T_init_Kelvin[serial] = line['Tinit'] / lkit.Kelvin
 
-    GB_5D_lifetime_GeV[serial] = line['GB_5D_lifetime']
-    GB_5D_lifetime_Kelvin[serial] = line['GB_5D_lifetime'] / lkit.Kelvin if line['GB_5D_lifetime'] is not None else None
-    GB_5D_shift[serial] = line['GB_5D_shift'] / lkit.Kelvin if line['GB_5D_shift'] is not None else None
-    GB_5D_compute[serial] = line['GB_5D_compute']
+    for h in histories:
+        label_lifetime_GeV, label_lifetime_Kelvin, label_shift, label_Mfinal_GeV, label_Mfinal_Gram, label_compute = \
+            _build_history_output_labels(h)
 
-    GB_4D_lifetime_GeV[serial] = line['GB_4D_lifetime']
-    GB_4D_lifetime_Kelvin[serial] = line['GB_4D_lifetime'] / lkit.Kelvin if line['GB_4D_lifetime'] is not None else None
-    GB_4D_shift[serial] = line['GB_4D_shift'] / lkit.Kelvin if line['GB_4D_shift'] is not None else None
-    GB_4D_compute[serial] = line['GB_4D_compute']
+        line_lifetime, line_shift, line_Mfinal, line_compute = _build_history_internal_labels(h)
 
-    SB_5D_lifetime_GeV[serial] = line['SB_5D_lifetime']
-    SB_5D_lifetime_Kelvin[serial] = line['SB_5D_lifetime'] / lkit.Kelvin if line['SB_5D_lifetime'] is not None else None
-    SB_5D_shift[serial] = line['SB_5D_shift'] / lkit.Kelvin if line['SB_5D_shift'] is not None else None
-    SB_5D_compute[serial] = line['SB_5D_compute']
+        arrays[label_lifetime_GeV][serial] = line[line_lifetime]
+        arrays[label_lifetime_Kelvin][serial] = line[line_lifetime] / lkit.Kelvin if line[line_lifetime] is not None else None
+        arrays[label_shift][serial] = line[line_shift] / lkit.Kelvin if line[line_shift] is not None else None
+        arrays[label_Mfinal_GeV][serial] = line[line_Mfinal]
+        arrays[label_Mfinal_Gram][serial] = line[line_Mfinal] / lkit.Gram if line[line_Mfinal] is not None else None
+        arrays[label_compute][serial] = line[line_compute]
 
-    SB_4D_lifetime_GeV[serial] = line['SB_4D_lifetime']
-    SB_4D_lifetime_Kelvin[serial] = line['SB_4D_lifetime'] / lkit.Kelvin if line['SB_4D_lifetime'] is not None else None
-    SB_4D_shift[serial] = line['SB_4D_shift'] / lkit.Kelvin if line['SB_4D_shift'] is not None else None
-    SB_4D_compute[serial] = line['SB_4D_compute']
+data = {'M5_serial': M5_serial,
+        'T_serial': T_serial,
+        'F_serial': F_serial,
+        'M5_GeV': M5,
+        'accretion_F': F,
+        'collapse_f': f,
+        'M_5D_init_GeV': M_5D_init_GeV,
+        'M_5D_init_gram': M_5D_init_gram,
+        'M_4D_init_GeV': M_4D_init_GeV,
+        'M_4D_init_gram': M_4D_init_gram,
+        'T_init_GeV': T_init_GeV,
+        'T_init_Kelvin': T_init_Kelvin} | arrays
 
-    SB_5D_noreff_lifetime_GeV[serial] = line['SB_5D_noreff_lifetime']
-    SB_5D_noreff_lifetime_Kelvin[serial] = line['SB_5D_noreff_lifetime'] / lkit.Kelvin if line['SB_5D_noreff_lifetime'] is not None else None
-    SB_5D_noreff_shift[serial] = line['SB_5D_noreff_shift'] / lkit.Kelvin if line['SB_5D_noreff_shift'] is not None else None
-    SB_5D_noreff_compute[serial] = line['SB_5D_noreff_compute']
-
-    SB_4D_noreff_lifetime_GeV[serial] = line['SB_4D_noreff_lifetime']
-    SB_4D_noreff_lifetime_Kelvin[serial] = line['SB_4D_noreff_lifetime'] / lkit.Kelvin if line['SB_4D_lifetime'] is not None else None
-    SB_4D_noreff_shift[serial] = line['SB_4D_noreff_shift'] / lkit.Kelvin if line['SB_4D_noreff_shift'] is not None else None
-    SB_4D_noreff_compute[serial] = line['SB_4D_noreff_compute']
-
-    SB_5D_fixedg_lifetime_GeV[serial] = line['SB_5D_fixedg_lifetime']
-    SB_5D_fixedg_lifetime_Kelvin[serial] = line['SB_5D_fixedg_lifetime'] / lkit.Kelvin if line['SB_5D_fixedg_lifetime'] is not None else None
-    SB_5D_fixedg_shift[serial] = line['SB_5D_fixedg_shift'] / lkit.Kelvin if line['SB_5D_fixedg_shift'] is not None else None
-    SB_5D_fixedg_compute[serial] = line['SB_5D_fixedg_compute']
-
-    SB_4D_fixedg_lifetime_GeV[serial] = line['SB_4D_fixedg_lifetime']
-    SB_4D_fixedg_lifetime_Kelvin[serial] = line['SB_4D_fixedg_lifetime'] / lkit.Kelvin if line['SB_4D_fixedg_lifetime'] is not None else None
-    SB_4D_fixedg_shift[serial] = line['SB_4D_fixedg_shift'] / lkit.Kelvin if line['SB_4D_fixedg_shift'] is not None else None
-    SB_4D_fixedg_compute[serial] = line['SB_4D_fixedg_compute']
-
-    SB_5D_fixedN_lifetime_GeV[serial] = line['SB_5D_fixedN_lifetime']
-    SB_5D_fixedN_lifetime_Kelvin[serial] = line['SB_5D_fixedN_lifetime'] / lkit.Kelvin if line['SB_5D_fixedN_lifetime'] is not None else None
-    SB_5D_fixedN_shift[serial] = line['SB_5D_fixedN_shift'] / lkit.Kelvin if line['SB_5D_fixedN_shift'] is not None else None
-    SB_5D_fixedN_compute[serial] = line['SB_5D_fixedN_compute']
-
-    SB_4D_fixedN_lifetime_GeV[serial] = line['SB_4D_fixedN_lifetime']
-    SB_4D_fixedN_lifetime_Kelvin[serial] = line['SB_4D_fixedN_lifetime'] / lkit.Kelvin if line['SB_4D_fixedN_lifetime'] is not None else None
-    SB_4D_fixedN_shift[serial] = line['SB_4D_fixedN_shift'] / lkit.Kelvin if line['SB_4D_fixedN_shift'] is not None else None
-    SB_4D_fixedN_compute[serial] = line['SB_4D_fixedN_compute']
-
-    SB_5D_noPage_lifetime_GeV[serial] = line['SB_5D_noPage_lifetime']
-    SB_5D_noPage_lifetime_Kelvin[serial] = line['SB_5D_noPage_lifetime'] / lkit.Kelvin if line['SB_5D_noPage_lifetime'] is not None else None
-    SB_5D_noPage_shift[serial] = line['SB_5D_noPage_shift'] / lkit.Kelvin if line['SB_5D_noPage_shift'] is not None else None
-    SB_5D_noPage_compute[serial] = line['SB_5D_noPage_compute']
-
-    SB_4D_noPage_lifetime_GeV[serial] = line['SB_4D_noPage_lifetime']
-    SB_4D_noPage_lifetime_Kelvin[serial] = line['SB_4D_noPage_lifetime'] / lkit.Kelvin if line['SB_4D_noPage_lifetime'] is not None else None
-    SB_4D_noPage_shift[serial] = line['SB_4D_noPage_shift'] / lkit.Kelvin if line['SB_4D_noPage_shift'] is not None else None
-    SB_4D_noPage_compute[serial] = line['SB_4D_noPage_compute']
-
-
-df = pd.DataFrame(data={'M5_serial': M5_serial,
-                        'T_serial': T_serial,
-                        'F_serial': F_serial,
-                        'M5_GeV': M5,
-                        'accretion_F': F,
-                        'collapse_f': f,
-                        'M_5D_init_GeV': M_5D_init_GeV,
-                        'M_5D_init_gram': M_5D_init_gram,
-                        'M_4D_init_GeV': M_4D_init_GeV,
-                        'M_4D_init_gram': M_4D_init_gram,
-                        'T_init_GeV': T_init_GeV,
-                        'T_init_Kelvin': T_init_Kelvin,
-                        'GB_5D_lifetime_GeV': GB_5D_lifetime_GeV,
-                        'GB_5D_lifetime_Kelvin': GB_5D_lifetime_Kelvin,
-                        'GB_5D_shift_Kelvin': GB_5D_shift,
-                        'GB_5D_compute': GB_5D_compute,
-                        'GB_4D_lifetime_GeV': GB_4D_lifetime_GeV,
-                        'GB_4D_lifetime_Kelvin': GB_4D_lifetime_Kelvin,
-                        'GB_4D_shift_Kelvin': GB_4D_shift,
-                        'GB_4D_compute': GB_4D_compute,
-                        'SB_5D_lifetime_GeV': SB_5D_lifetime_GeV,
-                        'SB_5D_lifetime_Kelvin': SB_5D_lifetime_Kelvin,
-                        'SB_5D_shift_Kelvin': SB_5D_shift,
-                        'SB_5D_compute': SB_5D_compute,
-                        'SB_4D_lifetime_GeV': SB_4D_lifetime_GeV,
-                        'SB_4D_lifetime_Kelvin': SB_4D_lifetime_Kelvin,
-                        'SB_4D_shift_Kelvin': SB_4D_shift,
-                        'SB_4D_compute': SB_4D_compute,
-                        'SB_5D_noreff_lifetime_GeV': SB_5D_noreff_lifetime_GeV,
-                        'SB_5D_noreff_lifetime_Kelvin': SB_5D_noreff_lifetime_Kelvin,
-                        'SB_5D_noreff_shift_Kelvin': SB_5D_noreff_shift,
-                        'SB_5D_noreff_compute': SB_5D_noreff_compute,
-                        'SB_4D_noreff_lifetime_GeV': SB_4D_noreff_lifetime_GeV,
-                        'SB_4D_noreff_lifetime_Kelvin': SB_4D_noreff_lifetime_Kelvin,
-                        'SB_4D_noreff_shift_Kelvin': SB_4D_noreff_shift,
-                        'SB_4D_noreff_compute': SB_4D_noreff_compute,
-                        'SB_5D_fixedg_lifetime_GeV': SB_5D_fixedg_lifetime_GeV,
-                        'SB_5D_fixedg_lifetime_Kelvin': SB_5D_fixedg_lifetime_Kelvin,
-                        'SB_5D_fixedg_shift_Kelvin': SB_5D_fixedg_shift,
-                        'SB_5D_fixedg_compute': SB_5D_fixedg_compute,
-                        'SB_4D_fixedg_lifetime_GeV': SB_4D_fixedg_lifetime_GeV,
-                        'SB_4D_fixedg_lifetime_Kelvin': SB_4D_fixedg_lifetime_Kelvin,
-                        'SB_4D_fixedg_shift_Kelvin': SB_4D_fixedg_shift,
-                        'SB_4D_fixedg_compute': SB_4D_fixedg_compute,
-                        'SB_5D_fixedN_lifetime_GeV': SB_5D_fixedN_lifetime_GeV,
-                        'SB_5D_fixedN_lifetime_Kelvin': SB_5D_fixedN_lifetime_Kelvin,
-                        'SB_5D_fixedN_shift_Kelvin': SB_5D_fixedN_shift,
-                        'SB_5D_fixedN_compute': SB_5D_fixedN_compute,
-                        'SB_4D_fixedN_lifetime_GeV': SB_4D_fixedN_lifetime_GeV,
-                        'SB_4D_fixedN_lifetime_Kelvin': SB_4D_fixedN_lifetime_Kelvin,
-                        'SB_4D_fixedN_shift_Kelvin': SB_4D_fixedN_shift,
-                        'SB_4D_fixedN_compute': SB_4D_fixedN_compute,
-                        'SB_5D_noPage_lifetime_GeV': SB_5D_noPage_lifetime_GeV,
-                        'SB_5D_noPage_lifetime_Kelvin': SB_5D_noPage_lifetime_Kelvin,
-                        'SB_5D_noPage_shift_Kelvin': SB_5D_noPage_shift,
-                        'SB_5D_noPage_compute': SB_5D_noPage_compute,
-                        'SB_4D_noPage_lifetime_GeV': SB_4D_noPage_lifetime_GeV,
-                        'SB_4D_noPage_lifetime_Kelvin': SB_4D_noPage_lifetime_Kelvin,
-                        'SB_4D_noPage_shift_Kelvin': SB_4D_noPage_shift,
-                        'SB_4D_noPage_compute': SB_4D_noPage_compute}, index=df_index)
+df = pd.DataFrame(data, index=df_index)
 df.index.name = 'index'
 df.to_csv('mass_lifetime.csv')

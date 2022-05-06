@@ -184,6 +184,9 @@ class PBHLifetimeModel:
         # keep track of how much we needed to shift by
         self.T_shift = None
 
+        # track final mass
+        self.M_final = None
+
         # set compute time to None; will be overwritten later
         self.compute_time = None
 
@@ -222,7 +225,7 @@ class PBHLifetimeModel:
 
     def _integrate(self, LifetimeModel, Observer):
         """
-
+        Integrate the lifetime of a particular PBH model with a specified observer object
         :param LifetimeModel: callable representing RHS of ODE system
         :param Observer: callable representing solution observer (to record solution at specified sample points)
         :return:
@@ -274,7 +277,10 @@ class PBHLifetimeModel:
         # to the point where we produce a relic, so we can record the lifetime and exit
         if stepper.successful():
             self.T_lifetime = T_rad
+            self.M_final = M
             return
+
+        # THIS SECTION ONLY REACHED IF THERE WAS AN INTEGRATION ERROR
 
         # if there was an integration failure, this is possibly because of a genuine problem, or possibly
         # because we could not resolve the final stages of the integration - because that is very close
@@ -301,6 +307,7 @@ class PBHLifetimeModel:
         self.T_lifetime = \
             PBH.compute_analytic_Trad_final(Ti_rad, self._relic_scale,
                                               use_effective_radius=LifetimeModel._use_effective_radius)
+        self.M_final = self._relic_scale
 
         # record the shift due to using the analytic model
         self.T_shift = Ti_rad - self.T_lifetime
