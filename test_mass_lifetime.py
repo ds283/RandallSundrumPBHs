@@ -47,9 +47,15 @@ for label in soln.lifetimes:
     print('   compute time = {time}'.format(time=history.compute_time))
 
     lifetime = history.T_lifetime
-    print('   PBH lifetime = {evapGeV} GeV = {evapKelvin} K'.format(evapGeV=lifetime,
-                                                                    evapKelvin=lifetime / lkit.Kelvin))
+    if lifetime is not None:
+        print('   PBH lifetime = {evapGeV} GeV = {evapKelvin} K'.format(evapGeV=lifetime,
+                                                                        evapKelvin=lifetime / lkit.Kelvin))
 
-    shift = history.T_shift if history.T_shift is not None else 0.0
-    print('   Lifetime shift = {shiftKelvin} K = {shiftPercent:.2g}%'.format(shiftKelvin=shift/lkit.Kelvin,
-                                                                             shiftPercent=shift/lifetime * 100.0))
+        shift = history.T_shift if history.T_shift is not None else 0.0
+        print('   Lifetime shift = {shiftKelvin} K = {shiftPercent:.2g}%'.format(shiftKelvin=shift/lkit.Kelvin,
+                                                                                 shiftPercent=shift/lifetime * 100.0))
+
+    mass = history.M_final
+    if mass is not None:
+        print('   PBH final mass = {finalGeV} GeV = {finalGram} g'.format(finalGeV=mass,
+                                                                          finalGram=mass / lkit.Gram))
