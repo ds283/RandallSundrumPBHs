@@ -4,7 +4,7 @@ import pandas as pd
 import ray
 from ray.actor import ActorHandle
 from progressbar import ProgressBar
-ray.init()
+ray.init(address='auto')
 
 import LifetimeKit as lkit
 
