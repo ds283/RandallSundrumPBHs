@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import argparse
 
 import ray
 from ray.actor import ActorHandle
@@ -9,6 +10,11 @@ ray.init(address='auto')
 import LifetimeKit as lkit
 
 import itertools
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--progress-bar", default=True, action=argparse.BooleanOptionalAction)
+args = parser.parse_args()
 
 
 histories = ['GB_5D', 'GB_4D',
@@ -76,7 +82,9 @@ def compute_lifetime(data, pba: ActorHandle):
 
         data = data | history_data
 
-    pba.update.remote(1)
+    if pba is not None:
+        pba.update.remote(1)
+
     return data
 
 @ray.remote
@@ -180,12 +188,18 @@ data_grid = [{'serial': serial, 'M5_serial': M5_serial, 'T_serial': T_serial, 'M
               'F_serial': F_serial, 'F': F, 'f': 0.5} for serial, (M5_serial, T_serial, F_serial, M5, Tinit, F) in enumerate(data)]
 
 with lkit.Timer() as compute_timer:
-    pb = ProgressBar(num_tasks)
-    actor = pb.actor
+    if args.progress_bar:
+        pb = ProgressBar(num_tasks)
+        actor = pb.actor
+    else:
+        pb = None
+        actor = None
 
     # use ray to perform a distributed map of compute_lifetime onto data_grid
     tasks = [map.remote(compute_lifetime, line, actor) for line in data_grid]
-    pb.print_until_done()
+
+    if pb is not None:
+        pb.print_until_done()
 
     soln_grid = ray.get(tasks)
 
