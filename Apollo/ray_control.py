@@ -35,6 +35,6 @@ if num_rows > 1:
     for row in range(1, num_rows):
         if args.start:
             print('** Allocated worker node "{name}", slots={slots}'.format(name=hosts.iloc[row], slots=slots.iloc[row]))
-            workers.append(fabric.Connection(host=hosts.iloc[row], user='ds283').run('source /mnt/pact/ds283/anaconda3/etc/profile.d/conda.sh && /mnt/pact/ds283/anaconda3/envs/ray/bin/ray start --address {head_addr} --num-cpus {n}'.format(head_addr=head_addr, n=slots.iloc[row])))
+            workers.append(fabric.Connection(host=hosts.iloc[row], user='ds283').run('source /mnt/pact/ds283/anaconda3/etc/profile.d/conda.sh && /mnt/pact/ds283/anaconda3/envs/ray/bin/ray start --address {head_addr}:6379 --num-cpus {n}'.format(head_addr=head_addr, n=slots.iloc[row])))
         elif args.stop:
             workers.append(fabric.Connection(host=hosts.iloc[row], user='ds283').run('source /mnt/pact/ds283/anaconda3/etc/profile.d/conda.sh && /mnt/pact/ds283/anaconda3/envs/ray/bin/ray stop'))
