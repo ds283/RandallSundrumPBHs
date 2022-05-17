@@ -17,19 +17,20 @@ parser.add_argument("--progress-bar", default=True, action=argparse.BooleanOptio
 args = parser.parse_args()
 
 
-histories = ['GB_5D', 'GB_4D',
-             'SB_5D', 'SB_4D',
-             'SB_5D_noreff', 'SB_4D_noreff',
-             'SB_5D_fixedg', 'SB_4D_fixedg',
-             'SB_5D_fixedN', 'SB_4D_fixedN',
-             'SB_5D_noPage', 'SB_4D_noPage']
-
-model_list = ['GreybodyRS5D', 'GreybodyStandard4D',
-              'StefanBoltzmannRS5D', 'StefanBoltzmannStandard4D',
-              'StefanBoltzmannRS5D-noreff', 'StefanBoltzmannStandard4D-noreff',
-              'StefanBoltzmannRS5D-fixedg', 'StefanBoltzmannStandard4D-fixedg',
-              'StefanBoltzmannRS5D-fixedN', 'StefanBoltzmannStandard4D-fixedN',
-              'StefanBoltzmannRS5D-noPage', 'StefanBoltzmannStandard4D-noPage']
+# mapping between histories to write into output database (keys)
+# and internal LifetimeKit names for these models (values)
+histories = {'GB_5D': 'GreybodyRS5D',
+             'GB_4D': 'GreybodyStandard4D',
+             'SB_5D': 'StefanBoltzmannRS5D',
+             'SB_4D': 'StefanBoltzmannStandard4D',
+             'SB_5D_noreff': 'StefanBoltzmannRS5D-noreff',
+             'SB_4D_noreff': 'StefanBoltzmannStandard4D-noreff',
+             'SB_5D_fixedg': 'StefanBoltzmannRS5D-fixedg',
+             'SB_4D_fixedg': 'StefanBoltzmannStandard4D-fixedg',
+             'SB_5D_fixedN': 'StefanBoltzmannRS5D-fixedN',
+             'SB_4D_fixedN': 'StefanBoltzmannStandard4D-fixedN',
+             'SB_5D_noPage': 'StefanBoltzmannRS5D-noPage',
+             'SB_4D_noPage': 'StefanBoltzmannStandard4D-noPage'}
 
 
 def _build_history_output_labels(h: str):
@@ -65,13 +66,14 @@ def compute_lifetime(data, pba: ActorHandle):
 
     params = lkit.RS5D.Parameters(M5)
 
-    solution = lkit.PBHInstance(params, Tinit, models=model_list, accretion_efficiency_F=F, collapse_fraction_f=f)
+    solution = lkit.PBHInstance(params, Tinit, models=histories.values(),
+                                accretion_efficiency_F=F, collapse_fraction_f=f)
 
     data = {'serial': serial, 'M5_serial': M5_serial, 'T_serial': T_serial, 'F_serial': F_serial,
             'Minit_5D': solution.M_init_5D, 'Minit_4D': solution.M_init_4D, 'Tinit': Tinit, 'F': F, 'f': f, 'M5': M5}
 
-    for i, model_label in enumerate(model_list):
-        history_label = histories[i]
+    for history_label in histories.keys():
+        model_label = histories[history_label]
 
         line_lifetime, line_shift, line_Mfinal, line_compute = _build_history_internal_labels(history_label)
         history = solution.lifetimes[model_label]
@@ -230,7 +232,7 @@ T_init_Kelvin = np.zeros(work_size)
 
 arrays = {}
 
-for h in histories:
+for h in histories.keys():
     label_lifetime_GeV, label_lifetime_Kelvin, label_shift, label_Mfinal_GeV, label_Mfinal_Gram, label_compute = \
         _build_history_output_labels(h)
 
@@ -261,7 +263,7 @@ for line in soln_grid:
     T_init_GeV[serial] = line['Tinit']
     T_init_Kelvin[serial] = line['Tinit'] / lkit.Kelvin
 
-    for h in histories:
+    for h in histories.keys():
         label_lifetime_GeV, label_lifetime_Kelvin, label_shift, label_Mfinal_GeV, label_Mfinal_Gram, label_compute = \
             _build_history_output_labels(h)
 
