@@ -124,14 +124,14 @@ def compute_lifetime(cache: ActorHandle, serial_batch: List[int]) -> List[float]
 # lower limit 2E8 GeV roughly corresponds to experimental constraint T_crossover = 1E3 GeV suggested by Guedens et al.
 # TODO: Itzi suggests this has since been improved, so that may need changing
 # upper limit 5E17 GeV is close to 4D Planck scale, with just a bit of headroom
-M5_grid = np.geomspace(2E8, 5E17, 400)
+M5_grid = np.geomspace(2E8, 5E17, 500)
 
 # lower limit 1E5 GeV is arbitrary; black holes that form at these low temperatures are always in the 4D regime
 # with the linear Hubble equation, so there is not much need to compute their properties in detail.
 # upper limit matches upper limit on M5 grid
-Tinit_grid = np.geomspace(1E5, 5E17, 400)
+Tinit_grid = np.geomspace(1E5, 5E17, 500)
 
-F_grid = np.geomspace(0.001, 1.0, 40)
+F_grid = np.geomspace(0.001, 1.0, 50)
 f_grid = [0.5]
 
 cache: ckit.Cache = ckit.Cache.remote(list(histories.keys()), _build_labels)
