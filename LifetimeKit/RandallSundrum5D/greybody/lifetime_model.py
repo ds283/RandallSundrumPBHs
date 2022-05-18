@@ -62,6 +62,12 @@ class LifetimeModel(BaseGreybodyLifetimeModel):
         # sum over greybody factors to get evaporation rate
         dM_dt = -(self.massless_xi + sum([xi(T_Hawking) for xi in self.massive_xi])) / (Const_2Pi * rh_sq)
 
+        # increase greybody emission rate by a factor of 16 if we are in the 5D regime
+        # this corrects for the 4D temperature/radius relation, which is baked into the Friedlander et al.
+        # fitting funtions. See https://app.asana.com/0/1201954909529908/1202202342124909/f
+        if PBH.is_5D:
+            dM_dt = dM_dt * 16.0
+
         return dM_dt
 
     def _rate_graviton5D(self, T_rad, PBH):
