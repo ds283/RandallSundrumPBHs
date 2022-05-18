@@ -9,6 +9,7 @@ Deprecated==1.2.13
 fabric==2.7.0
 filelock==3.6.0
 fonttools==4.31.2
+fsspec==2022.3.0
 greenlet==1.1.2
 grpcio==1.43.0
 invoke==1.7.1
@@ -23,6 +24,7 @@ paramiko==2.10.4
 pathlib2==2.3.7.post1
 Pillow==9.1.0
 protobuf==3.20.0
+pyarrow==6.0.1
 pycparser==2.21
 PyNaCl==1.5.0
 pyparsing==3.0.7
