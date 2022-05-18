@@ -14,9 +14,23 @@ def is_valid(data):
 
     M5_serial, M5 = M5_data
     Tinit_serial, Tinit = Tinit_data
+    F_serial, F = F_data
     f_serial, f = f_data
 
+    # Reject combinations where the initial temperature is larger than the 5D Planck mass.
+    # In this case, the quantum gravity corrections are not under control and the scenario
+    # probably does not make sense
     if Tinit > M5:
+        return False
+
+    # reject combinations where there is runaway 4D accretion
+    # The criterion for this is f * F * (1 + delta) > 8/(3*alpha^2) where alpha is the
+    # effective radius scaling parameter. Here we are going to solve histories with and without
+    # using the effective radius, so with alpha = 3 sqrt(3) / 2 we get the combination
+    # 32.0/81.0. This is used in Guedens et al., but seems to have first been reported in the
+    # early Zel'dovich & Novikov paper ("The hypothesis of cores retarted during expansion
+    # and the hot cosmological model"), see their Eq. (2)
+    if F*f > 32.0/81.0:
         return False
 
     params = lkit.RS5D.Parameters(M5)
