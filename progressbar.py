@@ -3,7 +3,7 @@ from typing import Tuple
 
 import ray
 from ray.actor import ActorHandle
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 
 # adapted from https://docs.ray.io/en/latest/ray-core/examples/progress_bar.html
