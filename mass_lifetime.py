@@ -59,7 +59,9 @@ def _build_labels(h: str):
             'Mfinal_GeV': '{h}_Mfinal_GeV'.format(h=h),
             'Mfinal_Gram': '{h}_Mfinal_Gram'.format(h=h),
             '4D_to_5D_GeV': '{h}_4D_to_5D_GeV'.format(h=h),
+            '4D_to_5D_Kelvin': '{h}_4D_to_5D_Kelvin'.format(h=h),
             '5D_to_4D_GeV': '{h}_5D_to_4D_GeV'.format(h=h),
+            '5D_to_4D_Kelvin': '{h}_5D_to_4D_Kelvin'.format(h=h),
             'Mmax_GeV': '{h}_Mmax_GeV'.format(h=h),
             'Mmax_Gram': '{h}_Mmax_Gram'.format(h=h),
             'compute': '{h}_compute'.format(h=h)}
@@ -99,6 +101,12 @@ def compute_lifetime(cache: ActorHandle, serial_batch: List[int]) -> List[float]
                           labels['shift']: history.T_shift,
                           labels['Mfinal_GeV']: history.M_final,
                           labels['Mfinal_Gram']: history.M_final / lkit.Gram,
+                          labels['Mmax_GeV']: history.M_max,
+                          labels['Mmax_Gram']: history.M_max / lkit.Gram,
+                          labels['4D_to_5D_GeV']: history.T_transition_4Dto5D,
+                          labels['4D_to_5D_Kelvin']: None if history.T_transition_4Dto5D is None else history.T_transition_4Dto5D / lkit.Kelvin,
+                          labels['5D_to_4D_GeV']: history.T_transition_5Dto4D,
+                          labels['5D_to_4D_Kelvin']: None if history.T_transition_5Dto4D is None else history.T_transition_5Dto4D / lkit.Kelvin,
                           labels['compute']: history.compute_time}
                 data = data | h_data
 

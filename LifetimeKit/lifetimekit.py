@@ -32,7 +32,7 @@ class LifetimeObserver:
     because evaporation has proceeded to the point where a relic has formed
     """
 
-    def __init__(self, engine, sample_grid, mass_grid, x_grid, T_Hawking_grid, relic_mass):
+    def __init__(self, engine, sample_grid, mass_grid, x_grid, T_Hawking_grid, M_relic, M_init):
         """
         Instantiate a LifetimeObserver instance.
         The constructor captures model engine instance. _sample_grid should be a numpy 1d array representing
@@ -54,12 +54,24 @@ class LifetimeObserver:
         self._engine = engine
 
         # instantiate BlackHole object corresponding to this engine
-        self._PBH = self._engine.BlackHoleType(self._engine.params, 1.0, 'gram')
+        self._PBH = self._engine.BlackHoleType(self._engine.params, M_init, 'GeV')
 
         # self.terminated is a flag that is set when the integration should terminate because a relic
-        # has formed; self.relic_mass records the PBH mass where we declare a relic forms
-        self.relic_mass = relic_mass
+        # has formed; self.M_relic records the PBH mass where we declare a relic forms
+        self.relic_mass = M_relic
         self.terminated = False
+
+        # capture maximum mass achieved during lifetime
+        self.M_max = M_init
+
+        # capture time of 4D to 5D transition (if one occurs)
+        self.T_transition_4Dto5D = None
+
+        # capture time of 5D to 4D transition (if one occurs)
+        self.T_transition_5Dto4D = None
+
+        # is black hole currently in 5D or 4D regime?
+        self._PBH_was_5D = self._PBH.is_5D if hasattr(self._PBH, 'is_5D') else None
 
         # capture reference to sample grid, mass history grid, x history grid (x=PBH mass/horizon mass),
         # and Hawking temperature history grid
@@ -97,6 +109,23 @@ class LifetimeObserver:
         # extract current value of PBH mass, in GeV
         PBH_mass = math.exp(logM_asarray.item())
         self._PBH.set_value(PBH_mass, 'GeV')
+
+        # if current mass is larger than previous maximum, reset our running estimate of the maximum
+        if self.M_max is None or PBH_mass > self.M_max:
+            self.M_max = PBH_mass
+
+        # detect transitions from 5D to 4D and vice versa, if this is a 5D black hole type
+        if self._PBH_was_5D is not None:
+
+            # if black hole was 5D at previous observation step, but is no longer 5D, record this and
+            # mark the transition point
+            if self._PBH_was_5D and not self._PBH.is_5D:
+                self.T_transition_5Dto4D = T_rad
+                self._PBH_was_5D = False
+            elif not self._PBH_was_5D and self._PBH.is_5D:
+                self.T_transition_4Dto5D = T_rad
+                self._PBH_was_5D = True
+
 
         # write solution into M-soln_grid if we have passed an observation point
         if self.next_sample_point is not None and logT_rad < self.next_sample_point:
@@ -194,10 +223,19 @@ class PBHLifetimeModel:
         # four-dimensional Planck scale (which is usually what we want)
         self._relic_scale = self._params.M4
         observer = LifetimeObserver(self._engine, self.logT_sample_points, self.M_sample_points, self.x_sample_points,
-                                    self.T_Hawking_sample_points, self._relic_scale)
+                                    self.T_Hawking_sample_points, self._relic_scale, self.M_init)
 
         # run the integration
         self._integrate(LifetimeModel, observer)
+
+        # extract maximum mass value achieved during lifetime from observer
+        self.M_max = observer.M_max
+
+        # extract time of 4D -> 5D transition (if one occurs)
+        self.T_transition_4Dto5D = observer.T_transition_4Dto5D
+
+        # extract time of 5D -> 4D transition (if one occurs)
+        self.T_transition_5Dto4D = observer.T_transition_5Dto4D
 
         # get list of methods in LifetimeModel that can be used to produce a rate, and use these to populate
         # our rates list
