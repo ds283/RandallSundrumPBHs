@@ -6,7 +6,7 @@ from typing import List
 import numpy as np
 import ray
 from ray.actor import ActorHandle
-from ray.data import Dataset
+from ray.data import Dataset, set_progress_bars
 
 import LifetimeKit as lkit
 import CacheKit as ckit
@@ -29,6 +29,11 @@ if args.create_database is None and args.database is None:
 
 # connect to ray cluster on supplied address; defaults to 'auto' meaning a locally running cluster
 ray.init(address=args.ray_address)
+
+if args.progress_bar:
+    set_progress_bars(True)
+else:
+    set_progress_bars(False)
 
 
 # mapping between histories to write into output database (keys)
