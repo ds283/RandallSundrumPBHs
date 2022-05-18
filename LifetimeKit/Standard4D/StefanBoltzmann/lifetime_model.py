@@ -65,10 +65,13 @@ class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
         # compute current Hubble rate at this radiation temperature
         H = self.engine.Hubble(T=T_rad)
 
-        # ACCRETION
-        dlogM_dlogT = -self._rate_accretion(T_rad, self._PBH) / (self._PBH.mass * H)
+        try:
+            # ACCRETION
+            dlogM_dlogT = -self._rate_accretion(T_rad, self._PBH) / (self._PBH.mass * H)
 
-        # EVAPORATION
-        dlogM_dlogT += -self._rate_evaporation(T_rad, self._PBH) / (self._PBH.mass * H)
+            # EVAPORATION
+            dlogM_dlogT += -self._rate_evaporation(T_rad, self._PBH) / (self._PBH.mass * H)
+        except ZeroDivisionError:
+            dlogM_dlogT = float("nan")
 
         return dlogM_dlogT

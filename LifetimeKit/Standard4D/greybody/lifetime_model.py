@@ -61,7 +61,10 @@ class LifetimeModel(BaseGreybodyLifetimeModel):
         T_Hawking = PBH.T_Hawking
 
         # sum over greybody factors to get evaporation rate
-        dM_dt = -(self.massless_xi + sum([xi(T_Hawking) for xi in self.massive_xi])) / (Const_2Pi * rh_sq)
+        try:
+            dM_dt = -(self.massless_xi + sum([xi(T_Hawking) for xi in self.massive_xi])) / (Const_2Pi * rh_sq)
+        except ZeroDivisionError:
+            dM_dt = float("nan")
 
         return dM_dt
 
@@ -98,10 +101,13 @@ class LifetimeModel(BaseGreybodyLifetimeModel):
         # compute current Hubble rate at this radiation temperature
         H = self.engine.Hubble(T=T_rad)
 
-        # ACCRETION
-        dlogM_dlogT = -self._rate_accretion(T_rad, self._PBH) / (self._PBH.mass * H)
+        try:
+            # ACCRETION
+            dlogM_dlogT = -self._rate_accretion(T_rad, self._PBH) / (self._PBH.mass * H)
 
-        # EVAPORATION
-        dlogM_dlogT += -self._rate_evaporation(T_rad, self._PBH) / (self._PBH.mass * H)
+            # EVAPORATION
+            dlogM_dlogT += -self._rate_evaporation(T_rad, self._PBH) / (self._PBH.mass * H)
+        except ZeroDivisionError:
+            dlogM_dlogT = float("nan")
 
         return dlogM_dlogT

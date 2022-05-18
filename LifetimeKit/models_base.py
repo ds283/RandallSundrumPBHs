@@ -219,10 +219,13 @@ class StefanBoltzmann5D:
         t = PBH.t
         t4 = t*t*t*t
 
-        evap_prefactor = Const_4Pi * alpha_sq / (t4 * rh_sq)
-        evap_dof = (g4 * self._SB_4D + Const_PiOver2 * alpha * g5 * self._SB_5D / t)
+        try:
+            evap_prefactor = Const_4Pi * alpha_sq / (t4 * rh_sq)
+            evap_dof = (g4 * self._SB_4D + Const_PiOver2 * alpha * g5 * self._SB_5D / t)
 
-        dM_dt = -evap_prefactor * evap_dof / (Page_suppression_factor if self._use_Page_suppression else 1.0)
+            dM_dt = -evap_prefactor * evap_dof / (Page_suppression_factor if self._use_Page_suppression else 1.0)
+        except ZeroDivisionError:
+            dM_dt = float("nan")
 
         return dM_dt
 
