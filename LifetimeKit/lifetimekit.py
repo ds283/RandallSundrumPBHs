@@ -361,6 +361,7 @@ class PBHLifetimeModel:
         if temperature_units is not None and temperature_units not in self._temperature_conversions:
             raise RuntimeError(_UNIT_ERROR_MESSAGE.format(unit=temperature_units))
 
+
     def rates_plot(self, filename, show_rates=None, mass_units='gram', time_units='year', temperature_units='Kelvin'):
         self._validate_units(mass_units=mass_units, time_units=time_units, temperature_units=temperature_units)
 
@@ -388,6 +389,7 @@ class PBHLifetimeModel:
         plt.ylabel('$|dM/dt|$ / {massunit}/{tunit}'.format(massunit=mass_units, tunit=time_units))
         plt.legend()
         plt.savefig(filename)
+
 
     def rates_relative_plot(self, filename, show_rates=None, compare_rate='stefanboltzmann', temperature_units='Kelvin'):
         # if no models specified, plot them all
@@ -419,6 +421,7 @@ class PBHLifetimeModel:
         plt.ylabel('$|dM/dt|$ relative to {label}'.format(label=compare_rate))
         plt.legend()
         plt.savefig(filename)
+
 
     def rates_csv(self, filename, show_rates=None, mass_units='gram', time_units='year', temperature_units='Kelvin'):
         self._validate_units(mass_units=mass_units, time_units=time_units, temperature_units=temperature_units)
