@@ -334,13 +334,23 @@ class BlackHole:
     # the relation is T_H = 1/(4pi R_h)
     @property
     def T_Hawking_5D(self):
-        return 1.0 / (Const_2Pi * self.radius_5D)
+        try:
+            return 1.0 / (Const_2Pi * self.radius_5D)
+        except ZeroDivisionError:
+            pass
+
+        return float("nan")
 
     # query for the 5D Hawking temperature, measured in GeV
     # the relation is T_H = 1/(2pi R_h)
     @property
     def T_Hawking_4D(self):
-        return 1.0 / (Const_4Pi * self.radius_4D)
+        try:
+            return 1.0 / (Const_4Pi * self.radius_4D)
+        except ZeroDivisionError:
+            pass
+
+        return float("nan")
 
     # query for the Hawking temperature, measured in GeV, accounting for the 4D to 5D crossover
     @property

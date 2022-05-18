@@ -128,7 +128,12 @@ class BlackHole:
     # the relation is T_H = 1/(2pi R_h)
     @property
     def T_Hawking(self):
-        return 1.0 / (Const_4Pi * self.radius)
+        try:
+            return 1.0 / (Const_4Pi * self.radius)
+        except ZeroDivisionError:
+            pass
+
+        return float("nan")
 
     # query for t, which gives the coefficient in the relationship T_Hawking = 1/(t * R_h)
     @property
