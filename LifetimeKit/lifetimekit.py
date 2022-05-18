@@ -216,6 +216,15 @@ class PBHLifetimeModel:
         # track final mass
         self.M_final = None
 
+        # track maximum mass
+        self.M_max = None
+
+        # track time of 4D to 5D transition, if one occurs
+        self.T_transition_4Dto5D = None
+
+        # track time of 5D to 4D transition, if one occurs
+        self.T_transition_5Dto4D = None
+
         # set compute time to None; will be overwritten later
         self.compute_time = None
 
@@ -227,15 +236,6 @@ class PBHLifetimeModel:
 
         # run the integration
         self._integrate(LifetimeModel, observer)
-
-        # extract maximum mass value achieved during lifetime from observer
-        self.M_max = observer.M_max
-
-        # extract time of 4D -> 5D transition (if one occurs)
-        self.T_transition_4Dto5D = observer.T_transition_4Dto5D
-
-        # extract time of 5D -> 4D transition (if one occurs)
-        self.T_transition_5Dto4D = observer.T_transition_5Dto4D
 
         # get list of methods in LifetimeModel that can be used to produce a rate, and use these to populate
         # our rates list
@@ -311,11 +311,28 @@ class PBHLifetimeModel:
         M = math.exp(stepper.y.item())
         T_rad = math.exp(stepper.t)
 
+        # extract time of 5D -> 4D transition (if one occurs)
+        # this isn't affected by integration issues when we get close to the final state
+        # (see below for how to handle the 4D to 5D transition)
+        self.T_transition_5Dto4D = Observer.T_transition_5Dto4D
+
+        # extract maximum mass value achieved during lifetime from observer
+        self.M_max = Observer.M_max
+
         # if the observer terminated the integration, this is because the PBH evaporation proceeded
-        # to the point where we produce a relic, so we can record the lifetime and exit
+        # to the point where we produce a relic (or because the PBH survives until the present day),
+        # so we can record the lifetime and exit
         if stepper.successful():
+            # extract lifetime and final mass
             self.T_lifetime = T_rad
             self.M_final = M
+
+            # extract time of 4D -> 5D transition (if one occurs); this is reliable since the integration
+            # concluded ok
+            # if not transition time is recorded, it will basically be the evaporation point
+            if Observer.T_transition_4Dto5D is not None:
+                self.T_transition_4Dto5D = Observer.T_transition_4Dto5D
+
             return
 
         # THIS SECTION ONLY REACHED IF THERE WAS AN INTEGRATION ERROR
@@ -342,13 +359,22 @@ class PBHLifetimeModel:
         Ti_rad = math.exp(stepper.t)
 
         # compute the final relic formation time using an analytic estimation
+        use_reff = LifetimeModel._use_effective_radius
         self.T_lifetime = \
-            PBH.compute_analytic_Trad_final(Ti_rad, self._relic_scale,
-                                              use_effective_radius=LifetimeModel._use_effective_radius)
+            PBH.compute_analytic_Trad_final(Ti_rad, self._relic_scale, use_effective_radius=use_reff)
         self.M_final = self._relic_scale
 
         # record the shift due to using the analytic model
         self.T_shift = Ti_rad - self.T_lifetime
+
+        # compute time that 4D to 5D transition occurs during evaporation
+        # note that self._params.M_transition should exist in this scenario
+        if Observer.T_transition_4Dto5D is not None:
+            self.T_transition_4Dto5D = Observer.T_transition_4Dto5D
+        elif hasattr(PBH, 'is_5D') and not PBH.is_5D:
+            self.T_transition_4Dto5D = PBH.compute_analytic_Trad_final(Ti_rad, self._params.M_transition,
+                                                                       use_effective_radius=use_reff)
+
 
     def _validate_units(self, mass_units=None, time_units=None, temperature_units=None):
         # check desired units are sensible
