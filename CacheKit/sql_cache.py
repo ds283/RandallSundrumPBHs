@@ -267,6 +267,18 @@ class Cache:
         self._get_engine(db_name, expect_exists=True)
 
 
+    def get_total_work_size(self) -> int:
+        if self._engine is None:
+            raise RuntimeError('No database connection exists in get_total_work_size()')
+
+        with self._engine.begin() as conn:
+            result = conn.execute(
+                sqla.select(sqla.func.count()).select_from(self._work_table)
+            )
+
+            return result.scalar()
+
+
     def get_work_list(self) -> Dataset:
         if self._engine is None:
             raise RuntimeError('No database connection exists in get_work_list()')
