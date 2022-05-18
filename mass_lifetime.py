@@ -19,6 +19,8 @@ parser.add_argument('--create-database', default=None,
                     help='create a database cache in the specified file')
 parser.add_argument('--database', default=None,
                     help='read/write work items using the specified database cache')
+parser.add_argument('--compute', default=True, action=argparse.BooleanOptionalAction,
+                    help='enable/disable computation of work items (use in conjunction with --create-database')
 parser.add_argument('--ray-address', default='auto', type=str,
                     help='specify address of Ray cluster')
 args = parser.parse_args()
@@ -141,10 +143,11 @@ else:
     obj = cache.open_database.remote(args.database)
     output = ray.get(obj)
 
-work_list: Dataset = ray.get(cache.get_work_list.remote())
-work_list_size = work_list.count()
-total_work_size: int = ray.get(cache.get_total_work_size.remote())
-print('** Retrieved {n}/{tot} ({percent:.2f}%) work list items that require '
-      'processing'.format(n=work_list_size, tot=total_work_size,
-                          percent=100.0*float(work_list_size)/float(total_work_size)))
-work_list.map_batches(partial(compute_lifetime, cache))
+if args.compute:
+    work_list: Dataset = ray.get(cache.get_work_list.remote())
+    work_list_size = work_list.count()
+    total_work_size: int = ray.get(cache.get_total_work_size.remote())
+    print('** Retrieved {n}/{tot} ({percent:.2f}%) work list items that require '
+          'processing'.format(n=work_list_size, tot=total_work_size,
+                              percent=100.0*float(work_list_size)/float(total_work_size)))
+    work_list.map_batches(partial(compute_lifetime, cache))
