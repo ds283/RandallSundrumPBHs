@@ -132,7 +132,9 @@ M5_grid = np.geomspace(2E8, 5E17, 500)
 Tinit_grid = np.geomspace(1E5, 5E17, 500)
 
 F_grid = np.geomspace(0.001, 1.0, 50)
-f_grid = [0.5]
+
+# f = 0.395 is just under Zel'dovich-Novikov limit for Ff = 32/81
+f_grid = [0.395]
 
 cache: ckit.Cache = ckit.Cache.remote(list(histories.keys()), _build_labels)
 
