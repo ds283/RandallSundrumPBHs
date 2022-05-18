@@ -66,6 +66,8 @@ def _build_labels(h: str):
 
 
 def compute_lifetime(cache: ActorHandle, serial_batch: List[int]) -> None:
+    batch = []
+
     for serial in serial_batch:
         data = ray.get(cache.get_work_item.remote(serial))
 
@@ -98,7 +100,9 @@ def compute_lifetime(cache: ActorHandle, serial_batch: List[int]) -> None:
                       labels['compute']: history.compute_time}
             data = data | h_data
 
-        cache.write_work_item.remote(data)
+        batch.append(data)
+
+    cache.write_work_item.remote(batch)
 
 # build soln_grid of M5/Tinit/F sample points
 

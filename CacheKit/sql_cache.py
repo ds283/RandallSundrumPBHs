@@ -309,7 +309,7 @@ class Cache:
 
         with self._engine.begin() as conn:
             conn.execute(
-                self._data_table.insert().values(**data)
+                self._data_table.insert(), data
             )
 
             conn.commit()
