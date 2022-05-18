@@ -65,8 +65,9 @@ def _build_labels(h: str):
             'compute': '{h}_compute'.format(h=h)}
 
 
-def compute_lifetime(cache: ActorHandle, serial_batch: List[int]) -> None:
+def compute_lifetime(cache: ActorHandle, serial_batch: List[int]) -> List[float]:
     batch = []
+    times = []
 
     for serial in serial_batch:
         data = ray.get(cache.get_work_item.remote(serial))
@@ -85,24 +86,28 @@ def compute_lifetime(cache: ActorHandle, serial_batch: List[int]) -> None:
                 'Minit_4D_GeV': solution.M_init_4D,
                 'Minit_4D_Gram': solution.M_init_4D/lkit.Gram}
 
-        for history_label in histories.keys():
-            model_label = histories[history_label]
+        with lkit.Timer() as timer:
+            for history_label in histories.keys():
+                model_label = histories[history_label]
 
-            labels = _build_labels(history_label)
+                labels = _build_labels(history_label)
 
-            history = solution.lifetimes[model_label]
+                history = solution.lifetimes[model_label]
 
-            h_data = {labels['lifetime_GeV']: history.T_lifetime,
-                      labels['lifetime_Kelvin']: history.T_lifetime / lkit.Kelvin,
-                      labels['shift']: history.T_shift,
-                      labels['Mfinal_GeV']: history.M_final,
-                      labels['Mfinal_Gram']: history.M_final / lkit.Gram,
-                      labels['compute']: history.compute_time}
-            data = data | h_data
+                h_data = {labels['lifetime_GeV']: history.T_lifetime,
+                          labels['lifetime_Kelvin']: history.T_lifetime / lkit.Kelvin,
+                          labels['shift']: history.T_shift,
+                          labels['Mfinal_GeV']: history.M_final,
+                          labels['Mfinal_Gram']: history.M_final / lkit.Gram,
+                          labels['compute']: history.compute_time}
+                data = data | h_data
 
         batch.append(data)
+        times.append(timer.interval)
 
     cache.write_work_item.remote(batch)
+
+    return times
 
 # build soln_grid of M5/Tinit/F sample points
 
