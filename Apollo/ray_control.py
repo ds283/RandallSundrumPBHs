@@ -24,7 +24,7 @@ head_slots = slots.iloc[0]
 
 if args.start:
     print('** Allocated head node "{name}", slots={slots}'.format(name=head_addr, slots=head_slots))
-    head = fabric.Connection(host=head_addr, user='ds283').run('source /mnt/pact/ds283/anaconda3/etc/profile.d/conda.sh && /mnt/pact/ds283/anaconda3/envs/ray/bin/ray start --head --num-cpus {n}'.format(n=head_slots))
+    head = fabric.Connection(host=head_addr, user='ds283').run('source /mnt/pact/ds283/anaconda3/etc/profile.d/conda.sh && /mnt/pact/ds283/anaconda3/envs/ray/bin/ray start --head --num-cpus {n} --num-gpus 0'.format(n=head_slots))
 elif args.stop:
     head = fabric.Connection(host=head_addr, user='ds283').run('source /mnt/pact/ds283/anaconda3/etc/profile.d/conda.sh && /mnt/pact/ds283/anaconda3/envs/ray/bin/ray stop')
 
