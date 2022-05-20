@@ -68,6 +68,7 @@ def _build_labels(h: str):
             'Mmax_GeV': '{h}_Mmax_GeV'.format(h=h),
             'Mmax_Gram': '{h}_Mmax_Gram'.format(h=h),
             'evaporated': '{h}_evaporated'.format(h=h),
+            'runaway_accretion': '{h}_runaway_accretion'.format(h=h),
             'compute': '{h}_compute'.format(h=h)}
 
 
@@ -113,6 +114,7 @@ def compute_lifetime(cache: ActorHandle, serial_batch: List[int]) -> List[float]
                           labels['5D_to_4D_GeV']: history.T_transition_5Dto4D,
                           labels['5D_to_4D_Kelvin']: None if history.T_transition_5Dto4D is None else history.T_transition_5Dto4D / lkit.Kelvin,
                           labels['evaporated']: history.evaporated,
+                          labels['runaway_accretion']: history.runaway_accretion,
                           labels['compute']: history.compute_time}
                 data = data | h_data
 

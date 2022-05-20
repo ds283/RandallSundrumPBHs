@@ -228,6 +228,9 @@ class PBHLifetimeModel:
         # track whether PBH survives until the present day
         self.evaporated = None
 
+        # track whether runaway accretion occurred
+        self.runaway_accretion = None
+
         # set compute time to None; will be overwritten later
         self.compute_time = None
 
@@ -280,26 +283,33 @@ class PBHLifetimeModel:
         # making the integrator need a very small stepsize to keep up
         stepper.set_initial_value(self.logM_init, self.logT_rad_init)
 
-        with Timer() as timer:
-            # integrate down to the present CMB temperature, or when the observer notices that the PBH
-            # mass has decreased below M4
+        try:
+            with Timer() as timer:
+                # integrate down to the present CMB temperature, or when the observer notices that the PBH
+                # mass has decreased below M4
 
-            # with np.errstate(over='raise', divide='raise'):
-            #     try:
-            #         while stepper.successful() and Observer.next_sample_point is not None and stepper.t > self.logT_min \
-            #                 and not Observer.terminated:
-            #             stepper.integrate(Observer.next_sample_point - 0.001)
-            #     except FloatingPointError as e:
-            #         print('Floating point error: {msg}'.format(msg=str(e)))
-            #         print('  -- at Minit = {Minit}, T_rad = {Tinit}, M5={M5}'.format(Minit=self.M_init_5D, Tinit=self.T_rad_init, M5=LifetimeModel._params.M5))
-            #
-            #         # leave lifetime as null to indicate that numerical results were unreliable here
-            #         return
+                # with np.errstate(over='raise', divide='raise'):
+                #     try:
+                #         while stepper.successful() and Observer.next_sample_point is not None and stepper.t > self.logT_min \
+                #                 and not Observer.terminated:
+                #             stepper.integrate(Observer.next_sample_point - 0.001)
+                #     except FloatingPointError as e:
+                #         print('Floating point error: {msg}'.format(msg=str(e)))
+                #         print('  -- at Minit = {Minit}, T_rad = {Tinit}, M5={M5}'.format(Minit=self.M_init_5D, Tinit=self.T_rad_init, M5=LifetimeModel._params.M5))
+                #
+                #         # leave lifetime as null to indicate that numerical results were unreliable here
+                #         return
 
-            while stepper.successful() and Observer.next_sample_point is not None and stepper.t > self.logT_min \
-                    and not Observer.terminated:
-                stepper.integrate(Observer.next_sample_point - 0.001)
+                while stepper.successful() and Observer.next_sample_point is not None and stepper.t > self.logT_min \
+                        and not Observer.terminated:
+                    stepper.integrate(Observer.next_sample_point - 0.001)
+        except OverflowError as e:
+            # if an overflow error occurred, assume this was due to runaway accretion
+            self.runaway_accretion = True
+        else:
+            self.runaway_accretion = False
 
+        # capture compute time
         self.compute_time = timer.interval
 
         # truncate unused sample points at end of x_sample_points
