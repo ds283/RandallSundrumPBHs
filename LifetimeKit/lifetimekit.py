@@ -225,6 +225,9 @@ class PBHLifetimeModel:
         # track time of 5D to 4D transition, if one occurs
         self.T_transition_5Dto4D = None
 
+        # track whether PBH survives until the present day
+        self.evaporated = None
+
         # set compute time to None; will be overwritten later
         self.compute_time = None
 
@@ -330,8 +333,13 @@ class PBHLifetimeModel:
             # extract time of 4D -> 5D transition (if one occurs); this is reliable since the integration
             # concluded ok
             # if not transition time is recorded, it will basically be the evaporation point
-            if Observer.T_transition_4Dto5D is not None:
-                self.T_transition_4Dto5D = Observer.T_transition_4Dto5D
+            self.T_transition_4Dto5D = Observer.T_transition_4Dto5D
+
+            # tag with 'evaporated' flag if evaporation occurred
+            if Observer.terminated:
+                self.evaporated = True
+            else:
+                self.evaporated = False
 
             return
 
@@ -366,6 +374,9 @@ class PBHLifetimeModel:
 
         # record the shift due to using the analytic model
         self.T_shift = Ti_rad - self.T_lifetime
+
+        # tag as evaporated
+        self.evaporated = True
 
         # compute time that 4D to 5D transition occurs during evaporation
         # note that self._params.M_transition should exist in this scenario
