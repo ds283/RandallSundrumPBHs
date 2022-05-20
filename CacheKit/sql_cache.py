@@ -5,6 +5,7 @@ from typing import List, Callable, Dict, Tuple
 import ray
 from ray.data import Dataset
 import sqlalchemy as sqla
+from sqlalchemy.dialects.sqlite import insert
 
 import LifetimeKit as lkit
 
@@ -110,7 +111,8 @@ class Cache:
                                       sqla.Column('collapse_f_serial', sqla.Integer, sqla.ForeignKey('collapse_f_grid.serial')))
 
         self._data_table = sqla.Table('data', self._metadata,
-                                      sqla.Column('serial', sqla.Integer, sqla.ForeignKey('work_grid.serial')),
+                                      sqla.Column('serial', sqla.Integer, sqla.ForeignKey('work_grid.serial'), primary_key=True),
+                                      sqla.Column('timestamp', sqla.DateTime()),
                                       sqla.Column('Minit_5D_GeV', sqla.Float(precision=64)),
                                       sqla.Column('Minit_5D_Gram', sqla.Float(precision=64)),
                                       sqla.Column('Minit_4D_GeV', sqla.Float(precision=64)),
@@ -333,9 +335,12 @@ class Cache:
         if self._engine is None:
             raise RuntimeError('No database connection in write_work_item()')
 
+        # insert this batch of outputs, using .on_conflict_do_nothing() so that multiple entries are not
+        # written into the database
+        # (e.g. if a ray processes a batch item multiple times, perhaps due to a worker failure)
         with self._engine.begin() as conn:
             conn.execute(
-                self._data_table.insert(), data
+                insert(self._data_table).on_conflict_do_nothing(), data
             )
 
             conn.commit()

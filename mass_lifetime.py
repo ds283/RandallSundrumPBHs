@@ -1,4 +1,5 @@
 import argparse
+from datetime import datetime
 import sys
 from functools import partial
 from typing import List
@@ -85,6 +86,7 @@ def compute_lifetime(cache: ActorHandle, serial_batch: List[int]) -> List[float]
                                     accretion_efficiency_F=F, collapse_fraction_f=f)
 
         data = {'serial': serial,
+                'timestamp': datetime.now(),
                 'Minit_5D_GeV': solution.M_init_5D,
                 'Minit_5D_Gram': solution.M_init_5D/lkit.Gram,
                 'Minit_4D_GeV': solution.M_init_4D,
