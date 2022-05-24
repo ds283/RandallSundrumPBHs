@@ -29,7 +29,7 @@ def is_valid(data):
     # effective radius scaling parameter. Here we are going to solve histories with and without
     # using the effective radius, so with alpha = 3 sqrt(3) / 2 we get the combination
     # 32.0/81.0. This is used in Guedens et al., but seems to have first been reported in the
-    # early Zel'dovich & Novikov paper ("The hypothesis of cores retarted during expansion
+    # early Zel'dovich & Novikov paper ("The hypothesis of cores retarded during expansion
     # and the hot cosmological model"), see their Eq. (2)
     if F*f > 32.0/81.0:
         return False
