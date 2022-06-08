@@ -1,10 +1,12 @@
-from pathlib import Path
-from math import pi, pow, exp
-import numpy as np
 import csv
+from math import pi, pow, exp
+from pathlib import Path
 from typing import List
 
-class GreybodySpectrum:
+import numpy as np
+import pandas as pd
+
+class BlackMaxSpectrum:
 
     # labels for the different spins that we will compute
     spins = ['spin0', 'spin1/2', 'spin1']
@@ -55,7 +57,7 @@ class GreybodySpectrum:
         """
         Read in coefficients for greybody fitting functions from the BlackMax greybody database for a specific
         brane codimension, and use them to populate our internal data.
-        Once populated, the resulting GreybodySpectrum object can be used to evaluate the emission spectrum
+        Once populated, the resulting BlackMaxSpectrum object can be used to evaluate the emission spectrum
         of a black hole
         :param codimension: codimension of brane model (usually 1 for the cases of interest to us)
         """
@@ -191,13 +193,13 @@ class GreybodySpectrum:
                             x = self.x_samples[i]
 
                             if x < location[0]:
-                                spectrum[i] += self.part1(A_ro, x) / x
+                                spectrum[i] += self._part1(A_ro, x) / x
                             elif x < location[1]:
-                                spectrum[i] += self.part23(B_ro, x-location[1]) / x
+                                spectrum[i] += self._part23(B_ro, x - location[1]) / x
                             elif x < location[2]:
-                                spectrum[i] += self.part23(C_ro, x-location[2]) / x
+                                spectrum[i] += self._part23(C_ro, x - location[2]) / x
                             else:
-                                spectrum[i] += self.part4(D_ro, x, Omega, T, m, spin) / x
+                                spectrum[i] += self._part4(D_ro, x, Omega, T, m, spin) / x
 
                 # BlackMax uses a post-processing step that seems intended to smooth the fitting functions
                 prev_spectrum_point = spectrum[0]
@@ -208,9 +210,9 @@ class GreybodySpectrum:
                     spectrum[i] = (prev_spectrum_point + current_spectrum_point) / 2.0 + prev_spectrum_point
                     prev_spectrum_point = current_spectrum_point
 
-                final_spectrum_point = spectrum[self.num_x_samples-1]
-                for i in range(0, self.num_x_samples):
-                    spectrum[i] /= final_spectrum_point
+                # final_spectrum_point = spectrum[self.num_x_samples-1]
+                # for i in range(0, self.num_x_samples):
+                #     spectrum[i] /= final_spectrum_point
 
                 table[spin] = {'modes': modes,
                                'spectrum': spectrum}
@@ -220,19 +222,22 @@ class GreybodySpectrum:
 
 
     # fitting function for low-frequency part of greybody factor
-    def part1(self, A: List[float], x: float) -> float:
+    def _part1(self, A: List[float], x: float) -> float:
         return A[0] * pow(x, A[1])
 
 
     # fitting function for mid-frequency part of greybody factor
-    def part23(self, B: List[float], x: float) -> float:
+    def _part23(self, B: List[float], x: float) -> float:
         return sum(b*pow(x, n) for n, b in enumerate(B))
 
 
     # fitting function for high-frequency part of greybody factor
-    def part4(self, D: float, x: float, Omega: float, T: float, m: int, spin: str) -> float:
+    def _part4(self, D: float, x: float, Omega: float, T: float, m: int, spin: str) -> float:
         if spin not in self.spins:
             raise ValueError('Unexpected spin label')
+
+        # BlackMax measures Omega and T in units of 1/r_h, and also x = r_h omega
+        # (note Omega = angular velocity of horizon, omega = frequency of emitted Hawking quantum)
 
         # Bose-Einstein factor for bosons
         if spin in ['spin0', 'spin1']:
@@ -245,4 +250,30 @@ class GreybodySpectrum:
         raise ValueError('Unhandled value for spin label')
 
 
-sp = GreybodySpectrum(1)
+    def write_spectra_to_csv(self, filename: str):
+        df_items = []
+        spin_map = {'spin0': 0,
+                    'spin1/2': 1,
+                    'spin1': 2}
+
+        for astar_serial, astar_sample in self.spectra.items():
+            spin_table = astar_sample['table']
+
+            for spin in spin_table:
+                data = spin_table[spin]
+
+                spectrum = data['spectrum']
+
+                for i in range(0, self.num_x_samples):
+                    df_items.append({'astar_serial': astar_serial,
+                                     'astar': astar_sample['astar'],
+                                     'spin': spin_map[spin],
+                                     'x_serial': i,
+                                     'x_value': self.x_samples[i],
+                                     'spectrum_value': spectrum[i]})
+
+        df = pd.DataFrame(df_items)
+        df.index.name = 'index'
+        df.to_csv(filename)
+
+sp = BlackMaxSpectrum(1)
