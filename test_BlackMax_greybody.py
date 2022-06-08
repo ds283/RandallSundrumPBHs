@@ -6,6 +6,8 @@ from typing import List
 import numpy as np
 import pandas as pd
 
+TOLERANCE = 1E-8
+
 class BlackMaxSpectrum:
 
     # labels for the different spins that we will compute
@@ -129,6 +131,9 @@ class BlackMaxSpectrum:
                 # reserve space for the computed spectrum
                 spectrum = np.zeros_like(self.x_samples)
 
+                # reserve space for computed spectrum using low-frequency analytic approximatrion
+                lowfreq_spectrum = np.zeros_like(self.x_samples)
+
                 with open(file, 'r') as f:
                     reader = csv.reader(f, delimiter=',')
 
@@ -140,10 +145,14 @@ class BlackMaxSpectrum:
                             raise RuntimeError('Too few representation labels in greybody database file "{file}"'.format(file=file))
 
                         if row[0] != 'l':
-                            raise RuntimeError('Expected greybody mode specification to begin with "l"')
+                            raise RuntimeError('Expected greybody mode specification to begin with symbol "l"')
 
                         ell = float(row[1])
                         m = float(row[2])
+                        if ell < 0.0-TOLERANCE:
+                            raise ValueError('ell value should not be negative (ell={ell}'.format(ell=ell))
+                        if not (m >= -ell-TOLERANCE and m <= +ell+TOLERANCE):
+                            raise ValueError('representation basis label m should satisfy -ell <= m <= +ell (ell={ell}, m={m})'.format(ell=ell, m=m))
 
                         row = next(reader)
                         # BlackMax calls the next three values 'locations'.
@@ -202,20 +211,94 @@ class BlackMaxSpectrum:
                                 spectrum[i] += self._part4(D_ro, x, Omega, T, m, spin) / x
 
                 # BlackMax uses a post-processing step that seems intended to smooth the fitting functions
-                prev_spectrum_point = spectrum[0]
-                spectrum[0] = 0.0
-                for i in range(1, self.num_x_samples):
-                    current_spectrum_point = spectrum[i]
+                # however this changes the normalization of the spectrum in a way that seems to disagree with
+                # the analytic estimates of Ida, Oda & Park (http://arxiv.org/abs/hep-th/0212108v4).
+                # Maybe they did not care about this because later they renormalize relative to the final
+                # point on the spectrum anyway!
+                #
+                # Here I change the weighting relative to BlackMax so that I preserve the normalization.
 
-                    spectrum[i] = (prev_spectrum_point + current_spectrum_point) / 2.0 + prev_spectrum_point
-                    prev_spectrum_point = current_spectrum_point
+                # Currently this is disabled: it doesn't give an obvious improvement relative to
+                # sticking with the basic fitting function, and the match to the Ida, Oda & Park analytic
+                # approximations is marginally workse
+
+                # prev_spectrum_point = spectrum[0]
+                # spectrum[0] = 0.0
+                # for i in range(1, self.num_x_samples):
+                #     current_spectrum_point = spectrum[i]
+                #
+                #     # spectrum[i] = (prev_spectrum_point + current_spectrum_point) / 2.0 + prev_spectrum_point
+                #     spectrum[i] = (3.0*prev_spectrum_point + current_spectrum_point) / 4.0
+                #     prev_spectrum_point = current_spectrum_point
+
+                # Finally, BlackMax renormalizes the power spectrum so that the final x-sample point
+                # has amplitude = 1. It's not clear why they do this. Maybe it makes sampling emission events
+                # from the power spectrum easier?
+                #
+                # Currently this is disabled, since it seems to be something we don't want to do
 
                 # final_spectrum_point = spectrum[self.num_x_samples-1]
                 # for i in range(0, self.num_x_samples):
                 #     spectrum[i] /= final_spectrum_point
 
+                # Test with the analytic approximation of Ida, Oda & Park ((http://arxiv.org/abs/hep-th/0212108v4).
+                # NOTE THIS IS FOR codimension=1 ONLY!
+
+                for i in range(0, self.num_x_samples):
+                    lowfreq_spectrum[i] = 0.0
+
+                    x = self.x_samples[i]
+                    xsq = x * x
+
+                    if spin == 'spin0':
+                        for ell, m in [(2,-2), (2,-1), (2,0), (2,1), (2,2), (1,-1), (1,0), (1,1), (0,0)]:
+                            Q = (1 + astar_sq) * x - m * astar
+                            Qsq = Q * Q
+
+                            if ell == 0:
+                                Gamma = 4.0*xsq - 8.0*xsq*xsq
+                            elif ell == 1:
+                                Gamma = 4.0*Q*x*xsq * (1.0 + Qsq) / 9.0
+                            elif ell == 2:
+                                Gamma = 16.0*Q*x*xsq*xsq * (1.0 + 5.0*Qsq/4.0 + Qsq*Qsq/4.0) / 2025.0
+                            else:
+                                raise RuntimeError
+
+                            lowfreq_spectrum[i] += Gamma / (exp(2.0*pi*Q) - 1.0)
+
+                    elif spin == 'spin1/2':
+                        for ell, m in [(3.0/2.0, -3.0/2.0), (3.0/2.0, -1.0/2.0), (3.0/2.0, 1.0/2.0), (3.0/2.0, 3.0/2.0), (1.0/2.0, -1.0/2.0), (1.0/2.0, 1.0/2.0)]:
+                            Q = (1 + astar_sq) * x - m * astar
+                            Qsq = Q * Q
+
+                            if ell > 1.1:
+                                Gamma = xsq*xsq * (1.0 + 40.0*Qsq/9.0 + 16.0*Qsq*Qsq/9.0) / 36.0
+                            elif ell > 0.1:
+                                Gamma = xsq * (1.0 + 4.0*Qsq) - xsq*xsq * (1.0 + 4.0*Qsq)*(1.0 + 4.0*Qsq) / 2.0
+                            else:
+                                raise RuntimeError
+
+                            lowfreq_spectrum[i] += Gamma / (exp(2.0*pi*Q) + 1.0)
+
+                    elif spin == 'spin1':
+                        for ell, m in [(2,-2), (2,-1), (2,0), (2,1), (2,2), (1,-1), (1,0), (1,1)]:
+                            Q = (1 + astar_sq) * x - m * astar
+                            Qsq = Q * Q
+
+                            if ell == 1:
+                                Gamma = 16.0*Q*x*xsq * (1.0 + Qsq) / 9.0
+                            elif ell == 2:
+                                Gamma = 4.0*Q*x*xsq*xsq * (1.0 + 5.0*Qsq/4.0 + Qsq*Qsq/4.0) / 225.0
+                            else:
+                                raise RuntimeError
+
+                            lowfreq_spectrum[i] += Gamma / (exp(2.0*pi*Q) - 1.0)
+
+                    lowfreq_spectrum[i] *= x / (2.0 * pi)
+
                 table[spin] = {'modes': modes,
-                               'spectrum': spectrum}
+                               'spectrum': spectrum,
+                               'lowfreq_spectrum': lowfreq_spectrum}
 
             self.spectra[n] = {'astar': astar,
                                'table': table}
@@ -232,12 +315,15 @@ class BlackMaxSpectrum:
 
 
     # fitting function for high-frequency part of greybody factor
-    def _part4(self, D: float, x: float, Omega: float, T: float, m: int, spin: str) -> float:
+    def _part4(self, D: float, x: float, Omega: float, T: float, m: float, spin: str) -> float:
         if spin not in self.spins:
             raise ValueError('Unexpected spin label')
 
-        # BlackMax measures Omega and T in units of 1/r_h, and also x = r_h omega
-        # (note Omega = angular velocity of horizon, omega = frequency of emitted Hawking quantum)
+        # BlackMax measures Omega and T in units of 1/r_h, so
+        # T_BlackMax = r_h T_true and Omega_BlackMax = r_h Omega_true. Also, x = r_h omega
+        # (note Omega = angular velocity of horizon, omega = frequency of emitted Hawking quantum).
+        # Therefore in the combination (omega - m Omega_true) / T_true that appears as the statistical weight
+        # in the Hawking power spectrum, we can rewrite as (x - m Omega_BlackMax) / T_BlackMax
 
         # Bose-Einstein factor for bosons
         if spin in ['spin0', 'spin1']:
@@ -263,6 +349,7 @@ class BlackMaxSpectrum:
                 data = spin_table[spin]
 
                 spectrum = data['spectrum']
+                lowfreq_spectrum = data['lowfreq_spectrum']
 
                 for i in range(0, self.num_x_samples):
                     df_items.append({'astar_serial': astar_serial,
@@ -270,7 +357,8 @@ class BlackMaxSpectrum:
                                      'spin': spin_map[spin],
                                      'x_serial': i,
                                      'x_value': self.x_samples[i],
-                                     'spectrum_value': spectrum[i]})
+                                     'spectrum_value': spectrum[i],
+                                     'lowfreq_spectrum_value': lowfreq_spectrum[i]})
 
         df = pd.DataFrame(df_items)
         df.index.name = 'index'
