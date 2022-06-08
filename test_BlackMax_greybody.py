@@ -5,6 +5,9 @@ from typing import List
 
 import numpy as np
 import pandas as pd
+from scipy.interpolate import InterpolatedUnivariateSpline
+
+from LifetimeKit.timer import Timer
 
 TOLERANCE = 1E-8
 
@@ -63,6 +66,8 @@ class BlackMaxSpectrum:
         of a black hole
         :param codimension: codimension of brane model (usually 1 for the cases of interest to us)
         """
+        # store codimension
+        self.codimension = codimension
 
         # read in 'aa_r' values from the root-level file 'n{codim}.txt';
         # these are (I think) values of the dimensionless Myers-Perry parameter a* = a/r_h at which we sample the
@@ -128,17 +133,23 @@ class BlackMaxSpectrum:
                 # store the ingested mode tables
                 modes = {}
 
-                # reserve space for the computed spectrum
+                # reserve space for the computed spectral function, and the rate of radiation of angular momentum
+                # d^2 J / dt domega (we don't need to allocate space here for d^2 E / dt domega; that is done
+                # by direct assignment below)
                 spectrum = np.zeros_like(self.x_samples)
+                d2J_dt_domega = np.zeros_like(self.x_samples)
 
-                # reserve space for computed spectrum using low-frequency analytic approximatrion
-                lowfreq_spectrum = np.zeros_like(self.x_samples)
+                # reserve space for the spectrum *per mode* (we need this for computation of d^2 J / dt domega)
+                mode_spectrum = np.zeros_like(self.x_samples)
 
                 with open(file, 'r') as f:
                     reader = csv.reader(f, delimiter=',')
 
                     # iterate over all (ell,m) stored in this configuration file
                     for mode in range(0, self.num_modes[spin]):
+
+                        # zero the storage for the per-mode spectrum
+                        mode_spectrum.fill(0.0)
 
                         row = next(reader)
                         if len(row) < 3:
@@ -202,13 +213,29 @@ class BlackMaxSpectrum:
                             x = self.x_samples[i]
 
                             if x < location[0]:
-                                spectrum[i] += self._part1(A_ro, x) / x
+                                mode_spectrum[i] = self._part1(A_ro, x) / x
                             elif x < location[1]:
-                                spectrum[i] += self._part23(B_ro, x - location[1]) / x
+                                mode_spectrum[i] = self._part23(B_ro, x - location[1]) / x
                             elif x < location[2]:
-                                spectrum[i] += self._part23(C_ro, x - location[2]) / x
+                                mode_spectrum[i] = self._part23(C_ro, x - location[2]) / x
                             else:
-                                spectrum[i] += self._part4(D_ro, x, Omega, T, m, spin) / x
+                                mode_spectrum[i] = self._part4(D_ro, x, Omega, T, m, spin) / x
+
+                        # accumulate the contribution from this mode to the total spectrum
+                        spectrum += mode_spectrum
+
+                        # d^2 J / dt domega needs a weight factor of m compared to the plain spectrum
+                        d2J_dt_domega += m * mode_spectrum
+
+                # d^2 E / dt domega needs another factor of x = r_h omega compared to the plain spectrum;
+                # we can do this using numpy element-by-element multiplication
+                d2E_dt_domega = self.x_samples * spectrum
+
+                d2E_dt_domega_spline = InterpolatedUnivariateSpline(self.x_samples, d2E_dt_domega)
+                d2J_dt_domega_spline = InterpolatedUnivariateSpline(self.x_samples, d2J_dt_domega)
+
+                dE_dt = 2.0*pi * d2E_dt_domega_spline.integral(0.0, self.max_x)
+                dJ_dt = 2.0*pi * d2J_dt_domega_spline.integral(0.0, self.max_x)
 
                 # BlackMax uses a post-processing step that seems intended to smooth the fitting functions
                 # however this changes the normalization of the spectrum in a way that seems to disagree with
@@ -241,64 +268,10 @@ class BlackMaxSpectrum:
                 # for i in range(0, self.num_x_samples):
                 #     spectrum[i] /= final_spectrum_point
 
-                # Test with the analytic approximation of Ida, Oda & Park ((http://arxiv.org/abs/hep-th/0212108v4).
-                # NOTE THIS IS FOR codimension=1 ONLY!
-
-                for i in range(0, self.num_x_samples):
-                    lowfreq_spectrum[i] = 0.0
-
-                    x = self.x_samples[i]
-                    xsq = x * x
-
-                    if spin == 'spin0':
-                        for ell, m in [(2,-2), (2,-1), (2,0), (2,1), (2,2), (1,-1), (1,0), (1,1), (0,0)]:
-                            Q = (1 + astar_sq) * x - m * astar
-                            Qsq = Q * Q
-
-                            if ell == 0:
-                                Gamma = 4.0*xsq - 8.0*xsq*xsq
-                            elif ell == 1:
-                                Gamma = 4.0*Q*x*xsq * (1.0 + Qsq) / 9.0
-                            elif ell == 2:
-                                Gamma = 16.0*Q*x*xsq*xsq * (1.0 + 5.0*Qsq/4.0 + Qsq*Qsq/4.0) / 2025.0
-                            else:
-                                raise RuntimeError
-
-                            lowfreq_spectrum[i] += Gamma / (exp(2.0*pi*Q) - 1.0)
-
-                    elif spin == 'spin1/2':
-                        for ell, m in [(3.0/2.0, -3.0/2.0), (3.0/2.0, -1.0/2.0), (3.0/2.0, 1.0/2.0), (3.0/2.0, 3.0/2.0), (1.0/2.0, -1.0/2.0), (1.0/2.0, 1.0/2.0)]:
-                            Q = (1 + astar_sq) * x - m * astar
-                            Qsq = Q * Q
-
-                            if ell > 1.1:
-                                Gamma = xsq*xsq * (1.0 + 40.0*Qsq/9.0 + 16.0*Qsq*Qsq/9.0) / 36.0
-                            elif ell > 0.1:
-                                Gamma = xsq * (1.0 + 4.0*Qsq) - xsq*xsq * (1.0 + 4.0*Qsq)*(1.0 + 4.0*Qsq) / 2.0
-                            else:
-                                raise RuntimeError
-
-                            lowfreq_spectrum[i] += Gamma / (exp(2.0*pi*Q) + 1.0)
-
-                    elif spin == 'spin1':
-                        for ell, m in [(2,-2), (2,-1), (2,0), (2,1), (2,2), (1,-1), (1,0), (1,1)]:
-                            Q = (1 + astar_sq) * x - m * astar
-                            Qsq = Q * Q
-
-                            if ell == 1:
-                                Gamma = 16.0*Q*x*xsq * (1.0 + Qsq) / 9.0
-                            elif ell == 2:
-                                Gamma = 4.0*Q*x*xsq*xsq * (1.0 + 5.0*Qsq/4.0 + Qsq*Qsq/4.0) / 225.0
-                            else:
-                                raise RuntimeError
-
-                            lowfreq_spectrum[i] += Gamma / (exp(2.0*pi*Q) - 1.0)
-
-                    lowfreq_spectrum[i] *= x / (2.0 * pi)
-
                 table[spin] = {'modes': modes,
                                'spectrum': spectrum,
-                               'lowfreq_spectrum': lowfreq_spectrum}
+                               'dE_dt': dE_dt,
+                               'dJ_dt': dJ_dt}
 
             self.spectra[n] = {'astar': astar,
                                'table': table}
@@ -349,7 +322,6 @@ class BlackMaxSpectrum:
                 data = spin_table[spin]
 
                 spectrum = data['spectrum']
-                lowfreq_spectrum = data['lowfreq_spectrum']
 
                 for i in range(0, self.num_x_samples):
                     df_items.append({'astar_serial': astar_serial,
@@ -357,11 +329,55 @@ class BlackMaxSpectrum:
                                      'spin': spin_map[spin],
                                      'x_serial': i,
                                      'x_value': self.x_samples[i],
-                                     'spectrum_value': spectrum[i],
-                                     'lowfreq_spectrum_value': lowfreq_spectrum[i]})
+                                     'spectrum_value': spectrum[i]})
 
         df = pd.DataFrame(df_items)
         df.index.name = 'index'
         df.to_csv(filename)
 
-sp = BlackMaxSpectrum(1)
+
+    def emissivity_table(self):
+        df_items = []
+
+        for astar_serial, astar_sample in self.spectra.items():
+            spin_table = astar_sample['table']
+
+            item = {'astar_serial': astar_serial,
+                    'astar': astar_sample['astar'],
+                    'codimension': self.codimension}
+
+            for spin in spin_table:
+                data = spin_table[spin]
+
+                item = item | {'{label}_dE_dt'.format(label=spin): data['dE_dt'],
+                               '{label}_dJ_dt'.format(label=spin): data['dJ_dt']}
+
+            df_items.append(item)
+
+        df = pd.DataFrame(df_items)
+        df.index.name = 'index'
+
+        return df
+
+with Timer() as timer:
+    sp1 = BlackMaxSpectrum(1)
+    sp2 = BlackMaxSpectrum(2)
+    sp3 = BlackMaxSpectrum(3)
+    sp4 = BlackMaxSpectrum(4)
+    sp5 = BlackMaxSpectrum(5)
+    sp6 = BlackMaxSpectrum(6)
+
+print('Computed BlackMaxSpectrum objects in time t = {interval:.2} sec'.format(interval=timer.interval))
+
+emit1 = sp1.emissivity_table()
+emit2 = sp2.emissivity_table()
+emit3 = sp3.emissivity_table()
+emit4 = sp4.emissivity_table()
+emit5 = sp5.emissivity_table()
+emit6 = sp6.emissivity_table()
+
+emit_table = pd.concat([emit1, emit2, emit3, emit4, emit5, emit6], axis='index', ignore_index=True)
+emit_no_rotation = emit_table.loc[emit_table['astar_serial'] == 0]
+emit_E_no_rotation = emit_no_rotation[['codimension', 'spin0_dE_dt', 'spin1/2_dE_dt', 'spin1_dE_dt']]
+
+emit_rot = emit_table[['codimension', 'astar', 'spin0_dJ_dt', 'spin1/2_dJ_dt', 'spin1_dJ_dt']]
