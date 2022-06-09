@@ -39,9 +39,9 @@ def Solve_4D_T(Ti, Mi, Mf, gstar, a, g4, sigma4, M4, alpha):
     return 1.0/math.sqrt(A)
 
 
-# class *BlackHole* represents the state of a PBH, which involves at least mass but possibly also charge and
-# angular momentum. It can be used as an arithmetic type and can be queried for other properties, such as
-# the Hawking temperature.
+# class *BlackHole* represents the state of a PBH, which currently is specified by its mass but in future may also
+# require the electric charge and/or angular momentum. It can be queried for properties, such as its radius
+# # or the Hawking temperature.
 class BlackHole:
 
     _mass_conversions = {'gram': Gram, 'kilogram': Kilogram, 'GeV': 1.0}
@@ -68,42 +68,6 @@ class BlackHole:
 
         units_to_GeV = self._mass_conversions[units]
         self.mass = mass * units_to_GeV
-
-
-    # implement basic arithmetic operations
-    def __add__(self, other):
-        if isinstance(other, BlackHole):
-            return BlackHole(self.params, self.mass + other.mass)
-
-        return BlackHole(self.params, self.mass + other)
-
-    __radd__ = __add__
-
-    def __sub__(self, other):
-        if isinstance(other, BlackHole):
-            return BlackHole(self.params, self.mass - other.mass)
-
-        return BlackHole(self.params, self.mass - other)
-
-    def __rsub__(self, other):
-        if isinstance(other, BlackHole):
-            return BlackHole(self.params, other.mass - self.mass)
-
-        return BlackHole(self.params, other - self.mass)
-
-    def __mul__(self, other):
-        if isinstance(other, BlackHole):
-            return NotImplemented
-
-        return BlackHole(self.params, other * self.mass)
-
-    __rmul__ = __mul__
-
-    def __div__(self, other):
-        if isinstance(other, BlackHole):
-            return NotImplemented
-
-        return BlackHole(self.params, self.mass / other)
 
     # query for the 4D Schwarzschild radius of the black hole, measured in 1/GeV
     @property
