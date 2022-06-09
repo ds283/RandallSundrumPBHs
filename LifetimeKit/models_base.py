@@ -53,7 +53,7 @@ def build_cumulative_g_table(particle_table, weight=None):
     return T_thresholds, g_values
 
 
-def build_greybody_xi(particle_table):
+def build_Friedlander_greybody_xi(xi_table):
     xis_massive = []
     xis_massless = 0.0
     xis = {}
@@ -61,8 +61,8 @@ def build_greybody_xi(particle_table):
     def xi(xi0, b, c, mass, dof, T_Hawking):
         return dof * xi0 * math.exp(-b*math.pow(mass/T_Hawking, c))
 
-    for label in particle_table:
-        record = particle_table[label]
+    for label in xi_table:
+        record = xi_table[label]
         if 'b' in record:
             f = partial(xi, record['xi0'], record['b'], record['c'], record['mass'],
                         record['dof'] if record['xi-per-dof'] else 1.0)
@@ -236,7 +236,7 @@ class BaseStefanBoltzmannLifetimeModel(BondiHoyleLyttletonAccretionModel):
 
     def __init__(self, engine, Model, BlackHole, accretion_efficiency_F=0.3,
                  use_effective_radius=True, use_Page_suppression=True,
-                 extra_4D_states=None):
+                 extra_4D_state_table=None):
         """
         To speed up computations, we want to cache the number of relativistic degrees of freedom
         available at any given temperature.
@@ -270,11 +270,13 @@ class BaseStefanBoltzmannLifetimeModel(BondiHoyleLyttletonAccretionModel):
         # approximation
         particle_table = SM_particle_table
 
-        # extra particle states allow us to add extra dofs to the Standard Model ones, if needed.
-        # Examples might be the 4D graviton states. We don't always need those, e.g. in a 5D graviton
-        # model where the graviton emission needs to be handled differently.
-        if extra_4D_states is not None:
-            particle_table = particle_table | extra_4D_states
+        # extra particle states allow us to add extra dofs to the Standard Model ones, if needed,
+        # when calculating the number of degrees of freedom available for emission into Hawking quanta.
+        # These are only used in the Stefan-Boltzmann approximation.
+        #
+        # In a Randall-Sundrum model we need to account separately for emission of gravitons into the bulk
+        if extra_4D_state_table is not None:
+            particle_table = particle_table | extra_4D_state_table
 
         self._thresholds, self._g_values = build_cumulative_g_table(particle_table)
         self._num_thresholds = len(self._thresholds)
@@ -297,7 +299,7 @@ class BaseStefanBoltzmannLifetimeModel(BondiHoyleLyttletonAccretionModel):
         return self._accretion_model.rate(T_rad, PBH)
 
 
-class BaseGreybodyLifetimeModel(BondiHoyleLyttletonAccretionModel):
+class BaseGreybodyLifetimeModel:
     """
     Base infrastructure used by all greybody-factor type lifetime models
     """
@@ -332,12 +334,18 @@ class BaseGreybodyLifetimeModel(BondiHoyleLyttletonAccretionModel):
         # create a PBHModel instance; the value assigned to the mass doesn't matter
         self._PBH = BlackHole(self.engine.params, 1.0, units='gram')
 
-        # cache a list of greybody fitting functions
-        self.massless_xi, self.massive_xi, self.xi_dict = build_greybody_xi(SM_particle_table)
+    def massless_xi(self, PBH):
+        raise RuntimeError('Using virtual massless_xi() method')
+
+    def massive_xi(self, PBH):
+        raise RuntimeError('Using virtual massive_xi() method')
+
+    def xi_dict(self, PBH):
+        raise RuntimeError('Using virtual xi_dict() method')
 
     def _sum_xi_list(self, T_rad, PBH, species):
         """
-        compute horizon radius in 1/GeV for the species enumerated in 'speies'
+        compute horizon radius in 1/GeV for the species enumerated in 'species'
         :param T_rad: current temperature of the radiation bath
         :param PBH: current black hole object, used to abstract Hawking temperature calculation
         :param species: list of names of species to include
@@ -349,9 +357,12 @@ class BaseGreybodyLifetimeModel(BondiHoyleLyttletonAccretionModel):
         # compute Hawking temperature
         T_Hawking = PBH.T_Hawking
 
+        # cache reference to xi-table dictionary
+        xi_dict = self.xi_dict(PBH)
+
         dM_dt = 0.0
         for label in species:
-            record = self.xi_dict[label]
+            record = xi_dict[label]
 
             # If record is a callable, then it is a partially evaluated greybody function that requires
             # to be evaluated on the current Hawking temperature. This happens when the species is massive,

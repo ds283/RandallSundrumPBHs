@@ -1,7 +1,7 @@
 import math
 
-from ...models_base import BaseGreybodyLifetimeModel, build_greybody_xi, StefanBoltzmann4D
-from ...particle_data import Standard4D_graviton_table
+from ...models_base import BaseGreybodyLifetimeModel, build_Friedlander_greybody_xi, StefanBoltzmann4D
+from ...particle_data import Friedlander_greybody_table_4D, Standard4D_graviton_greybody_table
 
 from ..cosmology.standard4D import Model, BlackHole
 
@@ -29,21 +29,25 @@ class LifetimeModel(BaseGreybodyLifetimeModel):
                          use_effective_radius=use_effective_radius,
                          use_Page_suppression=use_Page_suppression)
 
-        # build list of greybody factors associated with 4D Einstein graviton states
-        massless, massive, dct = build_greybody_xi(Standard4D_graviton_table)
-
-        self.massless_xi += massless
-        self.massive_xi += massive
-
-        # merge dictionary from build_greybody_xi() with generic dictionary
-        # built by superclass constructor
-        self.xi_dict = self.xi_dict | dct
+        # build list of greybody factors associated with RS graviton states
+        self._massless_xi, self._massive_xi, self._xi_dict = \
+            build_Friedlander_greybody_xi(Friedlander_greybody_table_4D | Standard4D_graviton_greybody_table)
 
         self._stefanboltzmann_model = StefanBoltzmann4D(self._params.StefanBoltzmannConstant4D,
                                                         use_effective_radius=use_effective_radius,
                                                         use_Page_suppression=use_Page_suppression)
 
         self._logM_end = math.log(self._params.M4)
+
+    def massless_xi(self, PBH):
+        return self._massless_xi
+
+
+    def massive_xi(self, PBH):
+        return self._massive_xi
+
+    def xi_dict(self, PBH):
+        return self._xi_dict
 
     def _rate_evaporation(self, T_rad, PBH):
         """
@@ -60,9 +64,13 @@ class LifetimeModel(BaseGreybodyLifetimeModel):
         # compute Hawking temperature
         T_Hawking = PBH.T_Hawking
 
+        # cache tables of massless and massive xi values
+        massless_xi = self.massless_xi(PBH)
+        massive_xi = self.massive_xi(PBH)
+
         # sum over greybody factors to get evaporation rate
         try:
-            dM_dt = -(self.massless_xi + sum([xi(T_Hawking) for xi in self.massive_xi])) / (Const_2Pi * rh_sq)
+            dM_dt = -(massless_xi + sum([xi(T_Hawking) for xi in massive_xi])) / (Const_2Pi * rh_sq)
         except ZeroDivisionError:
             dM_dt = float("nan")
 

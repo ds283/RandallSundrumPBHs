@@ -4,7 +4,7 @@ import numpy as np
 
 from ..cosmology.RandallSundrum5D import Model, BlackHole
 from ...models_base import BaseStefanBoltzmannLifetimeModel, build_cumulative_g_table, StefanBoltzmann5D
-from ...particle_data import RS_bulk_particle_table
+from ...particle_data import RS_graviton_particle_table
 
 class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
     """
@@ -29,7 +29,7 @@ class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
                          use_Page_suppression=use_Page_suppression)
 
         # build table of dof values for radiation into bulk quanta
-        self.bulk_thresholds, self.bulk_g_values = build_cumulative_g_table(RS_bulk_particle_table)
+        self.bulk_thresholds, self.bulk_g_values = build_cumulative_g_table(RS_graviton_particle_table)
         self.bulk_num_thresholds = len(self.bulk_thresholds)
 
         self._stefanboltzmann_model = StefanBoltzmann5D(self._params.StefanBoltzmannConstant4D,
@@ -67,7 +67,7 @@ class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
         """
         Convenience rate function to return Stefan-Boltzmann emission rate
         for a single 4D degree of freedom, using all existing settings
-        (effetive radius, Page suppression, etc.)
+        (effective radius, Page suppression, etc.)
         :param T_rad:
         :param PBH:
         :return:

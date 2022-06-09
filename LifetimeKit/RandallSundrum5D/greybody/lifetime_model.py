@@ -1,8 +1,8 @@
 import math
 
 from ..cosmology.RandallSundrum5D import Model, BlackHole
-from ...models_base import BaseGreybodyLifetimeModel, build_greybody_xi, StefanBoltzmann5D
-from ...particle_data import RS_bulk_particle_table
+from ...models_base import BaseGreybodyLifetimeModel, build_Friedlander_greybody_xi, StefanBoltzmann5D
+from ...particle_data import Friedlander_greybody_table_4D, Friedlander_greybody_table_5D, RS_graviton_greybody_table
 
 Const_2Pi = 2.0 * math.pi
 
@@ -27,15 +27,12 @@ class LifetimeModel(BaseGreybodyLifetimeModel):
                          use_effective_radius=use_effective_radius,
                          use_Page_suppression=use_Page_suppression)
 
-        # build list of greybody factors associated with RS graviton states
-        massless, massive, dct = build_greybody_xi(RS_bulk_particle_table)
+        # build list of greybody factors
+        self._massless_xi_5D, self._massive_xi_5D, self._xi_dict_5D =\
+            build_Friedlander_greybody_xi(Friedlander_greybody_table_5D | RS_graviton_greybody_table)
 
-        self.massless_xi += massless
-        self.massive_xi += massive
-
-        # merge dictionary from build_greybody_xi() with generic dictionary
-        # built by superclass constructor
-        self.xi_dict = self.xi_dict | dct
+        self._massless_xi_4D, self._massive_xi_4D, self._xi_dict_4D =\
+            build_Friedlander_greybody_xi(Friedlander_greybody_table_4D | RS_graviton_greybody_table)
 
         self._stefanboltzmann_model = StefanBoltzmann5D(self._params.StefanBoltzmannConstant4D,
                                                         self._params.StefanBoltzmannConstant5D,
@@ -43,6 +40,20 @@ class LifetimeModel(BaseGreybodyLifetimeModel):
                                                         use_Page_suppression=use_Page_suppression)
 
         self._logM_end = math.log(self._params.M4)
+    def massless_xi(self, PBH):
+        if PBH.is_5D:
+            return self._massless_xi_5D
+        return self._massless_xi_4D
+
+    def massive_xi(self, PBH):
+        if PBH.is_5D:
+            return self._massive_xi_5D
+        return self._massive_xi_4D
+
+    def xi_dict(self, PBH):
+        if PBH.is_5D:
+            return self._xi_dict_5D
+        return self._xi_dict_4D
 
     def _rate_evaporation(self, T_rad, PBH):
         """
@@ -59,17 +70,15 @@ class LifetimeModel(BaseGreybodyLifetimeModel):
         # compute Hawking temperature
         T_Hawking = PBH.T_Hawking
 
+        # cache tables of massless and massive xi values
+        massless_xi = self.massless_xi(PBH)
+        massive_xi = self.massive_xi(PBH)
+
         # sum over greybody factors to get evaporation rate
         try:
-            dM_dt = -(self.massless_xi + sum([xi(T_Hawking) for xi in self.massive_xi])) / (Const_2Pi * rh_sq)
+            dM_dt = -(massless_xi + sum([xi(T_Hawking) for xi in massive_xi])) / (Const_2Pi * rh_sq)
         except ZeroDivisionError:
             dM_dt = float("nan")
-
-        # increase greybody emission rate by a factor of 16 if we are in the 5D regime
-        # this corrects for the 4D temperature/radius relation, which is baked into the Friedlander et al.
-        # fitting funtions. See https://app.asana.com/0/1201954909529908/1202202342124909/f
-        if PBH.is_5D:
-            dM_dt = dM_dt * 16.0
 
         return dM_dt
 
@@ -86,7 +95,7 @@ class LifetimeModel(BaseGreybodyLifetimeModel):
         """
         Convenience rate function to return Stefan-Boltzmann emission rate
         for a single 4D degree of freedom, using all existing settings
-        (effetive radius, Page suppression, etc.)
+        (effective radius, Page suppression, etc.)
         :param T_rad:
         :param PBH:
         :return:

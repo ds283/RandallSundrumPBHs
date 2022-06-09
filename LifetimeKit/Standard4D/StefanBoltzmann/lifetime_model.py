@@ -2,7 +2,7 @@ import math
 
 from ..cosmology.standard4D import Model, BlackHole
 from ...models_base import BaseStefanBoltzmannLifetimeModel, StefanBoltzmann4D, build_cumulative_g_table
-from ...particle_data import Standard4D_graviton_table
+from ...particle_data import Standard4D_graviton_particle_table
 
 class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
     """
@@ -25,7 +25,7 @@ class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
                          accretion_efficiency_F=accretion_efficiency_F,
                          use_effective_radius=use_effective_radius,
                          use_Page_suppression=use_Page_suppression,
-                         extra_4D_states=Standard4D_graviton_table)
+                         extra_4D_state_table=Standard4D_graviton_particle_table)
 
         self._stefanboltzmann_model = StefanBoltzmann4D(self._params.StefanBoltzmannConstant4D,
                                                         use_effective_radius=use_effective_radius,
