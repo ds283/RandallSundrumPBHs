@@ -162,7 +162,7 @@ class BlackMaxSpectrum:
                         m = float(row[2])
                         if ell < 0.0-TOLERANCE:
                             raise ValueError('ell value should not be negative (ell={ell}'.format(ell=ell))
-                        if not (m >= -ell-TOLERANCE and m <= +ell+TOLERANCE):
+                        if not (-ell - TOLERANCE <= m <= +ell + TOLERANCE):
                             raise ValueError('representation basis label m should satisfy -ell <= m <= +ell (ell={ell}, m={m})'.format(ell=ell, m=m))
 
                         row = next(reader)
@@ -278,12 +278,14 @@ class BlackMaxSpectrum:
 
 
     # fitting function for low-frequency part of greybody factor
-    def _part1(self, A: List[float], x: float) -> float:
+    @staticmethod
+    def _part1(A: List[float], x: float) -> float:
         return A[0] * pow(x, A[1])
 
 
     # fitting function for mid-frequency part of greybody factor
-    def _part23(self, B: List[float], x: float) -> float:
+    @staticmethod
+    def _part23(B: List[float], x: float) -> float:
         return sum(b*pow(x, n) for n, b in enumerate(B))
 
 
