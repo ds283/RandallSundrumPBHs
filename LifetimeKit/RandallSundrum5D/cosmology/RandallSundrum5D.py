@@ -213,38 +213,38 @@ class BlackHole:
     # capture (i) initial mass value, and (ii) a RandallSundrumParameters instance so we can decide whether we are in the 4D or
     # 5D regime based on the AdS radius.
     # The initial mass value can be specified in grams, kilograms, or GeV, but defaults to GeV
-    def __init__(self, params: Parameters, mass: float, units='GeV'):
+    def __init__(self, params: Parameters, M: float, units='GeV'):
         self.params = params
 
         self._M4_over_M5_sqrt = math.sqrt(1.0/self.params.M_ratio)
 
-        # assign current value
-        self.set_value(mass, units)
+        # assign current mass value
+        self.M = None   # define instance attributes within __init__()
+        self.set_mass(M, units)
 
         # check mass is larger than 4D Planck mass; there's no need to check the 5D Planck mass, because
         # we guarantee that M4 > M5
-        if self.mass <= self.params.M4:
+        if self.M <= self.params.M4:
             raise RuntimeError('RandallSundrum5D.BlackHole: Initial black hole mass {mass} GeV should be larger than '
                                'the 4D Planck mass {MP} GeV in order that the PBH does not begin life as a '
-                               'relic'.format(mass=self.mass, MP=self.params.M4))
+                               'relic'.format(mass=self.M, MP=self.params.M4))
 
-
-    def set_value(self, mass: float, units='GeV'):
+    def set_mass(self, M: float, units='GeV'):
         if units not in self._mass_conversions:
             raise RuntimeError('RandallSundrum5D.BlackHole: unit "{unit}" not understood in constructor'.format(unit=units))
 
         units_to_GeV = self._mass_conversions[units]
-        self.mass = mass * units_to_GeV
+        self.M = M * units_to_GeV
 
     # query for the 5D Myers-Perry radius of the black hole, measured in 1/GeV
     @property
     def radius_5D(self):
-        return Const_Radius_5D * math.sqrt(self.mass / self.params.M5) / self.params.M5
+        return Const_Radius_5D * math.sqrt(self.M / self.params.M5) / self.params.M5
 
     # query for the 4D Schwarzschild radius of the black hole, measured in 1/GeV
     @property
     def radius_4D(self):
-        return Const_Radius_4D * (self.mass / self.params.M4) / self.params.M4
+        return Const_Radius_4D * (self.M / self.params.M4) / self.params.M4
 
     # determine whether is black hole is in the 5D or 4D regime
     @property
@@ -337,13 +337,13 @@ class BlackHole:
     def compute_analytic_Trad_final(self, Ti_rad, relic_scale, use_effective_radius=True):
         # if the PBH is already in the 5D regime, it stays in that regime all the way down to a relic
         if self.is_5D:
-            return Solve_5D_T(Ti_rad, self.mass, relic_scale, gstar_full_SM, self.params.RadiationConstant,
+            return Solve_5D_T(Ti_rad, self.M, relic_scale, gstar_full_SM, self.params.RadiationConstant,
                               self.params.tension, 2.0, self.params.StefanBoltzmannConstant4D,
                               5.0, self.params.StefanBoltzmannConstant5D, self.params.M4, self.params.M5,
                               Const_Reff_5D if use_effective_radius else 1.0)
 
         # otherwise there is a period of 4D evolution, followed by a period of 5D evolution
-        T_transition = Solve_4D_T(Ti_rad, self.mass, self.params.M_transition, gstar_full_SM,
+        T_transition = Solve_4D_T(Ti_rad, self.M, self.params.M_transition, gstar_full_SM,
                                   self.params.RadiationConstant, self.params.tension,
                                   2.0, self.params.StefanBoltzmannConstant4D,
                                   5.0, self.params.StefanBoltzmannConstant5D, self.params.M4,

@@ -53,26 +53,27 @@ class BlackHole:
         self.params = params
 
         # assign current value
-        self.set_value(mass, units)
+        self.M = None   # define instance attributes within __init__()
+        self.set_mass(mass, units)
 
         # check mass is larger than 4D Planck mass
-        if self.mass <= self.params.M4:
+        if self.M <= self.params.M4:
             raise RuntimeError('Standard4D.BlackHole: Initial black hole mass {mass} GeV should be larger than the '
                                '4D Planck mass {MP} GeV in order that the PBH does not begin life as a '
-                               'relic'.format(mass=self.mass, MP=self.params.M4))
+                               'relic'.format(mass=self.M, MP=self.params.M4))
 
 
-    def set_value(self, mass: float, units='GeV'):
+    def set_mass(self, M: float, units='GeV'):
         if units not in self._mass_conversions:
             raise RuntimeError('Standard4D.BlackHole: unit "{unit}" not understood in constructor'.format(unit=units))
 
         units_to_GeV = self._mass_conversions[units]
-        self.mass = mass * units_to_GeV
+        self.M = M * units_to_GeV
 
     # query for the 4D Schwarzschild radius of the black hole, measured in 1/GeV
     @property
     def radius(self):
-        return Const_Radius_4D * (self.mass / self.params.M4) / self.params.M4
+        return Const_Radius_4D * (self.M / self.params.M4) / self.params.M4
 
     # query for 4D effective radius, measured in 1/GeV
     # formula is 3 sqrt(3) R_h / 2, see e.g. above Eq. (1) of Guedens et al., astro-ph/0208299v2
@@ -107,7 +108,7 @@ class BlackHole:
     # use an analytic lifetime model to determine the final radiation temperature given a current
     # radiation temperature and a target final mass
     def compute_analytic_Trad_final(self, Ti_rad, relic_scale, use_effective_radius=True):
-        return Solve_4D_T(Ti_rad, self.mass, relic_scale, gstar_full_SM, self.params.RadiationConstant,
+        return Solve_4D_T(Ti_rad, self.M, relic_scale, gstar_full_SM, self.params.RadiationConstant,
                           2.0, self.params.StefanBoltzmannConstant4D, self.params.M4,
                           Const_Reff_4D if use_effective_radius else 1.0)
 

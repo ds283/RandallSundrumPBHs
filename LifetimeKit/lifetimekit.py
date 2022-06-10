@@ -54,7 +54,7 @@ class LifetimeObserver:
         self._engine = engine
 
         # instantiate BlackHole object corresponding to this engine
-        self._PBH = self._engine.BlackHoleType(self._engine.params, M_init, 'GeV')
+        self._PBH = self._engine.BlackHoleType(self._engine.params, M=M_init, units='GeV')
 
         # self.terminated is a flag that is set when the integration should terminate because a relic
         # has formed; self.M_relic records the PBH mass where we declare a relic forms
@@ -108,7 +108,7 @@ class LifetimeObserver:
 
         # extract current value of PBH mass, in GeV
         PBH_mass = math.exp(logM_asarray.item())
-        self._PBH.set_value(PBH_mass, 'GeV')
+        self._PBH.set_mass(PBH_mass, 'GeV')
 
         # if current mass is larger than previous maximum, reset our running estimate of the maximum
         if self.M_max is None or PBH_mass > self.M_max:
@@ -256,10 +256,10 @@ class PBHLifetimeModel:
                     if callable(c):
                         rate = np.zeros_like(self.T_sample_points)
 
-                        PBH = self._engine.BlackHoleType(self._params, Kilogram, 'GeV')
+                        PBH = self._engine.BlackHoleType(self._params, M=Kilogram, units='GeV')
 
                         for n in range(0, len(self.T_sample_points)):
-                            PBH.set_value(self.M_sample_points[n], 'GeV')
+                            PBH.set_mass(self.M_sample_points[n], 'GeV')
 
                             # rate is the plain emission rate, measured in GeV^2 = mass/time
                             rate[n] = c(self.T_sample_points[n], PBH)
@@ -371,7 +371,7 @@ class PBHLifetimeModel:
         # that we're close to the point of evaporation down to a relic
 
         # create an instance of the appropriate black hole type
-        PBH = self._engine.BlackHoleType(self._engine.params, M, 'GeV')
+        PBH = self._engine.BlackHoleType(self._engine.params, M=M, units='GeV')
 
         # get current radiation temperature in GeV
         Ti_rad = math.exp(stepper.t)

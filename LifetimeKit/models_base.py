@@ -229,7 +229,7 @@ class StefanBoltzmann5D:
 
         return dM_dt
 
-class BaseStefanBoltzmannLifetimeModel(BondiHoyleLyttletonAccretionModel):
+class BaseStefanBoltzmannLifetimeModel:
     """
     Shared infrastructure used by all Stefan-Boltzmann-type lifetime models
     """

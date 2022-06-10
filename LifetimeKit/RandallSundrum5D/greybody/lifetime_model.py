@@ -110,17 +110,17 @@ class LifetimeModel(BaseGreybodyLifetimeModel):
         # also the PBH mass, and reset the PBH model object self._PBH to its value
         logM = logM_asarray.item()
         PBH_mass = math.exp(logM)
-        self._PBH.set_value(PBH_mass, 'GeV')
+        self._PBH.set_mass(PBH_mass, 'GeV')
 
         # compute current Hubble rate at this radiation temperature
         H = self.engine.Hubble(T=T_rad)
 
         try:
             # ACCRETION
-            dlogM_dlogT = -self._rate_accretion(T_rad, self._PBH) / (self._PBH.mass * H)
+            dlogM_dlogT = -self._rate_accretion(T_rad, self._PBH) / (self._PBH.M * H)
 
             # EVAPORATION
-            dlogM_dlogT += -self._rate_evaporation(T_rad, self._PBH) / (self._PBH.mass * H)
+            dlogM_dlogT += -self._rate_evaporation(T_rad, self._PBH) / (self._PBH.M * H)
         except ZeroDivisionError:
             dlogM_dlogT = float("nan")
 
