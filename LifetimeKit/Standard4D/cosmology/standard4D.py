@@ -49,12 +49,12 @@ class BlackHole:
     # capture (i) initial mass value, and (ii) a RandallSundrumParameters instance so we can decide whether we are in the 4D or
     # 5D regime based on the AdS radius.
     # The initial mass value can be specified in grams, kilograms, or GeV, but defaults to GeV
-    def __init__(self, params, mass: float, units='GeV'):
+    def __init__(self, params, M: float, units='GeV'):
         self.params = params
 
         # assign current value
         self.M = None   # define instance attributes within __init__()
-        self.set_mass(mass, units)
+        self.set_mass(M, units)
 
         # check mass is larger than 4D Planck mass
         if self.M <= self.params.M4:

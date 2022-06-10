@@ -1,3 +1,5 @@
+import copy
+
 # spin weights for contribution to energy density; fermions contribute like 7/8 of a particle
 boson_weight = 1.0
 fermion_weight = 7.0/8.0
@@ -40,7 +42,7 @@ xi0_spin2_5D = 0.00972
 # https://blackhawk.hepforge.org/manuals/blackhawk1.1.pdf
 
 def _table_merge(A, B):
-    newA = A.deepcopy()
+    newA = copy.deepcopy(A)
 
     for key in B:
         if key in newA:
