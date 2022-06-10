@@ -40,7 +40,7 @@ xi0_spin2_5D = 0.00972
 # https://blackhawk.hepforge.org/manuals/blackhawk1.1.pdf
 
 def _table_merge(A, B):
-    newA = A.copy()
+    newA = A.deepcopy()
 
     for key in B:
         if key in newA:
@@ -50,6 +50,7 @@ def _table_merge(A, B):
 
     return newA
 
+# common data elements should be shared to prevent copying/propagation errors
 SM_particle_base_table = \
  {'Higgs': {'mass': 1.2503E2, 'dof': 1},
   'photon': {'mass': 0.0, 'dof': 2},
