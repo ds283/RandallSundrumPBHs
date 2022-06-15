@@ -1,9 +1,8 @@
 import math
 
-from ...models_base import BaseGreybodyLifetimeModel, build_Friedlander_greybody_xi, StefanBoltzmann4D
-from ...particle_data import Friedlander_greybody_table_4D, Standard4D_graviton_greybody_table
-
 from ..cosmology.standard4D import Model, BlackHole
+from ...models_base import BaseGreybodyLifetimeModel, build_Friedlander_greybody_xi, StefanBoltzmann4D
+from ...greybody_tables.Friedlander import Friedlander_greybody_table_4D, Standard4D_graviton_greybody_table
 
 Const_2Pi = 2.0 * math.pi
 

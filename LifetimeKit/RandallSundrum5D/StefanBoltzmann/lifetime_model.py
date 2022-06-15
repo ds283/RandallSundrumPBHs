@@ -6,6 +6,7 @@ from ..cosmology.RandallSundrum5D import Model, BlackHole
 from ...models_base import BaseStefanBoltzmannLifetimeModel, build_cumulative_g_table, StefanBoltzmann5D
 from ...particle_data import RS_graviton_particle_table
 
+
 class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
     """
     Evaluate RHS of mass evolution model (assuming a Randall-Sundrum models),

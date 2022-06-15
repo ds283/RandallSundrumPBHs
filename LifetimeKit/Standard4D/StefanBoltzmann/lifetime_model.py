@@ -1,8 +1,9 @@
 import math
 
 from ..cosmology.standard4D import Model, BlackHole
-from ...models_base import BaseStefanBoltzmannLifetimeModel, StefanBoltzmann4D, build_cumulative_g_table
+from ...models_base import BaseStefanBoltzmannLifetimeModel, StefanBoltzmann4D
 from ...particle_data import Standard4D_graviton_particle_table
+
 
 class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
     """

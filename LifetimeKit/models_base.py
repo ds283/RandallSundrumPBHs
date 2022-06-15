@@ -6,7 +6,7 @@ import numpy as np
 
 from .constants import Page_suppression_factor
 from .natural_units import Kelvin
-from .particle_data import SM_particle_table
+from LifetimeKit.particle_data import SM_particle_table
 
 # tolerance for binning particle masses (expressed in GeV) into a single threshold
 T_threshold_tolerance = 1E-8
