@@ -58,7 +58,7 @@ class FriedlanderLifetimeModel(BaseGreybodyLifetimeModel):
             return self._xi_dict_5D
         return self._xi_dict_4D
 
-    def _rate_evaporation(self, T_rad, PBH):
+    def _dMdt_evaporation(self, T_rad, PBH):
         """
         Compute evaporation rate at a specified temperature of the radiation bath
         and specified black hole properties
@@ -85,16 +85,16 @@ class FriedlanderLifetimeModel(BaseGreybodyLifetimeModel):
 
         return dM_dt
 
-    def _rate_graviton5D(self, T_rad, PBH):
+    def _dMdt_graviton5D(self, T_rad, PBH):
         """
         Compute emission rate into 5D gravitons
         :param T_rad:
         :param PBH:
         :return:
         """
-        return self._sum_xi_list(T_rad, PBH, ['5D graviton'])
+        return self._sum_dMdt_xi_list(PBH, ['5D graviton'])
 
-    def _rate_stefanboltzmann(self, T_rad, PBH):
+    def _dMdt_stefanboltzmann(self, T_rad, PBH):
         """
         Convenience rate function to return Stefan-Boltzmann emission rate
         for a single 4D degree of freedom, using all existing settings
@@ -103,7 +103,7 @@ class FriedlanderLifetimeModel(BaseGreybodyLifetimeModel):
         :param PBH:
         :return:
         """
-        return self._stefanboltzmann_model.rate(PBH, g4=1.0, g5=0.0)
+        return self._stefanboltzmann_model.dMdt(PBH, g4=1.0, g5=0.0)
 
     # step the PBH mass, accounting for accretion and evaporation
     def __call__(self, logT_rad, logM_asarray):
@@ -120,10 +120,10 @@ class FriedlanderLifetimeModel(BaseGreybodyLifetimeModel):
 
         try:
             # ACCRETION
-            dlogM_dlogT = -self._rate_accretion(T_rad, self._PBH) / (self._PBH.M * H)
+            dlogM_dlogT = -self._dMdt_accretion(T_rad, self._PBH) / (self._PBH.M * H)
 
             # EVAPORATION
-            dlogM_dlogT += -self._rate_evaporation(T_rad, self._PBH) / (self._PBH.M * H)
+            dlogM_dlogT += -self._dMdt_evaporation(T_rad, self._PBH) / (self._PBH.M * H)
         except ZeroDivisionError:
             dlogM_dlogT = float("nan")
 

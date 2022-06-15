@@ -243,18 +243,18 @@ class PBHLifetimeModel:
         # run the integration
         self._integrate(LifetimeModel, observer)
 
-        # get list of methods in LifetimeModel that can be used to produce a rate, and use these to populate
-        # our rates list
-        self.rates = {}
+        # get list of methods in LifetimeModel that can be used to produce a dM/dt rate, and use these to populate
+        # our dM/dt list
+        self.dMdt = {}
 
         if compute_rates:
             for method in dir(LifetimeModel):
-                if method.startswith('_rate_'):
-                    rate_name = method.removeprefix('_rate_')
+                if method.startswith('_dMdt_'):
+                    rate_name = method.removeprefix('_dMdt_')
 
                     c = getattr(LifetimeModel, method, None)
                     if callable(c):
-                        rate = np.zeros_like(self.T_sample_points)
+                        dMdt = np.zeros_like(self.T_sample_points)
 
                         PBH = self._engine.BlackHoleType(self._params, M=Kilogram, units='GeV')
 
@@ -262,9 +262,9 @@ class PBHLifetimeModel:
                             PBH.set_mass(self.M_sample_points[n], 'GeV')
 
                             # rate is the plain emission rate, measured in GeV^2 = mass/time
-                            rate[n] = c(self.T_sample_points[n], PBH)
+                            dMdt[n] = c(self.T_sample_points[n], PBH)
 
-                    self.rates[rate_name] = rate
+                    self.dMdt[rate_name] = dMdt
 
 
     def _integrate(self, LifetimeModel, Observer):
@@ -409,12 +409,12 @@ class PBHLifetimeModel:
             raise RuntimeError(_UNIT_ERROR_MESSAGE.format(unit=temperature_units))
 
 
-    def rates_plot(self, filename, show_rates=None, mass_units='gram', time_units='year', temperature_units='Kelvin'):
+    def dMdt_plot(self, filename, show_rates=None, mass_units='gram', time_units='year', temperature_units='Kelvin'):
         self._validate_units(mass_units=mass_units, time_units=time_units, temperature_units=temperature_units)
 
         # if no models specified, plot them all
         if show_rates is None:
-            show_rates = self.rates.keys()
+            show_rates = self.dMdt.keys()
 
         mass_units_to_GeV = self._mass_conversions[mass_units]
         temperature_units_to_GeV = self._temperature_conversions[temperature_units]
@@ -424,8 +424,8 @@ class PBHLifetimeModel:
 
         T_values = self.T_sample_points / temperature_units_to_GeV
         for label in show_rates:
-            if label in self.rates:
-                history = np.abs(self.rates[label] / mass_units_to_GeV / time_units_to_seconds)
+            if label in self.dMdt:
+                history = np.abs(self.dMdt[label] / mass_units_to_GeV / time_units_to_seconds)
 
                 plt.loglog(T_values, history, label='{key}'.format(key=label))
             else:
@@ -438,10 +438,10 @@ class PBHLifetimeModel:
         plt.savefig(filename)
 
 
-    def rates_relative_plot(self, filename, show_rates=None, compare_rate='stefanboltzmann', temperature_units='Kelvin'):
+    def dMdt_relative_plot(self, filename, show_rates=None, compare_rate='stefanboltzmann', temperature_units='Kelvin'):
         # if no models specified, plot them all
         if show_rates is None:
-            show_rates = self.rates.keys()
+            show_rates = self.dMdt.keys()
 
         temperature_units_to_GeV = self._temperature_conversions[temperature_units]
 
@@ -449,15 +449,15 @@ class PBHLifetimeModel:
 
         T_values = self.T_sample_points / temperature_units_to_GeV
 
-        if compare_rate not in self.rates:
+        if compare_rate not in self.dMdt:
             raise RuntimeError('Comparison rate label "{label}" not present in computed '
-                               'rates'.format(label=compare_rate))
+                               'dMdt'.format(label=compare_rate))
 
-        compare_history = self.rates[compare_rate]
+        compare_history = self.dMdt[compare_rate]
 
         for label in show_rates:
-            if label in self.rates:
-                history = self.rates[label] / compare_history
+            if label in self.dMdt:
+                history = self.dMdt[label] / compare_history
 
                 plt.semilogx(T_values, history, label='{key}'.format(key=label))
             else:
@@ -475,7 +475,7 @@ class PBHLifetimeModel:
 
         # if no models specified, plot them all
         if show_rates is None:
-            show_rates = self.rates.keys()
+            show_rates = self.dMdt.keys()
 
         mass_units_to_GeV = self._mass_conversions[mass_units]
         temperature_units_to_GeV = self._temperature_conversions[temperature_units]
@@ -485,8 +485,8 @@ class PBHLifetimeModel:
         data = {'T_rad': T_values}
 
         for label in show_rates:
-            if label in self.rates:
-                history = self.rates[label] / mass_units_to_GeV / time_units_to_seconds
+            if label in self.dMdt:
+                history = self.dMdt[label] / mass_units_to_GeV / time_units_to_seconds
 
                 data[label] = history
             else:

@@ -36,13 +36,13 @@ class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
 
         self._logM_end = math.log(self._params.M4)
 
-    def _rate_evaporation(self, T_rad, PBH):
+    def _dMdt_evaporation(self, T_rad, PBH):
         T_Hawking = PBH.T_Hawking
 
         g4 = self._fixed_g4 if self._fixed_g4 is not None else self.g4(T_Hawking)
         return self._stefanboltzmann_model.rate(PBH, g4=g4)
 
-    def _rate_stefanboltzmann(self, T_rad, PBH):
+    def _dMdt_stefanboltzmann(self, T_rad, PBH):
         """
         Convenience rate function to return Stefan-Boltzmann emission rate
         for a single 4D degree of freedom, using all existing settings
@@ -68,10 +68,10 @@ class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
 
         try:
             # ACCRETION
-            dlogM_dlogT = -self._rate_accretion(T_rad, self._PBH) / (self._PBH.M * H)
+            dlogM_dlogT = -self._dMdt_accretion(T_rad, self._PBH) / (self._PBH.M * H)
 
             # EVAPORATION
-            dlogM_dlogT += -self._rate_evaporation(T_rad, self._PBH) / (self._PBH.M * H)
+            dlogM_dlogT += -self._dMdt_evaporation(T_rad, self._PBH) / (self._PBH.M * H)
         except ZeroDivisionError:
             dlogM_dlogT = float("nan")
 

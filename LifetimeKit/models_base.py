@@ -180,7 +180,7 @@ class StefanBoltzmann5D:
         self._SB_4D = SB_4D
         self._SB_5D = SB_5D
 
-    def rate(self, PBH, g4=0.0, g5=1.0):
+    def dMdt(self, PBH, g4=0.0, g5=1.0):
         # compute horizon radius in 1/GeV
         rh = PBH.radius
         rh_sq = rh*rh
@@ -268,7 +268,7 @@ class BaseStefanBoltzmannLifetimeModel:
 
         return self._g_values[index]
 
-    def _rate_accretion(self, T_rad, PBH):
+    def _dMdt_accretion(self, T_rad, PBH):
         return self._accretion_model.rate(T_rad, PBH)
 
 
@@ -316,10 +316,9 @@ class BaseGreybodyLifetimeModel:
     def xi_dict(self, PBH):
         raise RuntimeError('Using virtual xi_dict() method')
 
-    def _sum_xi_list(self, T_rad, PBH, species):
+    def _sum_dMdt_xi_list(self, PBH, species):
         """
         compute horizon radius in 1/GeV for the species enumerated in 'species'
-        :param T_rad: current temperature of the radiation bath
         :param PBH: current black hole object, used to abstract Hawking temperature calculation
         :param species: list of names of species to include
         :return: emission rate in Mass/Time = [Energy]^2
@@ -350,23 +349,23 @@ class BaseGreybodyLifetimeModel:
 
         return -dM_dt / (Const_2Pi * rh_sq)
 
-    def _rate_accretion(self, T_rad, PBH):
+    def _dMdt_accretion(self, T_rad, PBH):
         return self._accretion_model.rate(T_rad, PBH)
 
-    def _rate_quarks(self, T_rad, PBH):
+    def _dMdt_quarks(self, T_rad, PBH):
         quarks = ['up quark', 'down quark', 'strange quark', 'charm quark', 'bottom quark', 'top quark']
-        return self._sum_xi_list(T_rad, PBH, quarks)
+        return self._sum_dMdt_xi_list(PBH, quarks)
 
-    def _rate_leptons(self, T_rad, PBH):
+    def _dMdt_leptons(self, T_rad, PBH):
         leptons = ['electron', 'muon', 'tau', 'neutrino']
-        return self._sum_xi_list(T_rad, PBH, leptons)
+        return self._sum_dMdt_xi_list(PBH, leptons)
 
-    def _rate_photons(self, T_rad, PBH):
-        return self._sum_xi_list(T_rad, PBH, ['photon'])
+    def _dMdt_photons(self, T_rad, PBH):
+        return self._sum_dMdt_xi_list(PBH, ['photon'])
 
-    def _rate_gluons(self, T_rad, PBH):
-        return self._sum_xi_list(T_rad, PBH, ['gluon'])
+    def _dMdt_gluons(self, T_rad, PBH):
+        return self._sum_dMdt_xi_list(PBH, ['gluon'])
 
-    def _rate_EW_bosons(self, T_rad, PBH):
+    def _dMdt_EW_bosons(self, T_rad, PBH):
         EW_bosons = ['Higgs', 'Z boson', 'W boson']
-        return self._sum_xi_list(T_rad, PBH, EW_bosons)
+        return self._sum_dMdt_xi_list(PBH, EW_bosons)
