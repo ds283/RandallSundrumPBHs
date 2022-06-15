@@ -382,4 +382,9 @@ emit_table = pd.concat([emit1, emit2, emit3, emit4, emit5, emit6], axis='index',
 emit_no_rotation = emit_table.loc[emit_table['astar_serial'] == 0]
 emit_E_no_rotation = emit_no_rotation[['codimension', 'spin0_dE_dt', 'spin1/2_dE_dt', 'spin1_dE_dt']]
 
-emit_rot = emit_table[['codimension', 'astar', 'spin0_dJ_dt', 'spin1/2_dJ_dt', 'spin1_dJ_dt']]
+emit_rot_all_codim = emit_table[['codimension', 'astar', 'spin0_dJ_dt', 'spin1/2_dJ_dt', 'spin1_dJ_dt']]
+emit_rot_codim_1 = emit_rot_all_codim.loc[emit_rot_all_codim['codimension'] == 1]
+
+emit_coeffs = emit_table.loc[emit_table['codimension'] == 1][['astar', 'spin0_dE_dt', 'spin1/2_dE_dt', 'spin1_dE_dt',
+                                                              'spin0_dJ_dt', 'spin1/2_dJ_dt', 'spin1_dJ_dt']]
+emit_coeffs.to_csv('Myers-Perry_greybody_codim1.csv')
