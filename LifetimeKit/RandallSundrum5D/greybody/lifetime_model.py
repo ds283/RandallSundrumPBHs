@@ -1,17 +1,17 @@
 import math
 
 from ..cosmology.RandallSundrum5D import Model, BlackHole
-from ...models_base import BaseGreybodyLifetimeModel, build_Friedlander_greybody_xi, StefanBoltzmann5D
+from ...models_base import BaseGreybodyLifetimeModel, StefanBoltzmann5D
 from ...greybody_tables.Friedlander import Friedlander_greybody_table_4D, Friedlander_greybody_table_5D, \
-    RS_graviton_greybody_table
+    RS_graviton_greybody_table, build_Friedlander_greybody_xi
 
 Const_2Pi = 2.0 * math.pi
 
-class LifetimeModel(BaseGreybodyLifetimeModel):
+class FriedlanderLifetimeModel(BaseGreybodyLifetimeModel):
     """
-    Evaluate RHS of mass evolution model (assuming a Randall-Sundrum models),
-    using a Stefan-Boltzmann limit for the evaporation term
-    (i.e. the integrated Hawking flux)
+    Evaluate RHS of mass evolution model (assuming a Randall-Sundrum model),
+    using Friedlander et al. fitting functions for xi = 8pi f, where f is the Page factor giving
+    the integrated Hawking flux
     """
     def __init__(self, engine: Model, accretion_efficiency_F=0.3, use_Page_suppression=True,
                  use_effective_radius=True):
@@ -20,7 +20,8 @@ class LifetimeModel(BaseGreybodyLifetimeModel):
         :param engine: a RandallSundrumModel instance to use for calculations
         :param accretion_efficiency_F: efficiency factor for Bondi-Hoyle-Lyttleton accretion
         :param use_effective_radius: whether accretion should use an effective radius rather than the horizon radius;
-        for a greybody lifetime model this applies only to accretion
+        note that for a greybody lifetime model this applies *only* to accretion, because the correct effective
+        radius is baked into the Page f factor
         """
 
         # invoke superclass constructor
@@ -35,6 +36,7 @@ class LifetimeModel(BaseGreybodyLifetimeModel):
         self._massless_xi_4D, self._massive_xi_4D, self._xi_dict_4D =\
             build_Friedlander_greybody_xi(Friedlander_greybody_table_4D | RS_graviton_greybody_table)
 
+        # Stefan-Boltzmann model is used only for comparison with the Page f function
         self._stefanboltzmann_model = StefanBoltzmann5D(self._params.StefanBoltzmannConstant4D,
                                                         self._params.StefanBoltzmannConstant5D,
                                                         use_effective_radius=use_effective_radius,

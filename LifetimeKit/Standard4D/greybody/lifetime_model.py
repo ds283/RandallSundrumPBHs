@@ -1,16 +1,17 @@
 import math
 
 from ..cosmology.standard4D import Model, BlackHole
-from ...models_base import BaseGreybodyLifetimeModel, build_Friedlander_greybody_xi, StefanBoltzmann4D
-from ...greybody_tables.Friedlander import Friedlander_greybody_table_4D, Standard4D_graviton_greybody_table
+from ...models_base import BaseGreybodyLifetimeModel, StefanBoltzmann4D
+from ...greybody_tables.Friedlander import Friedlander_greybody_table_4D, Standard4D_graviton_greybody_table, \
+    build_Friedlander_greybody_xi
 
 Const_2Pi = 2.0 * math.pi
 
-class LifetimeModel(BaseGreybodyLifetimeModel):
+class FriedlanderLifetimeModel(BaseGreybodyLifetimeModel):
     """
     Evaluate RHS of mass evolution model (assuming a standard 4-dimensional models),
-    using a Stefan-Boltzmann limit for the evaporation term
-    (i.e. the integrated Hawking flux)
+    using Friedlander et al. fitting functions for xi = 8pi f, where f is the Page factor giving
+    the integrated Hawking flux
     """
     def __init__(self, engine: Model, accretion_efficiency_F=0.3, use_Page_suppression=True,
                  use_effective_radius=True):
@@ -19,7 +20,8 @@ class LifetimeModel(BaseGreybodyLifetimeModel):
         :param engine: a StandardModel instance to use for calculations
         :param accretion_efficiency_F: efficiency factor for Bondi-Hoyle-Lyttleton accretion
         :param use_effective_radius: whether accretion should use an effective radius rather than the horizon radius;
-        for a greybody lifetime model this applies only to accretion
+        note that for a greybody lifetime model this applies *only* to accretion, because the correct effective
+        radius is baked into the Page f factor
         """
 
         # invoke superclass constructor
@@ -32,6 +34,7 @@ class LifetimeModel(BaseGreybodyLifetimeModel):
         self._massless_xi, self._massive_xi, self._xi_dict = \
             build_Friedlander_greybody_xi(Friedlander_greybody_table_4D | Standard4D_graviton_greybody_table)
 
+        # Stefan-Boltzmann model is used only for comparison with the Page f function
         self._stefanboltzmann_model = StefanBoltzmann4D(self._params.StefanBoltzmannConstant4D,
                                                         use_effective_radius=use_effective_radius,
                                                         use_Page_suppression=use_Page_suppression)

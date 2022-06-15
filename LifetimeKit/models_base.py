@@ -1,12 +1,11 @@
 import math
-from functools import partial
 from operator import itemgetter
 
 import numpy as np
 
 from .constants import Page_suppression_factor
 from .natural_units import Kelvin
-from LifetimeKit.particle_data import SM_particle_table
+from .particle_data import SM_particle_table
 
 # tolerance for binning particle masses (expressed in GeV) into a single threshold
 T_threshold_tolerance = 1E-8
@@ -51,32 +50,6 @@ def build_cumulative_g_table(particle_table, weight=None):
     g_values = np.resize(g_values, current_threshold_index)
 
     return T_thresholds, g_values
-
-
-def build_Friedlander_greybody_xi(xi_table):
-    xis_massive = []
-    xis_massless = 0.0
-    xis = {}
-
-    def xi(xi0, b, c, mass, dof, T_Hawking):
-        return dof * xi0 * math.exp(-b*math.pow(mass/T_Hawking, c))
-
-    for label in xi_table:
-        record = xi_table[label]
-        if 'b' in record:
-            f = partial(xi, record['xi0'], record['b'], record['c'], record['mass'],
-                        record['dof'] if record['xi-per-dof'] else 1.0)
-            xis_massive.append(f)
-            xis[label] = f
-
-        else:
-            # massless species have no temperature dependence
-            q = (record['dof'] if record['xi-per-dof'] else 1.0) * record['xi0']
-            xis_massless += q
-            xis[label] = q
-
-    return xis_massless, xis_massive, xis
-
 
 
 class BaseCosmology:

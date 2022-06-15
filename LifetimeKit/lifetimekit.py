@@ -544,14 +544,14 @@ class PBHInstance:
 
         for label in models:
             if label == 'GreybodyRS5D':
-                model = RS5D_greybody.LifetimeModel(engine_RS, accretion_efficiency_F=accretion_efficiency_F,
-                                                    use_effective_radius=True, use_Page_suppression=True)
+                model = RS5D_greybody.FriedlanderLifetimeModel(engine_RS, accretion_efficiency_F=accretion_efficiency_F,
+                                                               use_effective_radius=True, use_Page_suppression=True)
                 self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples,
                                                          compute_rates=compute_rates)
 
             elif label == 'GreybodyStandard4D':
-                model = Standard4D_greybody.LifetimeModel(engine_4D, accretion_efficiency_F=accretion_efficiency_F,
-                                                          use_effective_radius=True, use_Page_suppression=True)
+                model = Standard4D_greybody.FriedlanderLifetimeModel(engine_4D, accretion_efficiency_F=accretion_efficiency_F,
+                                                                     use_effective_radius=True, use_Page_suppression=True)
                 self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples,
                                                          compute_rates=compute_rates)
 

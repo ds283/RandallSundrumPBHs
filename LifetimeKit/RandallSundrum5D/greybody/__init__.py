@@ -1,1 +1,1 @@
-from .lifetime_model import LifetimeModel
+from .lifetime_model import FriedlanderLifetimeModel

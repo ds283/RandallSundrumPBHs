@@ -1,3 +1,6 @@
+import math
+from functools import partial
+
 from ..particle_data import _table_merge, SM_particle_base_table
 
 # fitting coefficients for Page f factor, taken from Table II of
@@ -85,3 +88,29 @@ Standard4D_graviton_greybody_table = \
 # greybody factors for emission into *on brane* spin-2 states
 RS_graviton_greybody_table = \
  {'5D graviton': {'xi0': xi0_spin2_5D, 'xi-per-dof': False}}
+
+
+def build_Friedlander_greybody_xi(xi_table):
+    xis_massive = []
+    xis_massless = 0.0
+    xi_dict = {}
+
+    def xi(xi0, b, c, mass, dof, T_Hawking):
+        return dof * xi0 * math.exp(-b*math.pow(mass/T_Hawking, c))
+
+    for label in xi_table:
+        record = xi_table[label]
+        if 'b' in record:
+            f = partial(xi, record['xi0'], record['b'], record['c'], record['mass'],
+                        record['dof'] if record['xi-per-dof'] else 1.0)
+            xis_massive.append(f)
+            xi_dict[label] = f
+
+        else:
+            # massless species have no temperature dependence
+            # for speed of evaluation during integration, we aggregate these all together
+            q = (record['dof'] if record['xi-per-dof'] else 1.0) * record['xi0']
+            xis_massless += q
+            xi_dict[label] = q
+
+    return xis_massless, xis_massive, xi_dict
