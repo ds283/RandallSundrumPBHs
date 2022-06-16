@@ -82,11 +82,11 @@ Friedlander_greybody_table_5D = _table_merge(SM_particle_base_table,
 )
 
 # greybody factors for emission into spin-2 states
-Standard4D_graviton_greybody_table = \
+Friedlander_graviton_greybody_table_4D = \
  {'4D graviton': {'xi0': xi0_spin2_4D, 'xi-per-dof': False}}
 
 # greybody factors for emission into *on brane* spin-2 states
-RS_graviton_greybody_table = \
+Friedlander_graviton_greybody_table_5D = \
  {'5D graviton': {'xi0': xi0_spin2_5D, 'xi-per-dof': False}}
 
 

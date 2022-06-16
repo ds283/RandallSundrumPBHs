@@ -311,7 +311,8 @@ class BaseGreybodyLifetimeModel(ABC):
         """
         pass
 
-    def _sum_dMdt_species(self, PBH, species: str):
+    @abstractmethod
+    def _sum_dMdt_species(self, PBH, species: str) -> float:
         """
         compute dM/dt for the species labels in 'species', for the black hole parameter configurations
         in 'PBH'
@@ -319,33 +320,9 @@ class BaseGreybodyLifetimeModel(ABC):
         :param species: list of names of species to include
         :return: emission rate in Mass/Time = [Energy]^2
         """
-        rh = PBH.radius
-        rh_sq = rh*rh
+        pass
 
-        # compute Hawking temperature
-        T_Hawking = PBH.T_Hawking
-
-        # cache reference to xi-table dictionary
-        xi_species_list = self.xi_species_list(PBH)
-
-        dM_dt = 0.0
-        for label in species:
-            record = xi_species_list[label]
-
-            # If record is a callable, then it is a partially evaluated greybody function that requires
-            # to be evaluated on the current Hawking temperature. This happens when the species is massive,
-            # because then its emission rate is temperature dependent.
-            # On the other hand, if record is not callable, it is a pre-evaluated emission rate.
-            # This happens when the species is massless, because then its emission rate is not temperature
-            # dependent.
-            if callable(record):
-                dM_dt += record(T_Hawking)
-            else:
-                dM_dt += record
-
-        return -dM_dt / (Const_2Pi * rh_sq)
-
-    def _dMdt_accretion(self, T_rad, PBH):
+    def _dMdt_accretion(self, T_rad: float, PBH) -> float:
         """
         Compute dM/dt rate from accretion
         :param T_rad: radiation temperature in GeV
@@ -353,7 +330,7 @@ class BaseGreybodyLifetimeModel(ABC):
         """
         return self._accretion_model.rate(T_rad, PBH)
 
-    def _dMdt_quarks(self, T_rad, PBH):
+    def _dMdt_quarks(self, T_rad: float, PBH) -> float:
         """
         Compute dM/dt rate from emission into quarks
         :param T_rad: radiation temperature in GeV (needed because there is a universal signature for all _dMdt_
@@ -363,7 +340,7 @@ class BaseGreybodyLifetimeModel(ABC):
         quarks = ['up quark', 'down quark', 'strange quark', 'charm quark', 'bottom quark', 'top quark']
         return self._sum_dMdt_species(PBH, quarks)
 
-    def _dMdt_leptons(self, T_rad, PBH):
+    def _dMdt_leptons(self, T_rad: float, PBH) -> float:
         """
         Compute dM/dt rate from emission into leptons
         :param T_rad: radiation temperature in GeV (needed because there is a universal signature for all _dMdt_
@@ -373,7 +350,7 @@ class BaseGreybodyLifetimeModel(ABC):
         leptons = ['electron', 'muon', 'tau', 'neutrino']
         return self._sum_dMdt_species(PBH, leptons)
 
-    def _dMdt_photons(self, T_rad, PBH):
+    def _dMdt_photons(self, T_rad: float, PBH) -> float:
         """
         Compute dM/dt rate from emission into photons
         :param T_rad: radiation temperature in GeV (needed because there is a universal signature for all _dMdt_
@@ -382,7 +359,7 @@ class BaseGreybodyLifetimeModel(ABC):
         """
         return self._sum_dMdt_species(PBH, ['photon'])
 
-    def _dMdt_gluons(self, T_rad, PBH):
+    def _dMdt_gluons(self, T_rad: float, PBH) -> float:
         """
         Compute dM/dt rate from emission into gluons
         :param T_rad: radiation temperature in GeV (needed because there is a universal signature for all _dMdt_
@@ -391,7 +368,7 @@ class BaseGreybodyLifetimeModel(ABC):
         """
         return self._sum_dMdt_species(PBH, ['gluon'])
 
-    def _dMdt_EW_bosons(self, T_rad, PBH):
+    def _dMdt_EW_bosons(self, T_rad: float, PBH) -> float:
         """
         Compute dM/dt rate from emission into electroweak bosons
         :param T_rad: radiation temperature in GeV (needed because there is a universal signature for all _dMdt_
@@ -420,7 +397,7 @@ class BaseFriedlanderGreybodyLifetimeModel(BaseGreybodyLifetimeModel):
         super().__init__(engine, Model, accretion_efficiency_F=accretion_efficiency_F,
                          use_effective_radius=use_effective_radius, use_Page_suppression=use_Page_suppression)
 
-        # create a PBHModel instance; for a Friedlander et al. model, this just has mass but no angular
+        # create a PBH model instance; for a Friedlander et al. model, this just has mass but no angular
         # moementum the value assigned to the mass doesn't matter
         self._PBH = BlackHole(self.engine.params, 1.0, units='gram')
 
@@ -461,6 +438,238 @@ class BaseFriedlanderGreybodyLifetimeModel(BaseGreybodyLifetimeModel):
         :param PBH: PBH object that can be interrogated to determine parameters
         """
         pass
+
+    def _sum_dMdt_species(self, PBH, species: str):
+        """
+        compute dM/dt for the species labels in 'species', for the black hole parameter configurations
+        in 'PBH'
+        :param PBH: current black hole object, used to abstract Hawking temperature calculation
+        :param species: list of names of species to include
+        :return: emission rate in Mass/Time = [Energy]^2
+        """
+        rh = PBH.radius
+        rh_sq = rh*rh
+
+        # compute Hawking temperature
+        T_Hawking = PBH.T_Hawking
+
+        # cache reference to xi-table dictionary
+        xi_species_list = self.xi_species_list(PBH)
+
+        dM_dt = 0.0
+        for label in species:
+            record = xi_species_list[label]
+
+            # If record is a callable, then it is a partially evaluated greybody function that requires
+            # to be evaluated on the current Hawking temperature. This happens when the species is massive,
+            # because then its emission rate is temperature dependent.
+            # On the other hand, if record is not callable, it is a pre-evaluated emission rate.
+            # This happens when the species is massless, because then its emission rate is not temperature
+            # dependent.
+            if callable(record):
+                dM_dt += record(T_Hawking)
+            else:
+                dM_dt += record
+
+        return -dM_dt / (Const_2Pi * rh_sq)
+
+    def _dMdt_evaporation(self, T_rad, PBH):
+        """
+        Compute evaporation rate for a specified black hole configuration.
+        Note that the radiation temperature is supplied as T_rad, although it is not used; this is
+        because all _dMdt_* methods need to have the same signature, and the _dMdt_accretion() method
+        *does* need to know the radiation temperature.
+        :param T_rad:
+        :param PBH:
+        :return:
+        """
+        # compute horizon radius in 1/GeV
+        rh = PBH.radius
+        rh_sq = rh*rh
+
+        # compute Hawking temperature
+        T_Hawking = PBH.T_Hawking
+
+        # cache tables of massless and massive xi values
+        massless_xi = self.massless_xi(PBH)
+        massive_xi = self.massive_xi(PBH)
+
+        # sum over xi factors to get evaporation rate
+        try:
+            dM_dt = -(massless_xi + sum([xi(T_Hawking) for xi in massive_xi])) / (Const_2Pi * rh_sq)
+        except ZeroDivisionError:
+            dM_dt = float("nan")
+
+        return dM_dt
+
+
+class BaseSpinningGreybodyLifetimeModel(BaseGreybodyLifetimeModel):
+    """
+    Base infrastructure used by all "spinning" black hole lifetime models that use the massless
+    BlackMax/Kerr greybody xi values
+    """
+
+    def __init__(self, engine, Model, BlackHole, accretion_efficiency_F=0.3,
+                 use_effective_radius=True, use_Page_suppression=True):
+        """
+        :param engine: a model engine instance to use for computations
+        :param Model: expected type of engine
+        :param BlackHole: type of BlackHole instance object
+        :param accretion_efficiency_F:
+        :param use_effective_radius:
+        :param use_Page_suppression:
+        """
+        super().__init__(engine, Model, accretion_efficiency_F=accretion_efficiency_F,
+                         use_effective_radius=use_effective_radius, use_Page_suppression=use_Page_suppression)
+
+        # create a PBH model instance; for this type of black hole, we expect it to have both
+        # mass and angular momentum
+        self._PBH = BlackHole(self.engine.params, 1.0, J=0.0, units='gram')
+
+    def _sum_dMdt_species(self, PBH, species: str):
+        """
+        compute dM/dt for the species labels in 'species', for the black hole parameter configurations
+        in 'PBH'
+        :param PBH: current black hole object, used to abstract Hawking temperature calculation
+        :param species: list of names of species to include
+        :return: emission rate in Mass/Time = [Energy]^2
+        """
+        rh = PBH.radius
+        rh_sq = rh*rh
+
+        # compute Hawking temperature
+        T_Hawking = PBH.T_Hawking
+        astar = PBH.astar
+
+        # cache reference to xi-table dictionary
+        xi_species_list = self.xi_species_list(PBH)
+
+        dM_dt = 0.0
+        try:
+            for label in species:
+                data = xi_species_list[label]
+
+                # if the particle mass is larger than the current temperature, we switch off the
+                # Hawking flux into this particle species
+                mass = data['mass']
+                if mass > T_Hawking:
+                    continue
+
+                g = data['dof'] if data['xi-per-dof'] else 1.0
+                xi_M = data['xi_M']
+                dM_dt += g * xi_M(astar)
+        except ZeroDivisionError:
+            return float("nan")
+
+        return dM_dt / (Const_2Pi * rh_sq)
+
+    def _sum_dJdt_species(self, PBH, species: str):
+        """
+        compute dJ/dt for the species labels in 'species', for the black hole parameter configurations
+        in 'PBH'
+        :param PBH: current black hole object, used to abstract Hawking temperature calculation
+        :param species: list of names of species to include
+        :return: emission rate in Mass/Time = [Energy]^2
+        """
+        rh = PBH.radius
+
+        # compute Hawking temperature
+        T_Hawking = PBH.T_Hawking
+        astar = PBH.astar
+
+        # cache reference to xi-table dictionary
+        xi_species_list = self.xi_species_list(PBH)
+
+        dJ_dt = 0.0
+        try:
+            for label in species:
+                data = xi_species_list[label]
+
+                # if the particle mass is larger than the current temperature, we switch off the
+                # Hawking flux into this particle species
+                mass = data['mass']
+                if mass > T_Hawking:
+                    continue
+
+                g = data['dof'] if data['xi-per-dof'] else 1.0
+                xi_J = data['xi_J']
+                dJ_dt += g * xi_J(astar)
+        except ZeroDivisionError:
+            return float("nan")
+
+        return dJ_dt / (Const_2Pi * rh)
+
+    def _dMdt_evaporation(self, T_rad, PBH):
+        """
+        Compute evaporation rate for a specified black hole configuration.
+        Note that the radiation temperature is supplied as T_rad, although it is not used; this is
+        because all _dMdt_* methods need to have the same signature, and the _dMdt_accretion() method
+        *does* need to know the radiation temperature.
+        :param T_rad:
+        :param PBH:
+        :return:
+        """
+        return self._sum_dMdt_species(PBH, self.xi_species_list().keys())
+
+    def _dJdt_evaporation(self, T_rad, PBH):
+        """
+        Compute evaporation rate for a specified black hole configuration.
+        Note that the radiation temperature is supplied as T_rad, although it is not used; this is
+        because all _dMdt_* methods need to have the same signature, and the _dMdt_accretion() method
+        *does* need to know the radiation temperature.
+        :param T_rad:
+        :param PBH:
+        :return:
+        """
+        return self._sum_dJdt_species(PBH, self.xi_species_list().keys())
+
+    def _dJdt_quarks(self, T_rad: float, PBH) -> float:
+        """
+        Compute dJ/dt rate from emission into quarks
+        :param T_rad: radiation temperature in GeV (needed because there is a universal signature for all _dJdt_
+        functions)
+        :PBH: object representing PBH
+        """
+        quarks = ['up quark', 'down quark', 'strange quark', 'charm quark', 'bottom quark', 'top quark']
+        return self._sum_dJdt_species(PBH, quarks)
+
+    def _dJdt_leptons(self, T_rad: float, PBH) -> float:
+        """
+        Compute dJ/dt rate from emission into leptons
+        :param T_rad: radiation temperature in GeV (needed because there is a universal signature for all _dJdt_
+        functions)
+        :PBH: object representing PBH
+        """
+        leptons = ['electron', 'muon', 'tau', 'neutrino']
+        return self._sum_dJdt_species(PBH, leptons)
+
+    def _dJdt_photons(self, T_rad: float, PBH) -> float:
+        """
+        Compute dJ/dt rate from emission into photons
+        :param T_rad: radiation temperature in GeV (needed because there is a universal signature for all _dJdt_
+        functions)
+        :PBH: object representing PBH
+        """
+        return self._sum_dJdt_species(PBH, ['photon'])
+
+    def _dJdt_gluons(self, T_rad: float, PBH) -> float:
+        """
+        Compute dJ/dt rate from emission into gluons
+        :param T_rad: radiation temperature in GeV (needed because there is a universal signature for all _dJdt_
+        functions)
+        :PBH: object representing PBH
+        """
+        return self._sum_dJdt_species(PBH, ['gluon'])
+
+    def _dJdt_EW_bosons(self, T_rad: float, PBH) -> float:
+        """
+        Compute dJ/dt rate from emission into electroweak bosons
+        :param T_rad: radiation temperature in GeV (needed because there is a universal signature for all _dJdt_
+        functions)
+        :PBH: object representing PBH
+        """
+        EW_bosons = ['Higgs', 'Z boson', 'W boson']
+        return self._sum_dJdt_species(PBH, EW_bosons)
 
 
 class BaseBlackHole(ABC):

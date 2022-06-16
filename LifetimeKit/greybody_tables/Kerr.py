@@ -3,7 +3,7 @@ from math import pi
 import numpy as np
 from scipy.interpolate import InterpolatedUnivariateSpline
 
-from .Friedlander import xi0_spin0_4D, xi0_spin0pt5_4D, xi0_spin1_4D
+from .Friedlander import xi0_spin0_4D, xi0_spin0pt5_4D, xi0_spin1_4D, xi0_spin2_4D
 from ..particle_data import _table_merge, SM_particle_base_table
 
 # taken from Table I of Dong, Kinney & Stojkovic, arXiv:1511.05642v3
@@ -59,6 +59,22 @@ f1 = np.asarray([3.366E-5,
                  3.555E-3,
                  3.616E-3])
 
+f2 = np.asarray([3.845E-6,
+                 4.684E-6,
+                 7.732E-6,
+                 1.494E-5,
+                 3.116E-5,
+                 6.822E-5,
+                 1.574E-4,
+                 3.909E-4,
+                 1.104E-3,
+                 4.107E-3,
+                 1.305E-2,
+                 3.578E-2,
+                 7.251E-2,
+                 9.785E-2,
+                 1.012E-1])
+
 g0 = np.asarray([8.867E-5,
                  9.085E-5,
                  9.391E-5,
@@ -107,6 +123,22 @@ g1 = np.asarray([4.795E-4,
                  8.730E-3,
                  8.851E-3])
 
+g2 = np.asarray([1.064E-4,
+                 1.167E-4,
+                 1.514E-4,
+                 2.233E-4,
+                 3.603E-4,
+                 6.236E-4,
+                 1.155E-3,
+                 2.322E-3,
+                 5.286E-3,
+                 1.544E-2,
+                 4.057E-2,
+                 9.555E-2,
+                 1.753E-1,
+                 2.271E-1,
+                 2.338E-1])
+
 # convert Page f factors to xi factors
 # for details, see 15 June 2022 calculation "Relationship between Page f, g factors and Friedlander et al. xi factors"
 def _convert_f_to_xi(astar_sample, f_sample):
@@ -116,6 +148,7 @@ def _convert_f_to_xi(astar_sample, f_sample):
 xi_dMdt_spin0_pre = _convert_f_to_xi(astar, f0)
 xi_dMdt_spin0pt5_pre = _convert_f_to_xi(astar, f0pt5)
 xi_dMdt_spin1_pre = _convert_f_to_xi(astar, f1)
+xi_dMdt_spin2_pre = _convert_f_to_xi(astar, f2)
 
 # convert Page g factors to xi factors
 # for details, see same calcuation
@@ -126,6 +159,7 @@ def _convert_g_to_xi(astar_sample, g_sample):
 xi_dJdt_spin0_pre = _convert_g_to_xi(astar, g0)
 xi_dJdt_spin0pt5_pre = _convert_g_to_xi(astar, g0pt5)
 xi_dJdt_spin1_pre = _convert_g_to_xi(astar, g1)
+xi_dJdt_spin2_pre = _convert_g_to_xi(astar, g2)
 
 # these samples don't run all the way down to a*=0, so if we use them to build an interpolating function we will need
 # to extrapolate at low a*. That's a bit worrying because the extrapolation could be uncontrolled, so instead
@@ -135,21 +169,25 @@ astar = np.insert(astar, 0, 0.0, axis=0)
 xi_dMdt_spin0 = np.insert(xi_dMdt_spin0_pre, 0, xi0_spin0_4D)
 xi_dMdt_spin0pt5 = np.insert(xi_dMdt_spin0pt5_pre, 0, xi0_spin0pt5_4D)
 xi_dMdt_spin1 = np.insert(xi_dMdt_spin1_pre, 0, xi0_spin1_4D)
+xi_dMdt_spin2 = np.insert(xi_dMdt_spin2_pre, 0, xi0_spin2_4D)
 
 xi_dJdt_spin0 = np.insert(xi_dJdt_spin0_pre, 0, 0.0)
 xi_dJdt_spin0pt5 = np.insert(xi_dJdt_spin0pt5_pre, 0, 0.0)
 xi_dJdt_spin1 = np.insert(xi_dJdt_spin1_pre, 0, 0.0)
+xi_dJdt_spin2 = np.insert(xi_dJdt_spin2_pre, 0, 0.0)
 
 # build splines for each of these functions
 xi_dMdt_spin0_spline = InterpolatedUnivariateSpline(astar, xi_dMdt_spin0)
 xi_dMdt_spin0pt5_spline = InterpolatedUnivariateSpline(astar, xi_dMdt_spin0pt5)
 xi_dMdt_spin1_spline = InterpolatedUnivariateSpline(astar, xi_dMdt_spin1)
+xi_dMdt_spin2_spline = InterpolatedUnivariateSpline(astar, xi_dMdt_spin2)
 
 xi_dJdt_spin0_spline = InterpolatedUnivariateSpline(astar, xi_dJdt_spin0)
 xi_dJdt_spin0pt5_spline = InterpolatedUnivariateSpline(astar, xi_dJdt_spin0pt5)
 xi_dJdt_spin1_spline = InterpolatedUnivariateSpline(astar, xi_dJdt_spin1)
+xi_dJdt_spin2_spline = InterpolatedUnivariateSpline(astar, xi_dJdt_spin2)
 
-Kerr_greybody_table_5D = _table_merge(SM_particle_base_table,
+Kerr_greybody_table_4D = _table_merge(SM_particle_base_table,
  {'Higgs': {'xi_M': xi_dMdt_spin0_spline, 'xi_J': xi_dJdt_spin0_spline, 'xi-per-dof': True},
   'photon': {'xi_M': xi_dMdt_spin1_spline, 'xi_J': xi_dJdt_spin1_spline, 'xi-per-dof': True},
   'gluon': {'xi_M': xi_dMdt_spin1_spline, 'xi_J': xi_dJdt_spin1_spline, 'xi-per-dof': True},
@@ -165,3 +203,7 @@ Kerr_greybody_table_5D = _table_merge(SM_particle_base_table,
   'charm quark': {'xi_M': xi_dMdt_spin0pt5_spline, 'xi_J': xi_dJdt_spin0pt5_spline, 'xi-per-dof': True},
   'bottom quark': {'xi_M': xi_dMdt_spin0pt5_spline, 'xi_J': xi_dJdt_spin0pt5_spline, 'xi-per-dof': True},
   'top quark': {'xi_M': xi_dMdt_spin0pt5_spline, 'xi_J': xi_dJdt_spin0pt5_spline, 'xi-per-dof': True}})
+
+Kerr_graviton_greybody_table_4D = \
+ {'4D graviton': {'mass': 0.0, 'dof': 2.0,
+                  'xi_M': xi_dMdt_spin2_spline, 'xi_J': xi_dJdt_spin2_spline, 'xi-per-dof': True}}

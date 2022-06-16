@@ -38,8 +38,6 @@ class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
 
         self._fixed_g4 = fixed_g4
 
-        self._logM_end = math.log(self._params.M4)
-
     def _dMdt_evaporation(self, T_rad, PBH):
         T_Hawking = PBH.T_Hawking
 

@@ -45,8 +45,6 @@ class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
         self._fixed_g4 = fixed_g4
         self._fixed_g5 = fixed_g5
 
-        self._logM_end = math.log(self._params.M4)
-
     def g5(self, T_Hawking):
         """
         Compute number of relativistic degrees of freedom available for Hawking quanta to radiate into

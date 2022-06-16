@@ -3,7 +3,7 @@ import math
 from ..cosmology.RandallSundrum5D import Model, SpinlessBlackHole
 from ...models_base import BaseFriedlanderGreybodyLifetimeModel, StefanBoltzmann5D
 from ...greybody_tables.Friedlander import Friedlander_greybody_table_4D, Friedlander_greybody_table_5D, \
-    RS_graviton_greybody_table, build_Friedlander_greybody_xi
+    Friedlander_graviton_greybody_table_5D, build_Friedlander_greybody_xi
 
 Const_2Pi = 2.0 * math.pi
 
@@ -35,10 +35,10 @@ class FriedlanderLifetimeModel(BaseFriedlanderGreybodyLifetimeModel):
 
         # build list of greybody factors
         self._massless_xi_5D, self._massive_xi_5D, self._xi_dict_5D =\
-            build_Friedlander_greybody_xi(Friedlander_greybody_table_5D | RS_graviton_greybody_table)
+            build_Friedlander_greybody_xi(Friedlander_greybody_table_5D | Friedlander_graviton_greybody_table_5D)
 
         self._massless_xi_4D, self._massive_xi_4D, self._xi_dict_4D =\
-            build_Friedlander_greybody_xi(Friedlander_greybody_table_4D | RS_graviton_greybody_table)
+            build_Friedlander_greybody_xi(Friedlander_greybody_table_4D | Friedlander_graviton_greybody_table_5D)
 
         # Stefan-Boltzmann model is used only for comparison with the Page f function
         self._stefanboltzmann_model = StefanBoltzmann5D(self._params.StefanBoltzmannConstant4D,
@@ -46,7 +46,6 @@ class FriedlanderLifetimeModel(BaseFriedlanderGreybodyLifetimeModel):
                                                         use_effective_radius=use_effective_radius,
                                                         use_Page_suppression=use_Page_suppression)
 
-        self._logM_end = math.log(self._params.M4)
     def massless_xi(self, PBH):
         if PBH.is_5D:
             return self._massless_xi_5D
@@ -61,33 +60,6 @@ class FriedlanderLifetimeModel(BaseFriedlanderGreybodyLifetimeModel):
         if PBH.is_5D:
             return self._xi_dict_5D
         return self._xi_dict_4D
-
-    def _dMdt_evaporation(self, T_rad, PBH):
-        """
-        Compute evaporation rate at a specified temperature of the radiation bath
-        and specified black hole properties
-        :param T_rad:
-        :param PBH:
-        :return:
-        """
-        # compute horizon radius in 1/GeV
-        rh = PBH.radius
-        rh_sq = rh*rh
-
-        # compute Hawking temperature
-        T_Hawking = PBH.T_Hawking
-
-        # cache tables of massless and massive xi values
-        massless_xi = self.massless_xi(PBH)
-        massive_xi = self.massive_xi(PBH)
-
-        # sum over greybody factors to get evaporation rate
-        try:
-            dM_dt = -(massless_xi + sum([xi(T_Hawking) for xi in massive_xi])) / (Const_2Pi * rh_sq)
-        except ZeroDivisionError:
-            dM_dt = float("nan")
-
-        return dM_dt
 
     def _dMdt_graviton5D(self, T_rad, PBH):
         """
