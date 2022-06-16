@@ -477,23 +477,23 @@ class BaseBlackHole(ABC):
         Other properties such as angular momentum that not all black holes share should be captured
         in derived classes.
         """
-
-        # check mass is positive
-        if M < 0:
-            raise RuntimeError('BaseBlackHole: Initial black hole mass should be positive (M={M} GeV)'.format(M=M))
-
-        # check mass is larger than 4D Planck mass
-        if M <= params.M4:
-            raise RuntimeError('BaseBlackHole: Initial black hole mass {mass} GeV should be larger than the '
-                               '4D Planck mass {MP} GeV in order that the PBH does not begin life as a '
-                               'relic'.format(mass=self.M, MP=self.params.M4))
-
         self.params = params
 
         # assign current mass value in GeV
         # define a 'None' value first, in order to define all instance attributes within __init__()
         self.M = None
         self.set_mass(M, units)
+
+        # check mass is positive
+        if self.M < 0:
+            raise RuntimeError('BaseBlackHole: Initial black hole mass should be positive (M={M} GeV)'.format(M=M))
+
+        # check mass is larger than 4D Planck mass (has to be done *after* assignment so that any units
+        # conversions have taken place)
+        if self.M <= params.M4:
+            raise RuntimeError('BaseBlackHole: Initial black hole mass {mass} GeV should be larger than the '
+                               '4D Planck mass {MP} GeV in order that the PBH does not begin life as a '
+                               'relic'.format(mass=self.M, MP=params.M4))
 
 
     def set_mass(self, M: float, units='GeV') -> None:

@@ -52,7 +52,7 @@ class Schwarzschild(BaseBlackHole):
         :param M: black hole mass, in units specified by 'units'
         :param units: units used to measure the black hole mass
         """
-        super().__init__(params, M, units)
+        super().__init__(params, M, units=units)
 
     @property
     def radius(self) -> float:
@@ -65,7 +65,7 @@ class Schwarzschild(BaseBlackHole):
     @property
     def reff(self) -> float:
         """
-        query ford effective radius, measured in 1/GeV
+        query for the effective radius, measured in 1/GeV
         formula is 3 sqrt(3) R_h / 2, see e.g. above Eq. (1) of Guedens et al., astro-ph/0208299v2
         or this is a standard calculation using geometrical capture cross-section arguments
         https://physics.stackexchange.com/questions/52315/what-is-the-capture-cross-section-of-a-black-hole-region-for-ultra-relativistic
