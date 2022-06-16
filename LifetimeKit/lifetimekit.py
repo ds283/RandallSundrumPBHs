@@ -32,14 +32,14 @@ class LifetimeObserver:
     because evaporation has proceeded to the point where a relic has formed
     """
 
-    def __init__(self, engine, sample_grid, mass_grid, x_grid, T_Hawking_grid, M_relic, M_init):
+    def __init__(self, engine, BlackHoleType, sample_grid, mass_grid, x_grid, T_Hawking_grid, M_relic, M_init):
         """
         Instantiate a LifetimeObserver instance.
         The constructor captures model engine instance. _sample_grid should be a numpy 1d array representing
         points where we want to sample the solution M(T), and mass_grid is an (empty) numpy 1d array of the same shape
         into which the answer will be written
-        :param T_Hawking_grid:
-        :param engine: RandallSundrumModel instance to use for computations
+        :param engine: cosmology model instance to use for computations
+        :param BlackHoleType: type of BlackHole instance
         :param sample_grid: soln_grid of sample points for independent variable (here log T)
         :param mass_grid: soln_grid of sample points for dependent variable (here M)
         :param x_grid: soln_grid of sample points for dependent variable (here x)
@@ -54,7 +54,7 @@ class LifetimeObserver:
         self._engine = engine
 
         # instantiate BlackHole object corresponding to this engine
-        self._PBH = self._engine.BlackHoleType(self._engine.params, M=M_init, units='GeV')
+        self._PBH = BlackHoleType(self._engine.params, M=M_init, units='GeV')
 
         # self.terminated is a flag that is set when the integration should terminate because a relic
         # has formed; self.M_relic records the PBH mass where we declare a relic forms
@@ -237,7 +237,8 @@ class PBHLifetimeModel:
         # prepare an observer object using these sample points, using a relic scale set at the
         # four-dimensional Planck scale (which is usually what we want)
         self._relic_scale = self._params.M4
-        observer = LifetimeObserver(self._engine, self.logT_sample_points, self.M_sample_points, self.x_sample_points,
+        observer = LifetimeObserver(self._engine, LifetimeModel.BlackHoleType,
+                                    self.logT_sample_points, self.M_sample_points, self.x_sample_points,
                                     self.T_Hawking_sample_points, self._relic_scale, self.M_init)
 
         # run the integration
@@ -256,7 +257,7 @@ class PBHLifetimeModel:
                     if callable(c):
                         dMdt = np.zeros_like(self.T_sample_points)
 
-                        PBH = self._engine.BlackHoleType(self._params, M=Kilogram, units='GeV')
+                        PBH = LifetimeModel.BlackHoleType(self._params, M=Kilogram, units='GeV')
 
                         for n in range(0, len(self.T_sample_points)):
                             PBH.set_mass(self.M_sample_points[n], 'GeV')
@@ -371,7 +372,7 @@ class PBHLifetimeModel:
         # that we're close to the point of evaporation down to a relic
 
         # create an instance of the appropriate black hole type
-        PBH = self._engine.BlackHoleType(self._engine.params, M=M, units='GeV')
+        PBH = LifetimeModel.BlackHoleType(self._engine.params, M=M, units='GeV')
 
         # get current radiation temperature in GeV
         Ti_rad = math.exp(stepper.t)

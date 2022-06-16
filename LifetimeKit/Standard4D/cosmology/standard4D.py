@@ -234,9 +234,6 @@ class Model(BaseCosmology):
     # for the standard 4-dimensional cosmology
     """
 
-    # allow type introspection for our associated BlackHole model
-    BlackHoleType = Schwarzschild
-
     def __init__(self, params, fixed_g=None):
         super().__init__(params, fixed_g)
 

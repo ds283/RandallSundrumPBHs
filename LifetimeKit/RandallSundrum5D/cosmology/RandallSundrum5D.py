@@ -2,7 +2,7 @@ import math
 
 from LifetimeKit.constants import RadiationConstant4D, StefanBoltzmannConstant4D, StefanBoltzmannConstant5D, \
     gstar_full_SM
-from LifetimeKit.models_base import BaseCosmology
+from LifetimeKit.models_base import BaseCosmology, BaseBlackHole
 from LifetimeKit.natural_units import M4, Kelvin, Metre, Kilogram, Gram, SolarMass
 
 # numerical constant in test (based on mass M) for whether black hole behaves as 4D Schwarzschild
@@ -200,41 +200,28 @@ class Parameters:
                                                                      mu=self.mu, ratio=self.M_ratio)
 
 
-# class *BlackHole* represents the state of a PBH, which currently is specified by its mass and angular momentum,
-# but in future may also require the electric charge. It can be queried for properties, such as its radius
-# or the Hawking temperature.
-#
-# The crossover from 5D to 4D behaviour is taken to occur when the 5D Myers-Perry radius is equal to
-# (4/3) * ell, where ell is the AdS curvature radius. This makes the black hole temperatures continuous.
-class BlackHole:
+class SpinlessBlackHole(BaseBlackHole):
+    """
+    Represents a Schwarzschild-like black hole on a Randall-Sundrum brane. We model this using a Schwarzschild metric
+    when the black hole radius is large (it must be squashed in the extra dimension, so look like a
+    Scharzschild-like pancake when viewed from the bulk; an exact analytic metric is lacking),
+    and a 5D Myers-Perry black hole (without spin, i.e., the 5D Tangherlini metric) when the black hole
+    radius is small (then it cannot feel the constraints from the extra dimension).
 
-    _mass_conversions = {'gram': Gram, 'kilogram': Kilogram, 'GeV': 1.0}
+    The crossover from 5D to 4D behaviour is taken to occur when the 5D Myers-Perry radius is equal to
+    (4/3) * ell, where ell is the AdS curvature radius. This makes the black hole temperatures continuous.
+    """
 
-    # capture (i) initial mass value, and (ii) a RandallSundrumParameters instance so we can decide whether we are in the 4D or
-    # 5D regime based on the AdS radius.
-    # The initial mass value can be specified in grams, kilograms, or GeV, but defaults to GeV
     def __init__(self, params: Parameters, M: float, units='GeV'):
-        self.params = params
+        """
+        capture (i) initial mass value, and (ii) a parameter container instance so we can decide whether
+        we are in the 4D or 5D regime based on the AdS radius.
+        The initial mass value can be specified in grams, kilograms, or GeV, but defaults to GeV
+        """
+        super().__init__(params, M, units=units)
 
+        # cache value of sqrt(M4/M5)
         self._M4_over_M5_sqrt = math.sqrt(1.0/self.params.M_ratio)
-
-        # assign current mass value
-        self.M = None   # define instance attributes within __init__()
-        self.set_mass(M, units)
-
-        # check mass is larger than 4D Planck mass; there's no need to check the 5D Planck mass, because
-        # we guarantee that M4 > M5
-        if self.M <= self.params.M4:
-            raise RuntimeError('RandallSundrum5D.BlackHole: Initial black hole mass {mass} GeV should be larger than '
-                               'the 4D Planck mass {MP} GeV in order that the PBH does not begin life as a '
-                               'relic'.format(mass=self.M, MP=self.params.M4))
-
-    def set_mass(self, M: float, units='GeV'):
-        if units not in self._mass_conversions:
-            raise RuntimeError('RandallSundrum5D.BlackHole: unit "{unit}" not understood in constructor'.format(unit=units))
-
-        units_to_GeV = self._mass_conversions[units]
-        self.M = M * units_to_GeV
 
     # query for the 5D Myers-Perry radius of the black hole, measured in 1/GeV
     @property
@@ -359,9 +346,6 @@ class BlackHole:
 # The *Model* class provides methods to compute the Hubble rate, Hubble length, horizon mass, etc.,
 # for the Randall-Sundrum scenario
 class Model(BaseCosmology):
-
-    # allow type introspection for our associated BlackHole model
-    BlackHoleType = BlackHole
 
     def __init__(self, params: Parameters, fixed_g=None):
         super().__init__(params, fixed_g)

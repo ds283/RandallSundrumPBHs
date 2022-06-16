@@ -2,7 +2,7 @@ import math
 
 import numpy as np
 
-from ..cosmology.RandallSundrum5D import Model, BlackHole
+from ..cosmology.RandallSundrum5D import Model, SpinlessBlackHole
 from ...models_base import BaseStefanBoltzmannLifetimeModel, build_cumulative_g_table, StefanBoltzmann5D
 from ...particle_data import RS_graviton_particle_table
 
@@ -13,6 +13,10 @@ class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
     using a Stefan-Boltzmann limit for the evaporation term
     (i.e. the integrated Hawking flux)
     """
+
+    # allow type introspection for our associated BlackHole model
+    BlackHoleType = SpinlessBlackHole
+
     def __init__(self, engine: Model, accretion_efficiency_F=0.3,
                  use_effective_radius=True, use_Page_suppression=True,
                  fixed_g4=None, fixed_g5=None):
@@ -24,7 +28,7 @@ class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
         """
 
         # invoke superclass constructor
-        super().__init__(engine, Model, BlackHole,
+        super().__init__(engine, Model, SpinlessBlackHole,
                          accretion_efficiency_F=accretion_efficiency_F,
                          use_effective_radius=use_effective_radius,
                          use_Page_suppression=use_Page_suppression)

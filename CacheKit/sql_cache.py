@@ -46,7 +46,7 @@ def is_valid(data):
 
         # constructing a PBHModel with this mass will raise an exception if the mass is out of bounds
         # could possibly just write in the test here, but this way we abstract it into the PBHModel class
-        PBH = lkit.RS5D.BlackHole(params, M=M_init, units='GeV')
+        PBH = lkit.RS5D.SpinlessBlackHole(params, M=M_init, units='GeV')
     except RuntimeError as e:
         return False
 

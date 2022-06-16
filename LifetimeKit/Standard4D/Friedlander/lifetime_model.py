@@ -13,6 +13,10 @@ class FriedlanderLifetimeModel(BaseFriedlanderGreybodyLifetimeModel):
     using Friedlander et al. fitting functions for xi = 8pi f, where f is the Page factor giving
     the integrated Hawking flux
     """
+
+    # allow type introspection for our associated BlackHole model
+    BlackHoleType = Schwarzschild
+
     def __init__(self, engine: Model, accretion_efficiency_F=0.3, use_Page_suppression=True,
                  use_effective_radius=True):
         """

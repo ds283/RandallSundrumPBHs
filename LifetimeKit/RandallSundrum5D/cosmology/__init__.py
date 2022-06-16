@@ -1,1 +1,1 @@
-from .RandallSundrum5D import Parameters, Model, BlackHole
+from .RandallSundrum5D import Parameters, Model, SpinlessBlackHole

@@ -1,6 +1,6 @@
 import math
 
-from ..cosmology.RandallSundrum5D import Model, BlackHole
+from ..cosmology.RandallSundrum5D import Model, SpinlessBlackHole
 from ...models_base import BaseFriedlanderGreybodyLifetimeModel, StefanBoltzmann5D
 from ...greybody_tables.Friedlander import Friedlander_greybody_table_4D, Friedlander_greybody_table_5D, \
     RS_graviton_greybody_table, build_Friedlander_greybody_xi
@@ -13,6 +13,10 @@ class FriedlanderLifetimeModel(BaseFriedlanderGreybodyLifetimeModel):
     using Friedlander et al. fitting functions for xi = 8pi f, where f is the Page factor giving
     the integrated Hawking flux
     """
+
+    # allow type introspection for our associated BlackHole model
+    BlackHoleType = SpinlessBlackHole
+
     def __init__(self, engine: Model, accretion_efficiency_F=0.3, use_Page_suppression=True,
                  use_effective_radius=True):
         """
@@ -25,7 +29,7 @@ class FriedlanderLifetimeModel(BaseFriedlanderGreybodyLifetimeModel):
         """
 
         # invoke superclass constructor
-        super().__init__(engine, Model, BlackHole, accretion_efficiency_F=accretion_efficiency_F,
+        super().__init__(engine, Model, SpinlessBlackHole, accretion_efficiency_F=accretion_efficiency_F,
                          use_effective_radius=use_effective_radius,
                          use_Page_suppression=use_Page_suppression)
 

@@ -11,6 +11,10 @@ class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
     using a Stefan-Boltzmann limit for the evaporation term
     (i.e. the integrated Hawking flux)
     """
+
+    # allow type introspection for our associated BlackHole model
+    BlackHoleType = Schwarzschild
+
     def __init__(self, engine: Model, accretion_efficiency_F=0.3,
                  use_effective_radius=True, use_Page_suppression=True,
                  fixed_g4=None):
