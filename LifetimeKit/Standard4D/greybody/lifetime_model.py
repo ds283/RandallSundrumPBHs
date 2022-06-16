@@ -1,13 +1,13 @@
 import math
 
 from ..cosmology.standard4D import Model, BlackHole
-from ...models_base import BaseGreybodyLifetimeModel, StefanBoltzmann4D
+from ...models_base import BaseFriedlanderGreybodyLifetimeModel, StefanBoltzmann4D
 from ...greybody_tables.Friedlander import Friedlander_greybody_table_4D, Standard4D_graviton_greybody_table, \
     build_Friedlander_greybody_xi
 
 Const_2Pi = 2.0 * math.pi
 
-class FriedlanderLifetimeModel(BaseGreybodyLifetimeModel):
+class FriedlanderLifetimeModel(BaseFriedlanderGreybodyLifetimeModel):
     """
     Evaluate RHS of mass evolution model (assuming a standard 4-dimensional models),
     using Friedlander et al. fitting functions for xi = 8pi f, where f is the Page factor giving
@@ -49,7 +49,7 @@ class FriedlanderLifetimeModel(BaseGreybodyLifetimeModel):
     def massive_xi(self, PBH):
         return self._massive_xi
 
-    def xi_dict(self, PBH):
+    def xi_species_list(self, PBH):
         return self._xi_dict
 
     def _dMdt_evaporation(self, T_rad, PBH):
@@ -86,7 +86,7 @@ class FriedlanderLifetimeModel(BaseGreybodyLifetimeModel):
         :param PBH:
         :return:
         """
-        return self._sum_dMdt_xi_list(PBH, ['4D graviton'])
+        return self._sum_dMdt_species(PBH, ['4D graviton'])
 
     def _dMdt_stefanboltzmann(self, T_rad, PBH):
         """

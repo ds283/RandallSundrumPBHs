@@ -1,13 +1,13 @@
 import math
 
 from ..cosmology.RandallSundrum5D import Model, BlackHole
-from ...models_base import BaseGreybodyLifetimeModel, StefanBoltzmann5D
+from ...models_base import BaseFriedlanderGreybodyLifetimeModel, StefanBoltzmann5D
 from ...greybody_tables.Friedlander import Friedlander_greybody_table_4D, Friedlander_greybody_table_5D, \
     RS_graviton_greybody_table, build_Friedlander_greybody_xi
 
 Const_2Pi = 2.0 * math.pi
 
-class FriedlanderLifetimeModel(BaseGreybodyLifetimeModel):
+class FriedlanderLifetimeModel(BaseFriedlanderGreybodyLifetimeModel):
     """
     Evaluate RHS of mass evolution model (assuming a Randall-Sundrum model),
     using Friedlander et al. fitting functions for xi = 8pi f, where f is the Page factor giving
@@ -53,7 +53,7 @@ class FriedlanderLifetimeModel(BaseGreybodyLifetimeModel):
             return self._massive_xi_5D
         return self._massive_xi_4D
 
-    def xi_dict(self, PBH):
+    def xi_species_list(self, PBH):
         if PBH.is_5D:
             return self._xi_dict_5D
         return self._xi_dict_4D
@@ -92,7 +92,7 @@ class FriedlanderLifetimeModel(BaseGreybodyLifetimeModel):
         :param PBH:
         :return:
         """
-        return self._sum_dMdt_xi_list(PBH, ['5D graviton'])
+        return self._sum_dMdt_species(PBH, ['5D graviton'])
 
     def _dMdt_stefanboltzmann(self, T_rad, PBH):
         """

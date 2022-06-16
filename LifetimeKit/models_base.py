@@ -1,5 +1,6 @@
 import math
 from operator import itemgetter
+from abc import ABC, abstractmethod
 
 import numpy as np
 
@@ -272,23 +273,22 @@ class BaseStefanBoltzmannLifetimeModel:
         return self._accretion_model.rate(T_rad, PBH)
 
 
-class BaseGreybodyLifetimeModel:
+class BaseGreybodyLifetimeModel(ABC):
     """
     Base infrastructure used by all greybody-factor type lifetime models
     """
 
-    def __init__(self, engine, Model, BlackHole, accretion_efficiency_F=0.3,
+    def __init__(self, engine, Model, accretion_efficiency_F=0.3,
                  use_effective_radius=True, use_Page_suppression=True):
         """
         :param engine: a model engine instance to use for computations
         :param Model: expected type of engine
-        :param BlackHole: type of BlackHole instance object
         :param accretion_efficiency_F:
         :param use_effective_radius:
         :param use_Page_suppression:
         """
         if engine is None or not isinstance(engine, Model):
-            raise RuntimeError('BaseGreybodyLifetimeModel: supplied engine instance is not of expected type')
+            raise RuntimeError('BaseFriedlanderGreybodyLifetimeModel: supplied engine instance is not of expected type')
 
         self.engine = engine
         self._params = engine.params
@@ -301,21 +301,20 @@ class BaseGreybodyLifetimeModel:
             BondiHoyleLyttletonAccretionModel(engine, accretion_efficiency_F, use_effective_radius,
                                               use_Page_suppression)
 
-        # create a PBHModel instance; the value assigned to the mass doesn't matter
-        self._PBH = BlackHole(self.engine.params, 1.0, units='gram')
-
-    def massless_xi(self, PBH):
-        raise RuntimeError('Using virtual massless_xi() method')
-
-    def massive_xi(self, PBH):
-        raise RuntimeError('Using virtual massive_xi() method')
-
-    def xi_dict(self, PBH):
-        raise RuntimeError('Using virtual xi_dict() method')
-
-    def _sum_dMdt_xi_list(self, PBH, species):
+    @abstractmethod
+    def xi_species_list(self, PBH):
         """
-        compute horizon radius in 1/GeV for the species enumerated in 'species'
+        Virtual method that should return a dictionary with keys corresponding to the different particle
+        species labels
+        :param PBH: needed to allow switching between different xi values depending on whether the PBH
+        is in a 4D or 5D regime
+        """
+        pass
+
+    def _sum_dMdt_species(self, PBH, species: str):
+        """
+        compute dM/dt for the species labels in 'species', for the black hole parameter configurations
+        in 'PBH'
         :param PBH: current black hole object, used to abstract Hawking temperature calculation
         :param species: list of names of species to include
         :return: emission rate in Mass/Time = [Energy]^2
@@ -327,11 +326,11 @@ class BaseGreybodyLifetimeModel:
         T_Hawking = PBH.T_Hawking
 
         # cache reference to xi-table dictionary
-        xi_dict = self.xi_dict(PBH)
+        xi_species_list = self.xi_species_list(PBH)
 
         dM_dt = 0.0
         for label in species:
-            record = xi_dict[label]
+            record = xi_species_list[label]
 
             # If record is a callable, then it is a partially evaluated greybody function that requires
             # to be evaluated on the current Hawking temperature. This happens when the species is massive,
@@ -347,22 +346,118 @@ class BaseGreybodyLifetimeModel:
         return -dM_dt / (Const_2Pi * rh_sq)
 
     def _dMdt_accretion(self, T_rad, PBH):
+        """
+        Compute dM/dt rate from accretion
+        :param T_rad: radiation temperature in GeV
+        :PBH: object representing PBH
+        """
         return self._accretion_model.rate(T_rad, PBH)
 
     def _dMdt_quarks(self, T_rad, PBH):
+        """
+        Compute dM/dt rate from emission into quarks
+        :param T_rad: radiation temperature in GeV (needed because there is a universal signature for all _dMdt_
+        functions)
+        :PBH: object representing PBH
+        """
         quarks = ['up quark', 'down quark', 'strange quark', 'charm quark', 'bottom quark', 'top quark']
-        return self._sum_dMdt_xi_list(PBH, quarks)
+        return self._sum_dMdt_species(PBH, quarks)
 
     def _dMdt_leptons(self, T_rad, PBH):
+        """
+        Compute dM/dt rate from emission into leptons
+        :param T_rad: radiation temperature in GeV (needed because there is a universal signature for all _dMdt_
+        functions)
+        :PBH: object representing PBH
+        """
         leptons = ['electron', 'muon', 'tau', 'neutrino']
-        return self._sum_dMdt_xi_list(PBH, leptons)
+        return self._sum_dMdt_species(PBH, leptons)
 
     def _dMdt_photons(self, T_rad, PBH):
-        return self._sum_dMdt_xi_list(PBH, ['photon'])
+        """
+        Compute dM/dt rate from emission into photons
+        :param T_rad: radiation temperature in GeV (needed because there is a universal signature for all _dMdt_
+        functions)
+        :PBH: object representing PBH
+        """
+        return self._sum_dMdt_species(PBH, ['photon'])
 
     def _dMdt_gluons(self, T_rad, PBH):
-        return self._sum_dMdt_xi_list(PBH, ['gluon'])
+        """
+        Compute dM/dt rate from emission into gluons
+        :param T_rad: radiation temperature in GeV (needed because there is a universal signature for all _dMdt_
+        functions)
+        :PBH: object representing PBH
+        """
+        return self._sum_dMdt_species(PBH, ['gluon'])
 
     def _dMdt_EW_bosons(self, T_rad, PBH):
+        """
+        Compute dM/dt rate from emission into electroweak bosons
+        :param T_rad: radiation temperature in GeV (needed because there is a universal signature for all _dMdt_
+        functions)
+        :PBH: object representing PBH
+        """
         EW_bosons = ['Higgs', 'Z boson', 'W boson']
-        return self._sum_dMdt_xi_list(PBH, EW_bosons)
+        return self._sum_dMdt_species(PBH, EW_bosons)
+
+
+class BaseFriedlanderGreybodyLifetimeModel(BaseGreybodyLifetimeModel):
+    """
+    Base infrastructure used by all greybody models using Friedlander et al. fitting functions
+    """
+
+    def __init__(self, engine, Model, BlackHole, accretion_efficiency_F=0.3,
+                 use_effective_radius=True, use_Page_suppression=True):
+        """
+        :param engine: a model engine instance to use for computations
+        :param Model: expected type of engine
+        :param BlackHole: type of BlackHole instance object
+        :param accretion_efficiency_F:
+        :param use_effective_radius:
+        :param use_Page_suppression:
+        """
+        super().__init__(engine, Model, accretion_efficiency_F=accretion_efficiency_F,
+                         use_effective_radius=use_effective_radius, use_Page_suppression=use_Page_suppression)
+
+        # create a PBHModel instance; for a Friedlander et al. model, this just has mass but no angular
+        # moementum the value assigned to the mass doesn't matter
+        self._PBH = BlackHole(self.engine.params, 1.0, units='gram')
+
+    @abstractmethod
+    def massless_xi(self, PBH):
+        """
+        All greybody models have a self.xi_species_list() method that returns a dictionary with keys
+        corresponding to the particle species labels, and elements corresponding to xi values (either constants
+        if there is no temperature dependence, or callables if the temperature dependence is needed).
+
+        However, for Friedlander et al. models we use an extra layer of caching, with all temperature-dependent
+        xi values consolidated into self.massive_xi() (which is a list of callables) and all temperature-independent
+        xi values consolidated into a single float self.massless_xi(). This means we don't have to iterate
+        through a dictionary and is supposed to speed up evaluation.
+
+        As for self.xi_species_list(), there is a PBH argument because implementations may wish to vary
+        their behaviour depending whether the black hole is in a 4D or 5D regime (or perhaps based on other
+        parameters also)
+        :param PBH: PBH object that can be interrogated to determine parameters
+        """
+        pass
+
+    @abstractmethod
+    def massive_xi(self, PBH):
+        """
+        All greybody models have a self.xi_species_list() method that returns a dictionary with keys
+        corresponding to the particle species labels, and elements corresponding to xi values (either constants
+        if there is no temperature dependence, or callables if the temperature dependence is needed).
+
+        However, for Friedlander et al. models we use an extra layer of caching, with all temperature-dependent
+        xi values consolidated into self.massive_xi() (which is a list of callables) and all temperature-independent
+        xi values consolidated into a single float self.massless_xi(). This means we don't have to iterate
+        through a dictionary and is supposed to speed up evaluation.
+
+        As for self.xi_species_list(), there is a PBH argument because implementations may wish to vary
+        their behaviour depending whether the black hole is in a 4D or 5D regime (or perhaps based on other
+        parameters also)
+        :param PBH: PBH object that can be interrogated to determine parameters
+        """
+        pass
