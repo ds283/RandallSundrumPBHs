@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 
 from .constants import Page_suppression_factor
-from .natural_units import Kelvin
+from .natural_units import Kelvin, Kilogram, Gram
 from .particle_data import SM_particle_table
 
 # tolerance for binning particle masses (expressed in GeV) into a single threshold
@@ -459,5 +459,92 @@ class BaseFriedlanderGreybodyLifetimeModel(BaseGreybodyLifetimeModel):
         their behaviour depending whether the black hole is in a 4D or 5D regime (or perhaps based on other
         parameters also)
         :param PBH: PBH object that can be interrogated to determine parameters
+        """
+        pass
+
+
+class BaseBlackHole(ABC):
+    """
+    This is an abstract base class that specifies the minimal interface a black hole model should provide.
+    """
+
+    _mass_conversions = {'gram': Gram, 'kilogram': Kilogram, 'GeV': 1.0}
+
+    def __init__(self, params, M: float, units='GeV'):
+        """
+        capture basic details about the PBH model, including a parameters object for the cosmology in which
+        it is living, and the mass M.
+        Other properties such as angular momentum that not all black holes share should be captured
+        in derived classes.
+        """
+
+        # check mass is positive
+        if M < 0:
+            raise RuntimeError('BaseBlackHole: Initial black hole mass should be positive (M={M} GeV)'.format(M=M))
+
+        # check mass is larger than 4D Planck mass
+        if M <= params.M4:
+            raise RuntimeError('BaseBlackHole: Initial black hole mass {mass} GeV should be larger than the '
+                               '4D Planck mass {MP} GeV in order that the PBH does not begin life as a '
+                               'relic'.format(mass=self.M, MP=self.params.M4))
+
+        self.params = params
+
+        # assign current mass value in GeV
+        # define a 'None' value first, in order to define all instance attributes within __init__()
+        self.M = None
+        self.set_mass(M, units)
+
+
+    def set_mass(self, M: float, units='GeV') -> None:
+        """
+        Set the current value of M for this PBH
+        :param M: black hole mass, measured in units specified by 'units'
+        :param units: units used to measure the black hole mass
+        """
+        if units not in self._mass_conversions:
+            raise RuntimeError('Standard4D.Schwarzschild: unit "{unit}" not understood in constructor'.format(unit=units))
+
+        units_to_GeV = self._mass_conversions[units]
+        self.M = M * units_to_GeV
+
+    @property
+    @abstractmethod
+    def radius(self) -> float:
+        """
+        query for the current radius of the black hole, measured in 1/GeV
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def reff(self) -> float:
+        """
+        query for the effective radius of the black hole, measured in 1/GeV
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def alpha(self) -> float:
+        """
+        query for the value of alpha, where r_eff = alpha r_h. alpha is dimensionless
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def T_Hawking(self) -> float:
+        """
+        query for the Hawking temperature T, measured in GeV
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def t(self) -> float:
+        """
+        query for the parameter t, which gives the coefficient of R_h in the relationship
+        T_Hawking = 1/(t * R_h). t is dimensionless
         """
         pass

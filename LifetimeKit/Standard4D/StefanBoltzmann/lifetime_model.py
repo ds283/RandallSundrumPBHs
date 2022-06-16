@@ -1,6 +1,6 @@
 import math
 
-from ..cosmology.standard4D import Model, BlackHole
+from ..cosmology.standard4D import Model, Schwarzschild
 from ...models_base import BaseStefanBoltzmannLifetimeModel, StefanBoltzmann4D
 from ...particle_data import Standard4D_graviton_particle_table
 
@@ -22,7 +22,7 @@ class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
         """
 
         # invoke superclass constructor
-        super().__init__(engine, Model, BlackHole,
+        super().__init__(engine, Model, Schwarzschild,
                          accretion_efficiency_F=accretion_efficiency_F,
                          use_effective_radius=use_effective_radius,
                          use_Page_suppression=use_Page_suppression,

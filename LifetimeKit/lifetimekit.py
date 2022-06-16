@@ -7,10 +7,10 @@ import pandas as pd
 
 from .RandallSundrum5D import StefanBoltzmann as RS5D_StefanBoltzmann
 from .RandallSundrum5D import cosmology as RS5D
-from .RandallSundrum5D import greybody as RS5D_greybody
+from .RandallSundrum5D import Friedlander as RS5D_Friedlander
 from .Standard4D import StefanBoltzmann as Standard4D_StefanBoltzmann
 from .Standard4D import cosmology as Standard4D
-from .Standard4D import greybody as Standard4D_greybody
+from .Standard4D import Friedlander as Standard4D_Friedlander
 from .constants import T_CMB
 from .constants import gstar_full_SM
 from .natural_units import Kelvin, Kilogram, Gram, SolarMass
@@ -544,14 +544,14 @@ class PBHInstance:
 
         for label in models:
             if label == 'GreybodyRS5D':
-                model = RS5D_greybody.FriedlanderLifetimeModel(engine_RS, accretion_efficiency_F=accretion_efficiency_F,
-                                                               use_effective_radius=True, use_Page_suppression=True)
+                model = RS5D_Friedlander.FriedlanderLifetimeModel(engine_RS, accretion_efficiency_F=accretion_efficiency_F,
+                                                                  use_effective_radius=True, use_Page_suppression=True)
                 self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples,
                                                          compute_rates=compute_rates)
 
             elif label == 'GreybodyStandard4D':
-                model = Standard4D_greybody.FriedlanderLifetimeModel(engine_4D, accretion_efficiency_F=accretion_efficiency_F,
-                                                                     use_effective_radius=True, use_Page_suppression=True)
+                model = Standard4D_Friedlander.FriedlanderLifetimeModel(engine_4D, accretion_efficiency_F=accretion_efficiency_F,
+                                                                        use_effective_radius=True, use_Page_suppression=True)
                 self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples,
                                                          compute_rates=compute_rates)
 

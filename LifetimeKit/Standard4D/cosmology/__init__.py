@@ -1,1 +1,1 @@
-from .standard4D import Model, BlackHole
+from .standard4D import Model, Schwarzschild
