@@ -19,6 +19,7 @@ class FriedlanderLifetimeModel(BaseGreybodyLifetimeModel):
         Instantiate a StefanBoltzmann4DLifetimeModel object
         :param engine: a StandardModel instance to use for calculations
         :param accretion_efficiency_F: efficiency factor for Bondi-Hoyle-Lyttleton accretion
+        :param use_Page_suppression: suppress accretion rate by Page factor of 2.6
         :param use_effective_radius: whether accretion should use an effective radius rather than the horizon radius;
         note that for a greybody lifetime model this applies *only* to accretion, because the correct effective
         radius is baked into the Page f factor

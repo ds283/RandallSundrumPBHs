@@ -280,9 +280,6 @@ class BaseGreybodyLifetimeModel:
     def __init__(self, engine, Model, BlackHole, accretion_efficiency_F=0.3,
                  use_effective_radius=True, use_Page_suppression=True):
         """
-        To speed up computations, we want to cache the number of relativistic degrees of freedom
-        available at any given temperature.
-        To do that we need to build a list of mass thresholds
         :param engine: a model engine instance to use for computations
         :param Model: expected type of engine
         :param BlackHole: type of BlackHole instance object

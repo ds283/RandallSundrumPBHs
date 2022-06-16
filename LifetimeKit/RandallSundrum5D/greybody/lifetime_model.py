@@ -16,9 +16,9 @@ class FriedlanderLifetimeModel(BaseGreybodyLifetimeModel):
     def __init__(self, engine: Model, accretion_efficiency_F=0.3, use_Page_suppression=True,
                  use_effective_radius=True):
         """
-        Instantiate a StefanBoltzmann5DLifetimeModel object
         :param engine: a RandallSundrumModel instance to use for calculations
         :param accretion_efficiency_F: efficiency factor for Bondi-Hoyle-Lyttleton accretion
+        :param use_Page_suppression: suppress accretion rate by Page factor of 2.6
         :param use_effective_radius: whether accretion should use an effective radius rather than the horizon radius;
         note that for a greybody lifetime model this applies *only* to accretion, because the correct effective
         radius is baked into the Page f factor
