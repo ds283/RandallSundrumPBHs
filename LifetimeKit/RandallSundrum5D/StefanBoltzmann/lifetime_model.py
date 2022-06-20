@@ -78,14 +78,14 @@ class LifetimeModel(BaseStefanBoltzmannLifetimeModel):
         return self._stefanboltzmann_model.dMdt(PBH, g4=1.0, g5=0.0)
 
     # step the PBH mass, accounting for accretion and evaporation
-    def __call__(self, logT_rad, logM_asarray):
+    def __call__(self, logT_rad, state_asarray):
         # for some purposes we need the temperature of the radiation bath expressed in GeV
         T_rad = math.exp(logT_rad)
 
         # also the PBH mass, and reset the PBH model object self._PBH to its value
-        logM = logM_asarray.item()
+        logM = state_asarray.item()
         PBH = math.exp(logM)
-        self._PBH.set_mass(PBH, 'GeV')
+        self._PBH.set_M(PBH, 'GeV')
 
         # compute current Hubble rate at this radiation temperature
         H = self.engine.Hubble(T=T_rad)

@@ -79,20 +79,20 @@ class KerrLifetimeModel(BaseSpinningGreybodyLifetimeModel):
         """
         return self._stefanboltzmann_model.rate(PBH, g4=1.0)
 
-    def __call__(self, logT_rad, state):
+    def __call__(self, logT_rad, state_asarray):
         """
         step the PBH mass and angular momentum, accounting for accretion and evaporation
         :param logT_rad:
-        :param logM_asarray:
+        :param state_asarray:
         :return:
         """
         # for some purposes we need the temperature of the radiation bath expressed in GeV
         T_rad = math.exp(logT_rad)
 
         # read the PBH mass and angular momentum, then set our self._PBH object to these values
-        logM = state[0]
-        logJ = state[1]
-        self._PBH.set_mass(math.exp(logM), 'GeV')
+        logM = state_asarray[0]
+        logJ = state_asarray[1]
+        self._PBH.set_M(math.exp(logM), 'GeV')
         self._PBH.set_J(J=math.exp(logJ))
 
         # compute current Hubble rate at this radiation temperature

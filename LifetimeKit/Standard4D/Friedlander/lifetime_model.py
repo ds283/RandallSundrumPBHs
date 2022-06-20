@@ -74,20 +74,20 @@ class FriedlanderLifetimeModel(BaseFriedlanderGreybodyLifetimeModel):
         """
         return self._stefanboltzmann_model.rate(PBH, g4=1.0)
 
-    def __call__(self, logT_rad, logM_asarray):
+    def __call__(self, logT_rad, state_asarray):
         """
         step the PBH mass, accounting for accretion and evaporation
         :param logT_rad:
-        :param logM_asarray:
+        :param state_asarray:
         :return:
         """
         # for some purposes we need the temperature of the radiation bath expressed in GeV
         T_rad = math.exp(logT_rad)
 
         # also the PBH mass, and reset the PBH model object self._PBH to its value
-        logM = logM_asarray.item()
+        logM = state_asarray.item()
         PBH_mass = math.exp(logM)
-        self._PBH.set_mass(PBH_mass, 'GeV')
+        self._PBH.set_M(PBH_mass, 'GeV')
 
         # compute current Hubble rate at this radiation temperature
         H = self.engine.Hubble(T=T_rad)

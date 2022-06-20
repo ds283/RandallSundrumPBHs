@@ -691,7 +691,7 @@ class BaseBlackHole(ABC):
         # assign current mass value in GeV
         # define a 'None' value first, in order to define all instance attributes within __init__()
         self.M = None
-        self.set_mass(M, units)
+        self.set_M(M, units)
 
         # check mass is positive
         if self.M < 0:
@@ -705,7 +705,7 @@ class BaseBlackHole(ABC):
                                'relic'.format(mass=self.M, MP=params.M4))
 
 
-    def set_mass(self, M: float, units='GeV') -> None:
+    def set_M(self, M: float, units='GeV') -> None:
         """
         Set the current value of M for this PBH
         :param M: black hole mass, measured in units specified by 'units'

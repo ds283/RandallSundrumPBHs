@@ -11,19 +11,20 @@ from .RandallSundrum5D import Friedlander as RS5D_Friedlander
 from .Standard4D import StefanBoltzmann as Standard4D_StefanBoltzmann
 from .Standard4D import cosmology as Standard4D
 from .Standard4D import Friedlander as Standard4D_Friedlander
+from .Standard4D import Kerr as Standard4D_Kerr
 from .constants import T_CMB
 from .constants import gstar_full_SM
 from .natural_units import Kelvin, Kilogram, Gram, SolarMass
 from .timer import Timer
 
 # number of T-sample points to capture for PBH lifetime mass/temperature relation
-NumTSamplePoints = 200
+_NumTSamplePoints = 200
 
 # default models to compute
 _DEFAULT_MODEL_SET = ['StefanBoltzmannRS5D', 'GreybodyRS5D', 'StefanBoltzmannStandard4D', 'GreybodyStandard4D']
 
 _UNIT_ERROR_MESSAGE = 'PBHLifetimeModel: unit "{unit}" not understood in constructor'
-MISSING_HISTORY_MESSAGE = 'History "{label}" not calculated for this PBH lifetime model'
+_MISSING_HISTORY_MESSAGE = 'History "{label}" not calculated for this PBH lifetime model'
 
 class LifetimeObserver:
     """
@@ -32,7 +33,8 @@ class LifetimeObserver:
     because evaporation has proceeded to the point where a relic has formed
     """
 
-    def __init__(self, engine, BlackHoleType, sample_grid, mass_grid, x_grid, T_Hawking_grid, M_relic, M_init):
+    def __init__(self, engine, BlackHoleType, sample_grid, M_grid, x_grid, T_Hawking_grid, M_relic, M_init,
+                 J_init=None, J_grid=None):
         """
         Instantiate a LifetimeObserver instance.
         The constructor captures model engine instance. _sample_grid should be a numpy 1d array representing
@@ -40,21 +42,38 @@ class LifetimeObserver:
         into which the answer will be written
         :param engine: cosmology model instance to use for computations
         :param BlackHoleType: type of BlackHole instance
-        :param sample_grid: soln_grid of sample points for independent variable (here log T)
-        :param mass_grid: soln_grid of sample points for dependent variable (here M)
-        :param x_grid: soln_grid of sample points for dependent variable (here x)
+        :param sample_grid: grid of sample points for independent variable, T (in GeV)
+        :param M_grid: grid of sample points for mass M (in GeV)
+        :param x_grid: grid of sample points for x = M/Horizon mass (dimensionles)
+        :param T_Hawking_grid: grid of sample points for Hawking temperature T_Hawking (in GeV)
+        :param M_relic: relic mass at which to terminate the calculation (in GeV)
+        :param M_init: initial PBH mass (in GeV)
+        :param J_init: initial PBH angular momentum (dimensionless)
+        :param J_grid: grid of sample points for angular momentum J (dimensionless)
         """
         if engine is None:
             raise RuntimeError('LifetimeObserver: supplied model instance is None')
 
-        if sample_grid.shape != mass_grid.shape:
-            raise RuntimeError('LifetimeObserver: _sample_grid and mass_grid shapes do not match')
+        if sample_grid.shape != M_grid.shape:
+            raise RuntimeError('LifetimeObserver: sample_grid and M_grid shapes do not match')
+        if sample_grid.shape != x_grid.shape:
+            raise RuntimeError('LifetimeObserver: sample_grid and x_grid shapes do not match')
+        if sample_grid.shape != T_Hawking_grid.shape:
+            raise RuntimeError('LifetimeObserver: sample_grid and T_Hawking_grid shapes do not match')
+        if J_grid is not None and sample_grid.shape != J_grid.shape:
+            raise RuntimeError('LifetimeObserver: sample_grid and J_grid shapes do not match')
 
-        # capture models engine
+        # capture model's cosmology engine
         self._engine = engine
 
+        # do we need to track J?
+        self._using_J = J_init is not None
+
         # instantiate BlackHole object corresponding to this engine
-        self._PBH = BlackHoleType(self._engine.params, M=M_init, units='GeV')
+        if self._using_J:
+            self._PBH = BlackHoleType(self._engine.params, M=M_init, J=J_init, units='GeV')
+        else:
+            self._PBH = BlackHoleType(self._engine.params, M=M_init, units='GeV')
 
         # self.terminated is a flag that is set when the integration should terminate because a relic
         # has formed; self.M_relic records the PBH mass where we declare a relic forms
@@ -64,10 +83,16 @@ class LifetimeObserver:
         # capture maximum mass achieved during lifetime
         self.M_max = M_init
 
+        # capture maximum angular momentum achieved during lifetime, if used
+        if self._using_J:
+            self.J_max = J_init
+
         # capture time of 4D to 5D transition (if one occurs)
+        # TODO: how should we handle this when there is rotation, and possibly multiple transition events?
         self.T_transition_4Dto5D = None
 
         # capture time of 5D to 4D transition (if one occurs)
+        # TODO: how should we handle this when there is rotation, and possibly multiple transition events?
         self.T_transition_5Dto4D = None
 
         # is black hole currently in 5D or 4D regime?
@@ -76,9 +101,14 @@ class LifetimeObserver:
         # capture reference to sample grid, mass history grid, x history grid (x=PBH mass/horizon mass),
         # and Hawking temperature history grid
         self._sample_grid = sample_grid
-        self._mass_grid = mass_grid
+        self._M_grid = M_grid
         self._x_grid = x_grid
         self._T_Hawking_grid = T_Hawking_grid
+
+        if self._using_J:
+            if J_grid is None:
+                raise RuntimeError('LifetimeObserver: if J_init is supplied, a J sample grid must be supplied also')
+            self._J_grid = J_grid
 
         self._sample_grid_length = sample_grid.size
 
@@ -94,10 +124,10 @@ class LifetimeObserver:
             self.next_sample_point = None
 
     # observation step should sample the solution if needed, and check whether the integration should end
-    def __call__(self, logT_rad, logM_asarray):
+    def __call__(self, logT_rad, state_asarray):
         """
         Execute an observation step. This should sample the solution if needed, storing the current value in
-        self._mass_grid, and advance self.sample_grid_current_index (and update self.next_sample_point)
+        self._M_grid, and advance self.sample_grid_current_index (and update self.next_sample_point)
         :param logT_rad: current value of log T for the radiation bath
         :param logx_asarray: current value of log x, where x is the PBH mass fraction x = M/M_H
         :return:
@@ -107,12 +137,21 @@ class LifetimeObserver:
         T_rad = math.exp(logT_rad)
 
         # extract current value of PBH mass, in GeV
-        PBH_mass = math.exp(logM_asarray.item())
-        self._PBH.set_mass(PBH_mass, 'GeV')
+        M = math.exp(state_asarray[0])
+        self._PBH.set_M(M, 'GeV')
+
+        # extract current value of angular momentum, is used
+        if self._using_J:
+            J = math.exp(state_asarray[1])
+            self._PBH.set_J(J)
 
         # if current mass is larger than previous maximum, reset our running estimate of the maximum
-        if self.M_max is None or PBH_mass > self.M_max:
-            self.M_max = PBH_mass
+        if self.M_max is None or M > self.M_max:
+            self.M_max = M
+
+        # if current angular momentum is larger than previous maximum, reset our running estimate of the maximum
+        if self._using_J and (self.J_max is None or J > self.J_max):
+            self.J_max = J
 
         # detect transitions from 5D to 4D and vice versa, if this is a 5D black hole type
         if self._PBH_was_5D is not None:
@@ -130,12 +169,15 @@ class LifetimeObserver:
         # write solution into M-soln_grid if we have passed an observation point
         if self.next_sample_point is not None and logT_rad < self.next_sample_point:
             # compute mass as a fraction of the Hubble volume mass
-            x = PBH_mass / self._engine.M_Hubble(T=T_rad)
+            x = M / self._engine.M_Hubble(T=T_rad)
 
             # store these values
-            self._mass_grid[self.sample_grid_current_index] = PBH_mass
+            self._M_grid[self.sample_grid_current_index] = M
             self._x_grid[self.sample_grid_current_index] = x
             self._T_Hawking_grid[self.sample_grid_current_index] = self._PBH.T_Hawking
+
+            if self._using_J:
+                self._J_grid[self.sample_grid_current_index] = J
 
             self.sample_grid_current_index += 1
             if self.sample_grid_current_index < self._sample_grid_length:
@@ -146,7 +188,7 @@ class LifetimeObserver:
         # check whether integration should halt because we have decreased the PBH mass below the 4D Planck scale M4.
         # If this happens, we either get a relic, or at least the standard calculation of Hawking radiation is
         # invalidated, so either way we should stop
-        if PBH_mass < self.relic_mass:
+        if M < self.relic_mass:
             self.terminated = True
             return -1
 
@@ -154,6 +196,12 @@ class LifetimeObserver:
 
 
 class PBHLifetimeModel:
+    """
+    Compute the lifetime for a particular PBH parameter combination (specified M, J, ...)
+    using a specified lifetime model.
+    Performs the integration, and then acts as a container object for the solution.
+    """
+
     # conversion factors into GeV for mass units we understand
     _mass_conversions = {'gram': Gram, 'kilogram': Kilogram, 'SolarMass': SolarMass, 'GeV': 1.0}
 
@@ -164,14 +212,18 @@ class PBHLifetimeModel:
     _time_conversions = {'second': 1.0, 'year': 60.0*60.0*24.0*365.0}
 
 
-    def __init__(self, M_init, T_rad_init, LifetimeModel, num_samples=NumTSamplePoints, compute_rates=False,
+    def __init__(self, M_init, T_rad_init, LifetimeModel, J_init=None, num_samples=_NumTSamplePoints, compute_rates=False,
                  verbose=False):
         """
-        Capture initial values
+        Capture initial values and then integrate the lifetime.
         :param M_init: initial PBH mass, expressed in GeV
         :param T_rad_init: temperature of radiation bath at formation, expressed in GeV
         :param LifetimeModel: model to use for lifetime calculations
+        :param J_init: initial PBH angular momentum (a dimensionless quantity) if being used
         :param num_samples: number of samples to extract
+        :param compute_rates: perform a post-processing step to compute emission rates for M and J once the solution
+        is known
+        :param verbose: enable verbose debugging messages
         """
         # LifetimeModel should include an engine field to which we can refer
         self._engine = LifetimeModel.engine
@@ -180,11 +232,26 @@ class PBHLifetimeModel:
         # print verbose debugging/information messages
         self._verbose = verbose
 
+        # basic sanity checking
+        if M_init <= 0.0:
+            raise RuntimeError('PBHLifetimeModel: initial mass should be positive')
+
+        self._using_J = J_init is not None
+        if self._using_J and J_init < 0.0:
+            raise RuntimeError('PBHLifetimeModel: intitial angular momentum should be non-negative')
+
+        # capture initial values for mass and radiation bath
         self.M_init = M_init
         self.T_rad_init = T_rad_init
 
-        # integration actually proceeds with log(x)
+        # capture initial value for angular momentum, if being used
+        if self._using_J:
+            self.J_init = J_init
+
+        # integration actually proceeds with log(M) and log(J)
         self.logM_init = math.log(M_init)
+        if self._using_J:
+            self.logJ_init = math.log(J_init)
 
         # integration is done in terms of log(x) and log(T), where x = M/M_H(T) is the PBH mass expressed
         # as a fraction of the Hubble mass M_H
@@ -204,6 +271,24 @@ class PBHLifetimeModel:
         self.x_sample_points = np.zeros_like(self.logT_sample_points)
         self.T_Hawking_sample_points = np.zeros_like(self.logT_sample_points)
 
+        if self._using_J:
+            # reserve space for angular momentum history
+            self.J_sample_points = np.zeros_like(self.logT_sample_points)
+
+        # check we can instantiate a PBH instance of the expected type
+        # this will check e.g that all constraint on J are respected.
+        # We also want to use this to check whether the black hole is 5D at formation (if there is a concept of that)
+        if self._using_J:
+            PBH = LifetimeModel.BlackHoleType(self._engine.params, M=M_init, J=J_init, units='GeV')
+        else:
+            PBH = LifetimeModel.BlackHoleType(self._engine.params, M=M_init, units='GeV')
+
+        # if PBH model has an 'is_5D' property, capture its value; otherwise, record 'None' to indicate that this
+        # PBH type has no concept of 4D/5D transition
+        if hasattr(PBH, 'is_5D'):
+            self.initially_5D = PBH.is_5D
+        else:
+            self.initially_5D = None
 
         # set lifetime to default value of None, indicating that we could not compute it; we'll overwrite
         # this value later if the integration is successful
@@ -219,10 +304,19 @@ class PBHLifetimeModel:
         # track maximum mass
         self.M_max = None
 
+        if self._using_J:
+            # track final angular momentum
+            self.J_final = None
+
+            # track maximum angular momentum
+            self.J_max = None
+
         # track time of 4D to 5D transition, if one occurs
+        # TODO: how should we handle this when there is rotation, and possibly multiple transition events?
         self.T_transition_4Dto5D = None
 
         # track time of 5D to 4D transition, if one occurs
+        # TODO: how should we handle this when there is rotation, and possibly multiple transition events?
         self.T_transition_5Dto4D = None
 
         # track whether PBH survives until the present day
@@ -237,36 +331,76 @@ class PBHLifetimeModel:
         # prepare an observer object using these sample points, using a relic scale set at the
         # four-dimensional Planck scale (which is usually what we want)
         self._relic_scale = self._params.M4
-        observer = LifetimeObserver(self._engine, LifetimeModel.BlackHoleType,
-                                    self.logT_sample_points, self.M_sample_points, self.x_sample_points,
-                                    self.T_Hawking_sample_points, self._relic_scale, self.M_init)
+        if self._using_J:
+            observer = LifetimeObserver(self._engine, LifetimeModel.BlackHoleType,
+                                        self.logT_sample_points, self.M_sample_points, self.x_sample_points,
+                                        self.T_Hawking_sample_points, self._relic_scale, self.M_init)
+        else:
+            observer = LifetimeObserver(self._engine, LifetimeModel.BlackHoleType,
+                                        self.logT_sample_points, self.M_sample_points, self.x_sample_points,
+                                        self.T_Hawking_sample_points, self._relic_scale, self.M_init)
 
         # run the integration
         self._integrate(LifetimeModel, observer)
 
-        # get list of methods in LifetimeModel that can be used to produce a dM/dt rate, and use these to populate
-        # our dM/dt list
+        # allocate dictionary for mass emission rates; will be populated by _compute_emission_rates() if enabled
         self.dMdt = {}
 
+        if self._using_J:
+            # allocation dictionary for angular momentum emission rates; will be populated by _compute_emission_rates()
+            # if enabled
+            self.dJdt = {}
+
         if compute_rates:
-            for method in dir(LifetimeModel):
-                if method.startswith('_dMdt_'):
-                    rate_name = method.removeprefix('_dMdt_')
+            self._compute_emission_rates(J_init, LifetimeModel)
 
-                    c = getattr(LifetimeModel, method, None)
-                    if callable(c):
-                        dMdt = np.zeros_like(self.T_sample_points)
+    def _compute_emission_rates(self, J_init, LifetimeModel):
+        for method in dir(LifetimeModel):
+            if method.startswith('_dMdt_'):
+                rate_name = method.removeprefix('_dMdt_')
 
+                c = getattr(LifetimeModel, method, None)
+                if callable(c):
+                    # allocate space for this rate history
+                    dMdt = np.zeros_like(self.T_sample_points)
+
+                    # instantiate temporary PBH object; initial data does not matter, because it will be
+                    # overwritten
+                    if self._using_J:
+                        PBH = LifetimeModel.BlackHoleType(self._params, M=Kilogram, J=0.0, units='GeV')
+                    else:
                         PBH = LifetimeModel.BlackHoleType(self._params, M=Kilogram, units='GeV')
 
-                        for n in range(0, len(self.T_sample_points)):
-                            PBH.set_mass(self.M_sample_points[n], 'GeV')
+                    for n in range(0, len(self.T_sample_points)):
+                        PBH.set_M(self.M_sample_points[n], 'GeV')
+                        if self._using_J:
+                            PBH.set_J(self.J_sample_points[n])
 
-                            # rate is the plain emission rate, measured in GeV^2 = mass/time
-                            dMdt[n] = c(self.T_sample_points[n], PBH)
+                        # rate is the plain emission rate, measured in GeV^2 = mass/time
+                        dMdt[n] = c(self.T_sample_points[n], PBH)
 
                     self.dMdt[rate_name] = dMdt
 
+            elif self._using_J and method.startswith('_dJdt_'):
+                rate_name = method.removeprefix('_dJdt_')
+
+                c = getattr(LifetimeModel, method, None)
+                if callable(c):
+                    # allocate space for this rate history
+                    dJdt = np.zeros_like(self.T_sample_points)
+
+                    # instantiate temporary PBH object; initial data does not matter, because it will be
+                    # overwritten
+                    PBH = LifetimeModel.BlackHoleType(self._params, M=Kilogram, J=0.0, units='GeV')
+
+                    for n in range(0, len(self.T_sample_points)):
+                        PBH.set_M(self.M_sample_points[n], 'GeV')
+                        PBH.set_J(self.J_sample_points[n])
+
+                        # rate is plain emissionr rate, measured in GeV = dimensionless/time
+                        dJdt[n] = c(self.T_sample_points[n], PBH)
+
+                    self.dJdt[rate_name] = dJdt
 
     def _integrate(self, LifetimeModel, Observer):
         """
@@ -281,26 +415,14 @@ class PBHLifetimeModel:
 
         # set up initial conditions for the PBH and the radiation bath
         # to keep the numerics sensible, we can't run the integration directly in grams; the numbers get too large,
-        # making the integrator need a very small stepsize to keep up
-        stepper.set_initial_value(self.logM_init, self.logT_rad_init)
+        # making the integrator need a very small stepsize to keep up. So we use log values instead
+        if self._using_J:
+            stepper.set_initial_value(np.asarray([self.logM_init, self.logJ_init]), self.logT_rad_init)
+        else:
+            stepper.set_initial_value(self.logM_init, self.logT_rad_init)
 
         try:
             with Timer() as timer:
-                # integrate down to the present CMB temperature, or when the observer notices that the PBH
-                # mass has decreased below M4
-
-                # with np.errstate(over='raise', divide='raise'):
-                #     try:
-                #         while stepper.successful() and Observer.next_sample_point is not None and stepper.t > self.logT_min \
-                #                 and not Observer.terminated:
-                #             stepper.integrate(Observer.next_sample_point - 0.001)
-                #     except FloatingPointError as e:
-                #         print('Floating point error: {msg}'.format(msg=str(e)))
-                #         print('  -- at Minit = {Minit}, T_rad = {Tinit}, M5={M5}'.format(Minit=self.M_init_5D, Tinit=self.T_rad_init, M5=LifetimeModel._params.M5))
-                #
-                #         # leave lifetime as null to indicate that numerical results were unreliable here
-                #         return
-
                 while stepper.successful() and Observer.next_sample_point is not None and stepper.t > self.logT_min \
                         and not Observer.terminated:
                     stepper.integrate(Observer.next_sample_point - 0.001)
@@ -322,7 +444,13 @@ class PBHLifetimeModel:
             self.x_sample_points = np.resize(self.x_sample_points, index)
             self.T_Hawking_sample_points = np.resize(self.T_Hawking_sample_points, index)
 
-        M = math.exp(stepper.y.item())
+            if self._using_J:
+                self.J_sample_points = np.resize(self.J_sample_points, index)
+
+        M = math.exp(stepper.y[0])
+        if self._using_J:
+            J = math.exp(stepper.y[1])
+
         T_rad = math.exp(stepper.t)
 
         # extract time of 5D -> 4D transition (if one occurs)
@@ -340,6 +468,8 @@ class PBHLifetimeModel:
             # extract lifetime and final mass
             self.T_lifetime = T_rad
             self.M_final = M
+            if self._using_J:
+                self.J_final = J
 
             # extract time of 4D -> 5D transition (if one occurs); this is reliable since the integration
             # concluded ok
@@ -382,6 +512,9 @@ class PBHLifetimeModel:
         self.T_lifetime = \
             PBH.compute_analytic_Trad_final(Ti_rad, self._relic_scale, use_effective_radius=use_reff)
         self.M_final = self._relic_scale
+        # harder to know what to do about J
+        if self._using_J:
+            self.J_final = J
 
         # record the shift due to using the analytic model
         self.T_shift = Ti_rad - self.T_lifetime
@@ -431,7 +564,7 @@ class PBHLifetimeModel:
                 plt.loglog(T_values, history, label='{key}'.format(key=label))
             else:
                 if self._verbose:
-                    print(MISSING_HISTORY_MESSAGE.format(label=label))
+                    print(_MISSING_HISTORY_MESSAGE.format(label=label))
 
         plt.xlabel('Radiation temperature $T_{{\mathrm{{rad}}}}$ / {unit}'.format(unit=temperature_units))
         plt.ylabel('$|dM/dt|$ / {massunit}/{tunit}'.format(massunit=mass_units, tunit=time_units))
@@ -463,7 +596,7 @@ class PBHLifetimeModel:
                 plt.semilogx(T_values, history, label='{key}'.format(key=label))
             else:
                 if self._verbose:
-                    print(MISSING_HISTORY_MESSAGE.format(label=label))
+                    print(_MISSING_HISTORY_MESSAGE.format(label=label))
 
         plt.xlabel('Radiation temperature $T_{{\mathrm{{rad}}}}$ / {unit}'.format(unit=temperature_units))
         plt.ylabel('$|dM/dt|$ relative to {label}'.format(label=compare_rate))
@@ -492,7 +625,7 @@ class PBHLifetimeModel:
                 data[label] = history
             else:
                 if self._verbose:
-                    print(MISSING_HISTORY_MESSAGE.format(label=label))
+                    print(_MISSING_HISTORY_MESSAGE.format(label=label))
 
         df = pd.DataFrame(data)
         df.index.name = 'index'
@@ -515,7 +648,7 @@ class PBHInstance:
     # collapse_fraction: fraction of Hubble volume that collapses to PBH
     # num_sample_ponts: number of T samples to take
     def __init__(self, params, T_rad_init: float, models=_DEFAULT_MODEL_SET,
-                 accretion_efficiency_F=0.5, collapse_fraction_f=0.5, delta=0.0, num_samples=NumTSamplePoints,
+                 accretion_efficiency_F=0.5, collapse_fraction_f=0.5, delta=0.0, num_samples=_NumTSamplePoints,
                  compute_rates=False):
         self._params = params
 
