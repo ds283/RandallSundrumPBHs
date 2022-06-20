@@ -1,6 +1,7 @@
 from .RandallSundrum5D import cosmology as RS5D
 from .RandallSundrum5D import StefanBoltzmann as RS5D_StefanBoltzmann
 from .RandallSundrum5D import Friedlander as RS5D_Friedlander
+from .RandallSundrum5D import Spinning as RS5D_Spinning
 from .Standard4D import cosmology as Standard4D
 from .Standard4D import StefanBoltzmann as Standard4D_StefanBoltzmann
 from .Standard4D import Friedlander as Standard4D_Friedlander

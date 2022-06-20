@@ -4,7 +4,8 @@ import numpy as np
 
 from ..cosmology.RandallSundrum5D import Model, SpinningBlackHole
 from ...greybody_tables.BlackMax import BlackMax_greybody_table_5D, BlackMax_graviton_greybody_table_5D
-from ...models_base import BaseSpinningGreybodyLifetimeModel, StefanBoltzmann4D
+from ...greybody_tables.Kerr import Kerr_greybody_table_4D
+from ...models_base import BaseSpinningGreybodyLifetimeModel, StefanBoltzmann5D
 
 
 class LifetimeModel(BaseSpinningGreybodyLifetimeModel):
@@ -18,7 +19,7 @@ class LifetimeModel(BaseSpinningGreybodyLifetimeModel):
     """
 
     # allow type introspection for our associated BlackHole model
-    BlackHoleType = Kerr
+    BlackHoleType = SpinningBlackHole
 
     def __init__(self, engine: Model, accretion_efficiency_F=0.3, use_Page_suppression=True,
                  use_effective_radius=True):
@@ -31,14 +32,16 @@ class LifetimeModel(BaseSpinningGreybodyLifetimeModel):
         """
 
         # invoke superclass constructor
-        super().__init__(engine, Model, Kerr,
+        super().__init__(engine, Model, SpinningBlackHole,
                          accretion_efficiency_F=accretion_efficiency_F,
                          use_effective_radius=use_effective_radius,
                          use_Page_suppression=use_Page_suppression)
 
-        # build list of emission rates
-        self._xi_dict = BlackMax_greybody_table_5D | BlackMax_graviton_greybody_table_5D
+        # build list of 5D emission rates
+        self._xi_dict_5D = BlackMax_greybody_table_5D | BlackMax_graviton_greybody_table_5D
 
+        # build list of 4D emission rates
+        self._xi_dict_4D = Kerr_greybody_table_4D | BlackMax_graviton_greybody_table_5D
 
         # Stefan-Boltzmann model is used only for comparison with the Page f function
         self._stefanboltzmann_model = StefanBoltzmann5D(self._params.StefanBoltzmannConstant4D,
@@ -48,7 +51,10 @@ class LifetimeModel(BaseSpinningGreybodyLifetimeModel):
 
 
     def xi_species_list(self, PBH):
-        return self._xi_dict
+        if PBH.is_5D:
+            return self._xi_dict_5D
+
+        return self._xi_dict_4D
 
     def _dMdt_graviton5D(self, T_rad, PBH):
         """
@@ -77,7 +83,7 @@ class LifetimeModel(BaseSpinningGreybodyLifetimeModel):
         :param PBH:
         :return:
         """
-        return self._stefanboltzmann_model.rate(PBH, g4=1.0)
+        return self._stefanboltzmann_model.dMdt(PBH, g4=1.0, g5=0.0)
 
     def __call__(self, logT_rad, state_asarray):
         """

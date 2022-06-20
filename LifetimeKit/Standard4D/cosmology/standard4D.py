@@ -168,7 +168,7 @@ class Kerr(BaseBlackHole):
             self.J = J
 
         else:
-            self.J = 0.0
+            raise RuntimeError('Kerr.setJ: neither J nor astar was specified')
 
 
     @property

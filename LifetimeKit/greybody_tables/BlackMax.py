@@ -3,6 +3,7 @@ from scipy.interpolate import InterpolatedUnivariateSpline
 
 from ..particle_data import _table_merge, SM_particle_base_table
 from .Kerr import xi_dMdt_spin2_spline, xi_dJdt_spin2_spline
+from .Friedlander import xi0_spin2_5D, xi0_spin2_4D
 
 # greybody factors extracted from the BlackMax greybody database
 astar = np.asarray([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5])
@@ -136,7 +137,17 @@ BlackMax_greybody_table_5D = _table_merge(SM_particle_base_table,
   'top quark': {'xi_M': xi_dMdt_spin0pt5_spline, 'xi_J': xi_dJdt_spin0pt5_spline, 'xi-per-dof': True}})
 
 
-# BlackMax doesn't have emission rates from spin 2 particles, so try using the Kerr ones
+# BlackMax doesn't have emission rates from spin 2 particles, so try to estimate using the Kerr ones,
+# with their amplitude renormalized so that they match the Friedlander et al. xi emission rate (for mass)
+# at zero angular momentum
+_xi_dMdt_spin2_rescale = xi0_spin2_5D/xi0_spin2_4D
+
+def _estimated_xi_dMdt_spin2(T_H: float) -> float:
+    return _xi_dMdt_spin2_rescale * xi_dMdt_spin2_spline(T_H)
+
+def _estimated_xi_dJdt_spin2(T_H: float) -> float:
+    return _xi_dMdt_spin2_rescale * xi_dJdt_spin2_spline(T_H)
+
 BlackMax_graviton_greybody_table_5D = \
- {'4D graviton': {'mass': 0.0, 'dof': 5.0,
-                  'xi_M': xi_dMdt_spin2_spline, 'xi_J': xi_dJdt_spin2_spline, 'xi-per-dof': False}}
+ {'5D graviton': {'mass': 0.0, 'dof': 5.0,
+                  'xi_M': _estimated_xi_dMdt_spin2, 'xi_J': _estimated_xi_dJdt_spin2, 'xi-per-dof': False}}

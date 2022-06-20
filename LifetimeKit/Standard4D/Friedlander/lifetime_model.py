@@ -7,7 +7,7 @@ from ...greybody_tables.Friedlander import Friedlander_greybody_table_4D, Friedl
 
 Const_2Pi = 2.0 * math.pi
 
-class FriedlanderLifetimeModel(BaseFriedlanderGreybodyLifetimeModel):
+class LifetimeModel(BaseFriedlanderGreybodyLifetimeModel):
     """
     Evaluate RHS of mass evolution model (assuming a standard 4-dimensional models),
     using Friedlander et al. fitting functions for xi = 8pi f, where f is the Page factor giving
