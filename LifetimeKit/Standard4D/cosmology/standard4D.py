@@ -193,8 +193,9 @@ class Kerr(BaseBlackHole):
     @property
     def reff(self) -> float:
         """
-        query for the effective rdius of the black hole
-        TODO: It's not clear the J=0 value is the right answer here - may need to check the literaure
+        query for the effective radius of the black hole
+        TODO: It's not clear the J=0 value is the right answer here - may need to check the literature,
+         or just accept that it's a bodge
         """
         return Const_Reff_4D * self.radius
 
@@ -230,10 +231,11 @@ class Kerr(BaseBlackHole):
         astar = self.astar
         return Const_4Pi / math.sqrt(1.0 - astar*astar)
 
-    def compute_analytic_Trad_final(self, Ti_rad, relic_scale, use_effective_radius=True):
+    def compute_analytic_Trad_final(self, Ti_rad, relic_scale, use_effective_radius=True) -> float:
         """
         use an analytic lifetime model to determine the final radiation temperature given a current
         radiation temperature and a target final mass
+        TODO: does not account for angular momentum – hopefully not important!
         """
         return Solve_4D_T(Ti_rad, self.M, relic_scale, gstar_full_SM, self.params.RadiationConstant,
                           2.0, self.params.StefanBoltzmannConstant4D, self.params.M4,

@@ -2,19 +2,18 @@ import math
 
 import numpy as np
 
-from ..cosmology.standard4D import Model, Kerr
-from ...greybody_tables.Kerr import Kerr_greybody_table_4D, Kerr_graviton_greybody_table_4D
+from ..cosmology.RandallSundrum5D import Model, SpinningBlackHole
+from ...greybody_tables.BlackMax import BlackMax_greybody_table_5D, BlackMax_graviton_greybody_table_5D
 from ...models_base import BaseSpinningGreybodyLifetimeModel, StefanBoltzmann4D
 
 
 class LifetimeModel(BaseSpinningGreybodyLifetimeModel):
     """
-    Evaluate RHS of the black hole evolution model for a spinning Kerr black hole in 4-dimensions,
-    using Kerr estimates for the xi values (i.e. Page f and g factors). These were ultimately
-    extracted (for d=4, i.e. n=0) from Dong, Kinney & Stojkovic, https://arxiv.org/abs/1511.05642v3.
+    Evaluate RHS of the black hole evolution model for a spinning black hole on a Randall-Sundrum brane,
+    using BlackMax estimates for the xi values (i.e. Page f and g factors), except for the graviton where
+    we do not currently have these
 
-    These emission rates assume all radiated Hawking quanta are massless and are used in the same way
-    as the emission rates for d=4, i.e. n=1, extracted from BlackMax. That means we have to implement
+    These emission rates assume all radiated Hawking quanta are massless. That means we have to implement
     manual switch-off of the emission rate when the temperature is smaller than the particle mass.
     """
 
@@ -24,7 +23,7 @@ class LifetimeModel(BaseSpinningGreybodyLifetimeModel):
     def __init__(self, engine: Model, accretion_efficiency_F=0.3, use_Page_suppression=True,
                  use_effective_radius=True):
         """
-        Instantiate a lifetime model object using Kerr (Dong et al.) greybody emission rates in 4D
+        Instantiate a lifetime model object using BlackMax emission rates in 5D
         :param engine:
         :param accretion_efficiency_F:
         :param use_Page_suppression:
@@ -38,10 +37,12 @@ class LifetimeModel(BaseSpinningGreybodyLifetimeModel):
                          use_Page_suppression=use_Page_suppression)
 
         # build list of emission rates
-        self._xi_dict = Kerr_greybody_table_4D | Kerr_graviton_greybody_table_4D
+        self._xi_dict = BlackMax_greybody_table_5D | BlackMax_graviton_greybody_table_5D
 
-        # Stefan-Boltzmann model is used only for comparison with the greybody emission rates
-        self._stefanboltzmann_model = StefanBoltzmann4D(self._params.StefanBoltzmannConstant4D,
+
+        # Stefan-Boltzmann model is used only for comparison with the Page f function
+        self._stefanboltzmann_model = StefanBoltzmann5D(self._params.StefanBoltzmannConstant4D,
+                                                        self._params.StefanBoltzmannConstant5D,
                                                         use_effective_radius=use_effective_radius,
                                                         use_Page_suppression=use_Page_suppression)
 
@@ -49,23 +50,23 @@ class LifetimeModel(BaseSpinningGreybodyLifetimeModel):
     def xi_species_list(self, PBH):
         return self._xi_dict
 
-    def _dMdt_graviton4D(self, T_rad, PBH):
+    def _dMdt_graviton5D(self, T_rad, PBH):
         """
-        Compute mass emission rate into 4D gravitons
+        Compute emission rate into 5D gravitons
         :param T_rad:
         :param PBH:
         :return:
         """
-        return self._sum_dMdt_species(PBH, ['4D graviton'])
+        return self._sum_dMdt_species(PBH, ['5D graviton'])
 
-    def _dJdt_graviton4D(self, T_rad, PBH):
+    def _dJdt_graviton5D(self, T_rad, PBH):
         """
-        Compute angular momentum emission rate into 4D gravitons
+        Compute angular momentum emission rate into 5D gravitons
         :param T_rad:
         :param PBH:
         :return:
         """
-        return self._sum_dJdt_species(PBH, ['4D graviton'])
+        return self._sum_dJdt_species(PBH, ['5D graviton'])
 
     def _dMdt_stefanboltzmann(self, T_rad, PBH):
         """

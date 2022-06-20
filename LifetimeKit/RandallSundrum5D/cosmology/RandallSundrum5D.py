@@ -13,6 +13,7 @@ Const_4D5D_Transition_Mass = 4.0 / 3.0
 Const_4D5D_Transition_Radius = 2.0 / (3.0 * math.pi)
 
 Const_M_H = 4.0 * math.sqrt(3.0) * math.pi
+Const_8Pi = 8.0 * math.pi
 Const_4Pi = 4.0 * math.pi
 Const_2Pi = 2.0 * math.pi
 Const_Sqrt_3 = math.sqrt(3.0)
@@ -25,6 +26,15 @@ Const_Radius_4D = 1.0 / (4.0 * math.pi)
 # effective radius multipliers for 4D and 5D black holes
 Const_Reff_5D = 2.0
 Const_Reff_4D = 3.0 * math.sqrt(3.0) / 2.0
+
+# constant appearing in crossover mass where Kerr and Myers-Perry limits on J meet
+Const_J_crossover = 256.0/17.0
+
+# constant appearing in calculation of J limit for Myers-Perry
+Const_J_limit_Myers_Perry = 2.0 / (3.0 * math.sqrt(3.0) * math.pi)
+
+# constant appearing in calculation of the Myers-Perry my parameter
+Const_mu_prefactor = 3.0 * math.pi * math.pi
 
 
 # Analytic lifetime model for 4D Schwarzschild black hole, for evaporation only, neglecting accretion
@@ -199,7 +209,6 @@ class Parameters:
                                                                      MtransitMSun=self.M_transition_MSun,
                                                                      mu=self.mu, ratio=self.M_ratio)
 
-
 class SpinlessBlackHole(BaseBlackHole):
     """
     Represents a Schwarzschild-like black hole on a Randall-Sundrum brane. We model this using a Schwarzschild metric
@@ -212,7 +221,7 @@ class SpinlessBlackHole(BaseBlackHole):
     (4/3) * ell, where ell is the AdS curvature radius. This makes the black hole temperatures continuous.
     """
 
-    def __init__(self, params: Parameters, M: float, units='GeV'):
+    def __init__(self, params: Parameters, M: float, units='GeV') -> None:
         """
         capture (i) initial mass value, and (ii) a parameter container instance so we can decide whether
         we are in the 4D or 5D regime based on the AdS radius.
@@ -223,68 +232,95 @@ class SpinlessBlackHole(BaseBlackHole):
         # cache value of sqrt(M4/M5)
         self._M4_over_M5_sqrt = math.sqrt(1.0/self.params.M_ratio)
 
-    # query for the 5D Myers-Perry radius of the black hole, measured in 1/GeV
+
     @property
-    def radius_5D(self):
+    def radius_5D(self) -> float:
+        """
+        query for the 5D Myers-Perry radius of the black hole, measured in 1/GeV
+        """
         return Const_Radius_5D * math.sqrt(self.M / self.params.M5) / self.params.M5
 
-    # query for the 4D Schwarzschild radius of the black hole, measured in 1/GeV
     @property
-    def radius_4D(self):
+    def radius_4D(self) -> float:
+        """
+        query for the 4D Schwarzschild radius of the black hole, measured in 1/GeV
+        :return:
+        """
         return Const_Radius_4D * (self.M / self.params.M4) / self.params.M4
 
-    # determine whether is black hole is in the 5D or 4D regime
     @property
-    def is_5D(self):
+    def is_5D(self) -> bool:
+        """
+        determine whether is black hole is in the 5D or 4D regime
+        :return:
+        """
         R_5D = self.radius_5D
         if R_5D <= Const_4D5D_Transition_Radius * self.params.ell_AdS:
             return True
 
         return False
 
-    # query for the radius, measured in 1/GeV, accounting for the 4D to 5D crossover
     @property
-    def radius(self):
+    def radius(self) -> float:
+        """
+        determine radius of the black hole, accounting for 4D -> 5D transitions
+        :return:
+        """
         if self.is_5D:
             return self.radius_5D
 
         return self.radius_4D
 
-    # query for 5D effective radius, measured in 1/GeV
-    # formula is reff = 2 R_h, see e.g. above Eq. (1) of Guedens et al., astro-ph/0208299v2
     @property
-    def reff_5D(self):
+    def reff_5D(self) -> float:
+        """
+        query for 5D effective radius, measured in 1/GeV
+        formula is reff = 2 R_h, see e.g. above Eq. (1) of Guedens et al., astro-ph/0208299v2
+        :return:
+        """
         return Const_Reff_5D * self.radius_5D
 
-    # query for 4D effective radius, measured in 1/GeV
-    # formula is 3 sqrt(3) R_h / 2, see e.g. above Eq. (1) of Guedens et al., astro-ph/0208299v2
-    # or this is a standard calculation using geometrical capture cross-section arguments
-    # https://physics.stackexchange.com/questions/52315/what-is-the-capture-cross-section-of-a-black-hole-region-for-ultra-relativistic
     @property
-    def reff_4D(self):
+    def reff_4D(self) -> float:
+        """
+        query for 4D effective radius, measured in 1/GeV
+        formula is 3 sqrt(3) R_h / 2, see e.g. above Eq. (1) of Guedens et al., astro-ph/0208299v2
+        or this is a standard calculation using geometrical capture cross-section arguments
+        https://physics.stackexchange.com/questions/52315/what-is-the-capture-cross-section-of-a-black-hole-region-for-ultra-relativistic
+        :return:
+        """
         return Const_Reff_4D * self.radius_4D
 
-    # query for effective radius, measured in 1/GeV, accounting for the 4D to 5D crossover
     @property
-    def reff(self):
+    def reff(self) -> float:
+        """
+        query for effective radius, measured in 1/GeV, accounting for the 4D to 5D crossover
+        :return:
+        """
         if self.is_5D:
             return self.reff_5D
 
         return self.reff_4D
 
-    # query for correct value of alpha, which determines how the effective radius is related to
-    # the horizon radius
     @property
-    def alpha(self):
+    def alpha(self) -> float:
+        """
+        query for correct value of alpha, which determines how the effective radius is related to
+        the horizon radius
+        :return:
+        """
         if self.is_5D:
             return Const_Reff_5D
 
         return Const_Reff_4D
 
-    # query for the 5D Hawking temperature, measured in GeV
-    # the relation is T_H = 1/(4pi R_h)
     @property
-    def T_Hawking_5D(self):
+    def T_Hawking_5D(self) -> float:
+        """
+        query for the 5D Hawking temperature, measured in GeV
+        the relation is T_H = 1/(4pi R_h)
+        :return:
+        """
         try:
             return 1.0 / (Const_2Pi * self.radius_5D)
         except ZeroDivisionError:
@@ -292,10 +328,13 @@ class SpinlessBlackHole(BaseBlackHole):
 
         return float("nan")
 
-    # query for the 5D Hawking temperature, measured in GeV
-    # the relation is T_H = 1/(2pi R_h)
     @property
-    def T_Hawking_4D(self):
+    def T_Hawking_4D(self) -> float:
+        """
+        query for the 5D Hawking temperature, measured in GeV
+        the relation is T_H = 1/(2pi R_h)
+        :return:
+        """
         try:
             return 1.0 / (Const_4Pi * self.radius_4D)
         except ZeroDivisionError:
@@ -303,25 +342,326 @@ class SpinlessBlackHole(BaseBlackHole):
 
         return float("nan")
 
-    # query for the Hawking temperature, measured in GeV, accounting for the 4D to 5D crossover
     @property
-    def T_Hawking(self):
+    def T_Hawking(self) -> float:
+        """
+        query for the Hawking temperature, measured in GeV, accounting for the 4D to 5D crossover
+        :return:
+        """
         if self.is_5D:
             return self.T_Hawking_5D
 
         return self.T_Hawking_4D
 
-    # query for t, which gives the coefficient in the relationship T_Hawking = 1/(t * R_h)
     @property
-    def t(self):
+    def t(self) -> float:
+        """
+        query for t, which gives the coefficient in the relationship T_Hawking = 1/(t * R_h)
+        :return:
+        """
         if self.is_5D:
             return Const_2Pi
 
         return Const_4Pi
 
-    # use an analytic lifetime model to determine the final radiation temperature given a current
-    # radiation temperature and a target final mass
-    def compute_analytic_Trad_final(self, Ti_rad, relic_scale, use_effective_radius=True):
+    def compute_analytic_Trad_final(self, Ti_rad, relic_scale, use_effective_radius=True) -> float:
+        """
+        use an analytic lifetime model to determine the final radiation temperature given a current
+        radiation temperature and a target final mass
+        :param Ti_rad:
+        :param relic_scale:
+        :param use_effective_radius:
+        :return:
+        """
+        # if the PBH is already in the 5D regime, it stays in that regime all the way down to a relic
+        if self.is_5D:
+            return Solve_5D_T(Ti_rad, self.M, relic_scale, gstar_full_SM, self.params.RadiationConstant,
+                              self.params.tension, 2.0, self.params.StefanBoltzmannConstant4D,
+                              5.0, self.params.StefanBoltzmannConstant5D, self.params.M4, self.params.M5,
+                              Const_Reff_5D if use_effective_radius else 1.0)
+
+        # otherwise there is a period of 4D evolution, followed by a period of 5D evolution
+        T_transition = Solve_4D_T(Ti_rad, self.M, self.params.M_transition, gstar_full_SM,
+                                  self.params.RadiationConstant, self.params.tension,
+                                  2.0, self.params.StefanBoltzmannConstant4D,
+                                  5.0, self.params.StefanBoltzmannConstant5D, self.params.M4,
+                                  Const_Reff_4D if use_effective_radius else 1.0)
+
+        return Solve_5D_T(T_transition, self.params.M_transition, relic_scale, gstar_full_SM,
+                          self.params.RadiationConstant, self.params.tension,
+                          2.0, self.params.StefanBoltzmannConstant4D,
+                          5.0, self.params.StefanBoltzmannConstant5D, self.params.M4, self.params.M5,
+                          Const_Reff_5D if use_effective_radius else 1.0)
+
+class SpinningBlackHole(BaseBlackHole):
+    """
+    Represents a spinning black hole on a Randall-Sundrum brane. We model this using a Kerr metric
+    when the black hole radius is large, and a 5D Myers-Perry black hole with single spin parameter when
+    the black hole radius is small.
+
+    The crosover from 5D to 4D behaviour is taken to occur when the 5D Myers-Perry radius is equal to the
+    curvature radius of the extra dimenion ell. This is slightly different to the prescription used in
+    SpinlesBlackHole, which just represents the ambiguity of when the transition is taken to occur.
+    In SpinlessBlackHole the prescription is chosen so that the black hole temperature is continuous.
+    Here, it has to be chosen as a measure that includes the black hole spin, since that can affect
+    whether the hole is behaving in its 5D or 4D regime.
+    """
+
+    def __init__(self, params, M: float, J: float=None, astar: float=None, units='GeV'):
+        """
+        Instantiate a brane black hole model with spin. This requires a specification of the mass M
+        and angular momentum J associated with the black hole. Note that we don't allow pec
+        :param params: parameter container
+        :param M: black hole mass, in units specified by 'units'
+        :param J: (optional) black hole angular momentum, which is dimensionless
+        :param astar: black hole angular momentum, specified in terms of astar, where 0 <= astar <= 1.
+        If both are specified, astar is used in preference. If neither is specified, the angular momentum is set
+        to zero. Note that, in the 5D regime, the definition of astar used here *DOES NOT AGREE* with the
+        conventional Myers-Perry one.
+        :param units: units used to measure the black hole mass
+        """
+        super.__init__(params, M, units)
+
+        self._M4_over_M5 = self.params.M4 / self.params.M5
+        self._M4_over_M5_cube = self._M4_over_M5*self._M4_over_M5*self._M4_over_M5
+        self._J_crossover_scale = Const_J_crossover * self._M4_over_M5_cube * self.params.M4
+
+        self._mu_prefactor = Const_mu_prefactor * self.params.M5*self.params.M5*self.params.M5
+
+        # assign current angular momentum value
+        # define a 'None' value first, in order to define all instance attributes within __init__()
+        self.J = None
+        self.set_J(J=J, astar=astar)
+
+    def set_J(self, J: float=None, astar: float=None) -> None:
+        """
+        Sets the current value of J for this PBH
+        :param J:
+        :param astar:
+        :return:
+        """
+        if self.M < self._J_crossover_scale:
+            # Kerr is more stringent in this regime
+            M_M4 = self.M / self.params.M4
+            M_M4_sq = M_M4 * M_M4
+            J_limit = M_M4_sq / Const_8Pi
+        else:
+            # Myers-Perry is more stringent in this regime
+            M_M5 = self.M / self.params.M5
+            M_M5_power32 = math.pow(M_M5, 3.0/2.0)
+            J_limit = Const_J_limit_Myers_Perry * M_M5_power32
+
+        if astar is not None:
+            # check supplied value of astar is valid
+            if astar < 0.0:
+                raise RuntimeError('RandallSundrum5D.SpinningBlackHole: angular momentum parameter astar '
+                                   'should not be negative (astar={astar})'.format(astar=astar))
+
+            if astar > 1.0:
+                raise RuntimeError('RandallSundrum5D.SpinningBlackHole: angular momentum parameter astar '
+                                   'should be less than unity (astar={astar})'.format(astar=astar))
+
+            # compute J in terms of astar
+            # note that, for our definition of astar, the formula is the same whether we are in the
+            # 4D or 5D regimes
+            self.J = astar * J_limit
+
+    @property
+    def mu(self) -> float:
+        """
+        query for Myers-Perry mu mass parameter
+        :return:
+        """
+        return self.M / self._mu_prefactor
+
+    @property
+    def radius_5D(self) -> float:
+        """
+        query for current radius of the black hole horizon computed using 5D Myers-Perry formula,
+        measured in 1/GeV
+        formula is R_h = sqrt(mu - a^2) where mu is the Myers-Perry mass parameter
+        :return:
+        """
+        a = (3.0*self.J) / (2.0*self.M)
+        a_sq = a*a
+        return math.sqrt(self.mu - a_sq)
+
+    @property
+    def radius_4D(self) -> float:
+        """
+        query for the current radius of the black hole horizon, computed using the Kerr formula,
+        measured in 1/GeV
+        the formula is R_h = (R_s/2) * (1 + sqrt(1-astar^2)) where R_s = 2MG is the Schwarzschild radius
+        :return:
+        """
+        astar = self.astar_Kerr
+        Rs = Const_Radius_4D * (self.M / self.params.M4) / self.params.M4
+        return (Rs / 2.0) * (1.0 + math.sqrt(1.0 - astar*astar))
+
+    @property
+    def is_5D(self) -> bool:
+        """
+        determine whether is black hole is in the 5D or 4D regime
+        :return:
+        """
+        R_5D = self.radius_5D
+        if R_5D <= self.params.ell_AdS:
+            return True
+
+        return False
+
+    @property
+    def radius(self) -> float:
+        """
+        determine radius of the black hole, accounting for 4D -> 5D transitions
+        :return:
+        """
+        if self.is_5D:
+            return self.radius_5D
+
+        return self.radius_4D
+
+    @property
+    def astar_Kerr(self) -> float:
+        """
+        query for the current value of astar computed using the Kerr formula
+        """
+        Mp_M = self.params.M4 / self.M
+        Mp_M_sq = Mp_M*Mp_M
+        return Const_8Pi * Mp_M_sq * self.J
+
+    @property
+    def astar_MyersPerry(self) -> float:
+        """
+        query for the current value of astar, computed using the Myers-Perr formula astar = a/rh
+        :return:
+        """
+        a = (3.0*self.J) / (2.0*self.M)
+        Rh = self.radius_5D
+        return a/Rh
+
+    @property
+    def reff_5D(self) -> float:
+        """
+        query for 5D effective radius, measured in 1/GeV
+        formula is reff = 2 R_h, see e.g. above Eq. (1) of Guedens et al., astro-ph/0208299v2
+        TODO: It's not clear the J=0 value is the right answer here - may need to check the literature,
+         or just accept that it's a bodge
+        :return:
+        """
+        return Const_Reff_5D * self.radius_5D
+    @property
+    def reff_4D(self) -> float:
+        """
+        query for 4D effective radius, measured in 1/GeV
+        formula is 3 sqrt(3) R_h / 2, see e.g. above Eq. (1) of Guedens et al., astro-ph/0208299v2
+        or this is a standard calculation using geometrical capture cross-section arguments
+        https://physics.stackexchange.com/questions/52315/what-is-the-capture-cross-section-of-a-black-hole-region-for-ultra-relativistic
+        TODO: It's not clear the J=0 value is the right answer here - may need to check the literature,
+         or just accept that it's a bodge
+        :return:
+        """
+        return Const_Reff_4D * self.radius_4D
+    @property
+    def reff(self) -> float:
+        """
+        query for effective radius, measured in 1/GeV, accounting for the 4D to 5D crossover
+        :return:
+        """
+        if self.is_5D:
+            return self.reff_5D
+
+        return self.reff_4D
+    @property
+    def alpha(self) -> float:
+        """
+        query for correct value of alpha, which determines how the effective radius is related to
+        the horizon radius
+        :return:
+        """
+        if self.is_5D:
+            return Const_Reff_5D
+
+        return Const_Reff_4D
+
+    @property
+    def T_Hawking_5D(self) -> float:
+        """
+        query for the 5D Myers-Perry Hawking temperature, measured in GeV
+        :return:
+        """
+        try:
+            astar = self.astar_MyersPerry
+            astar_sq = astar*astar
+            return 1.0 / (Const_2Pi * self.radius_5D * math.sqrt(1 + astar_sq))
+        except ZeroDivisionError:
+            pass
+
+        return float("nan")
+
+    @property
+    def T_Hawking_4D(self) -> float:
+        """
+        query for the 4D Kerr Hawking temperature, mneasured in GeV
+        :return:
+        """
+        astar = self.astar_Kerr
+        try:
+            return 1.0 / (Const_4Pi * self.radius_4D) * math.sqrt(1.0 - astar*astar)
+        except ZeroDivisionError:
+            pass
+
+        return float("nan")
+    @property
+    def T_Hawking(self):
+        """
+        query for the Hawking temperature, measured in GeV, accounting for the 4D to 5D crossover
+        :return:
+        """
+        if self.is_5D:
+            return self.T_Hawking_5D
+
+        return self.T_Hawking_4D
+
+    @property
+    def t_4D(self) -> float:
+        """
+        query for the Kerr t parameter, which gives the coefficient in the relationship T_Hawking = 1/(t * R_h)
+        """
+        astar = self.astar_Kerr
+        return Const_4Pi / math.sqrt(1.0 - astar*astar)
+
+    @property
+    def t_5D(self) -> float:
+        """
+        query for the Myers-Perry t parameter
+        :return:
+        """
+        astar = self.astar_MyersPerry
+        astar_sq = astar*astar
+        return Const_2Pi * math.sqrt(1 + astar_sq)
+    @property
+    def t(self):
+        """
+        query for the t parameter, accounting for the 4D to 5D crossover
+        :return:
+        """
+        if self.is_5D:
+            return self.t_5D
+
+        return self.t_4D
+    def compute_analytic_Trad_final(self, Ti_rad, relic_scale, use_effective_radius=True) -> float:
+        """
+        use an analytic lifetime model to determine the final radiation temperature given a current
+        radiation temperature and a target final mass
+        TODO: does not account for angular momentum! hopefully not important
+        :param Ti_rad:
+        :param relic_scale:
+        :param use_effective_radius:
+        :return:
+        """
+        # TODO: assume evaporation logic is not modified by spin (can there by multple 4D -> 5D transitions
+        #  or vice versa? Should check)
         # if the PBH is already in the 5D regime, it stays in that regime all the way down to a relic
         if self.is_5D:
             return Solve_5D_T(Ti_rad, self.M, relic_scale, gstar_full_SM, self.params.RadiationConstant,
@@ -343,9 +683,11 @@ class SpinlessBlackHole(BaseBlackHole):
                           Const_Reff_5D if use_effective_radius else 1.0)
 
 
-# The *Model* class provides methods to compute the Hubble rate, Hubble length, horizon mass, etc.,
-# for the Randall-Sundrum scenario
 class Model(BaseCosmology):
+    """
+    The *Model* class provides methods to compute the Hubble rate, Hubble length, horizon mass, etc.,
+    for the Randall-Sundrum scenario
+    """
 
     def __init__(self, params: Parameters, fixed_g=None):
         super().__init__(params, fixed_g)

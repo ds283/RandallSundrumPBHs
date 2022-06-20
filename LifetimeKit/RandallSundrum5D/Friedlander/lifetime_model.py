@@ -81,8 +81,13 @@ class FriedlanderLifetimeModel(BaseFriedlanderGreybodyLifetimeModel):
         """
         return self._stefanboltzmann_model.dMdt(PBH, g4=1.0, g5=0.0)
 
-    # step the PBH mass, accounting for accretion and evaporation
     def __call__(self, logT_rad, state_asarray):
+        """
+        step the PBH mass, accounting for accretion and evaporation
+        :param logT_rad:
+        :param state_asarray:
+        :return:
+        """
         # for some purposes we need the temperature of the radiation bath expressed in GeV
         T_rad = math.exp(logT_rad)
 

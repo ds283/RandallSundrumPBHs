@@ -2,6 +2,7 @@ import numpy as np
 from scipy.interpolate import InterpolatedUnivariateSpline
 
 from ..particle_data import _table_merge, SM_particle_base_table
+from .Kerr import xi_dMdt_spin2_spline, xi_dJdt_spin2_spline
 
 # greybody factors extracted from the BlackMax greybody database
 astar = np.asarray([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5])
@@ -133,3 +134,9 @@ BlackMax_greybody_table_5D = _table_merge(SM_particle_base_table,
   'charm quark': {'xi_M': xi_dMdt_spin0pt5_spline, 'xi_J': xi_dJdt_spin0pt5_spline, 'xi-per-dof': True},
   'bottom quark': {'xi_M': xi_dMdt_spin0pt5_spline, 'xi_J': xi_dJdt_spin0pt5_spline, 'xi-per-dof': True},
   'top quark': {'xi_M': xi_dMdt_spin0pt5_spline, 'xi_J': xi_dJdt_spin0pt5_spline, 'xi-per-dof': True}})
+
+
+# BlackMax doesn't have emission rates from spin 2 particles, so try using the Kerr ones
+BlackMax_graviton_greybody_table_5D = \
+ {'4D graviton': {'mass': 0.0, 'dof': 5.0,
+                  'xi_M': xi_dMdt_spin2_spline, 'xi_J': xi_dJdt_spin2_spline, 'xi-per-dof': False}}
