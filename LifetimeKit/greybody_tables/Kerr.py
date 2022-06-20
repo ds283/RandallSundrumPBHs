@@ -204,6 +204,9 @@ Kerr_greybody_table_4D = _table_merge(SM_particle_base_table,
   'bottom quark': {'xi_M': xi_dMdt_spin0pt5_spline, 'xi_J': xi_dJdt_spin0pt5_spline, 'xi-per-dof': True},
   'top quark': {'xi_M': xi_dMdt_spin0pt5_spline, 'xi_J': xi_dJdt_spin0pt5_spline, 'xi-per-dof': True}})
 
+# there seems to be no explicit statement in the Dong et al. paper, but to matcher the Friedlander et al.
+# xi values we must apparently assume the quoted values for f and g in the spin-2 case already have the
+# number of polarizations included
 Kerr_graviton_greybody_table_4D = \
  {'4D graviton': {'mass': 0.0, 'dof': 2.0,
-                  'xi_M': xi_dMdt_spin2_spline, 'xi_J': xi_dJdt_spin2_spline, 'xi-per-dof': True}}
+                  'xi_M': xi_dMdt_spin2_spline, 'xi_J': xi_dJdt_spin2_spline, 'xi-per-dof': False}}

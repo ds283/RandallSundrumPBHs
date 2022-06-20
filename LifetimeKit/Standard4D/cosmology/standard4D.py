@@ -112,7 +112,7 @@ class Schwarzschild(BaseBlackHole):
                           Const_Reff_4D if use_effective_radius else 1.0)
 
 
-class Kerr:
+class Kerr(BaseBlackHole):
     """
     Model for a Kerr black hole. This is specified by its mass and angular momentum.
     Black holes model can be queried for physical properties, such as radius, Hawking temperature, mass, angular
@@ -141,6 +141,10 @@ class Kerr:
         """
         Set the current value of J for this PBH
         """
+        M_Mp = self.M / self.params.M4
+        M_Mp_sq = M_Mp * M_Mp
+        J_limit = M_Mp_sq / Const_8Pi
+
         if astar is not None:
             # check supplied value of astar is valid
             if astar < 0.0:
@@ -151,18 +155,18 @@ class Kerr:
                                    '(astar={astar})'.format(astar=astar))
 
             # compute J in terms of astar
+            self.J = astar * J_limit
+
         elif J is not None:
             # check supplied value of J is valid
             if J < 0.0:
                 raise RuntimeError('standard4D.Kerr: angular momentum J should not be negative (J={J})'.format(J=J))
 
-            M_Mp = self.M / self.params.M4
-            M_Mp_sq = M_Mp*M_Mp
-            J_limit = M_Mp_sq / Const_8Pi
             if J > J_limit:
                 raise RuntimeError('standard4D.Kerr: angular momentum J exceeds maximum allowed value J={maxJ} '
                                    '(requested value was J={J})'.format(maxJ=J_limit, J=J))
             self.J = J
+
         else:
             self.J = 0.0
 
@@ -185,6 +189,14 @@ class Kerr:
         astar = self.astar
         Rs = Const_Radius_4D * (self.M / self.params.M4) / self.params.M4
         return (Rs / 2.0) * (1.0 + math.sqrt(1.0 - astar*astar))
+
+    @property
+    def reff(self) -> float:
+        """
+        query for the effective rdius of the black hole
+        TODO: It's not clear the J=0 value is the right answer here - may need to check the literaure
+        """
+        return Const_Reff_4D * self.radius
 
     @property
     def alpha(self) -> float:
@@ -216,7 +228,7 @@ class Kerr:
         query for the t parameter, which gives the coefficient in the relationship T_Hawking = 1/(t * R_h)
         """
         astar = self.astar
-        return math.sqrt(1.0 - astar*astar) / Const_4Pi
+        return Const_4Pi / math.sqrt(1.0 - astar*astar)
 
     def compute_analytic_Trad_final(self, Ti_rad, relic_scale, use_effective_radius=True):
         """

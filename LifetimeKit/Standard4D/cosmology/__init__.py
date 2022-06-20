@@ -1,1 +1,1 @@
-from .standard4D import Model, Schwarzschild
+from .standard4D import Model, Schwarzschild, Kerr

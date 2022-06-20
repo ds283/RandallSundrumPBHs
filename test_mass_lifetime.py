@@ -13,7 +13,7 @@ T_init = 2.7495e15
 
 # 4D black hole for comparison with above. This one does evaporate by the present day, so what is different?
 # M5_value = 1.9035e10
-# T_init = 6.5954e84
+# T_init = 6.5954e8
 
 # black hole in 5D regime for testing effective number of 5D Stefan-Boltzmann degrees of freedom
 # M5_value = 3.7584e11

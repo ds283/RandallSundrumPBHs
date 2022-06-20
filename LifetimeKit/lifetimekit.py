@@ -26,6 +26,8 @@ _DEFAULT_MODEL_SET = ['StefanBoltzmannRS5D', 'GreybodyRS5D', 'StefanBoltzmannSta
 _UNIT_ERROR_MESSAGE = 'PBHLifetimeModel: unit "{unit}" not understood in constructor'
 _MISSING_HISTORY_MESSAGE = 'History "{label}" not calculated for this PBH lifetime model'
 
+_ASTAR_TOLERANCE = 1E-6
+
 class LifetimeObserver:
     """
     LifetimeObserver is a policy object that decides when to store data about the computed
@@ -107,7 +109,7 @@ class LifetimeObserver:
 
         if self._using_J:
             if J_grid is None:
-                raise RuntimeError('LifetimeObserver: if J_init is supplied, a J sample grid must be supplied also')
+                raise RuntimeError('LifetimeObserver: if J is supplied, a J sample grid must be supplied also')
             self._J_grid = J_grid
 
         self._sample_grid_length = sample_grid.size
@@ -212,8 +214,8 @@ class PBHLifetimeModel:
     _time_conversions = {'second': 1.0, 'year': 60.0*60.0*24.0*365.0}
 
 
-    def __init__(self, M_init, T_rad_init, LifetimeModel, J_init=None, num_samples=_NumTSamplePoints, compute_rates=False,
-                 verbose=False):
+    def __init__(self, M_init, T_rad_init, LifetimeModel, J_init=None, astar_init=None,
+                 num_samples=_NumTSamplePoints, compute_rates=False, verbose=False):
         """
         Capture initial values and then integrate the lifetime.
         :param M_init: initial PBH mass, expressed in GeV
@@ -236,22 +238,34 @@ class PBHLifetimeModel:
         if M_init <= 0.0:
             raise RuntimeError('PBHLifetimeModel: initial mass should be positive')
 
-        self._using_J = J_init is not None
-        if self._using_J and J_init < 0.0:
-            raise RuntimeError('PBHLifetimeModel: intitial angular momentum should be non-negative')
+        # capture whether this integration includes angular momentum
+        self._using_J = J_init is not None or astar_init is not None
+
+        # check we can instantiate a PBH instance of the expected type
+        # this will check e.g that all constraint on J are respected.
+        # We also want to use this to check whether the black hole is 5D at formation (if there is a concept of that)
+        if self._using_J:
+            PBH = LifetimeModel.BlackHoleType(self._engine.params, M=M_init, astar=astar_init, J=J_init, units='GeV')
+
+            if PBH.J < 0.0:
+                raise RuntimeError('PBHLifetimeModel: intitial angular momentum should be non-negative')
+            if PBH.astar < _ASTAR_TOLERANCE:
+                PBH.set_J(astar=_ASTAR_TOLERANCE)
+
+            # capture initial value for angular momentum; this allows a conversion from astar to J to be done
+            # by the PBH instance class
+            self.J_init = PBH.J
+        else:
+            PBH = LifetimeModel.BlackHoleType(self._engine.params, M=M_init, units='GeV')
 
         # capture initial values for mass and radiation bath
-        self.M_init = M_init
+        self.M_init = PBH.M
         self.T_rad_init = T_rad_init
-
-        # capture initial value for angular momentum, if being used
-        if self._using_J:
-            self.J_init = J_init
 
         # integration actually proceeds with log(M) and log(J)
         self.logM_init = math.log(M_init)
         if self._using_J:
-            self.logJ_init = math.log(J_init)
+            self.logJ_init = math.log(PBH.J)
 
         # integration is done in terms of log(x) and log(T), where x = M/M_H(T) is the PBH mass expressed
         # as a fraction of the Hubble mass M_H
@@ -274,14 +288,6 @@ class PBHLifetimeModel:
         if self._using_J:
             # reserve space for angular momentum history
             self.J_sample_points = np.zeros_like(self.logT_sample_points)
-
-        # check we can instantiate a PBH instance of the expected type
-        # this will check e.g that all constraint on J are respected.
-        # We also want to use this to check whether the black hole is 5D at formation (if there is a concept of that)
-        if self._using_J:
-            PBH = LifetimeModel.BlackHoleType(self._engine.params, M=M_init, J=J_init, units='GeV')
-        else:
-            PBH = LifetimeModel.BlackHoleType(self._engine.params, M=M_init, units='GeV')
 
         # if PBH model has an 'is_5D' property, capture its value; otherwise, record 'None' to indicate that this
         # PBH type has no concept of 4D/5D transition
@@ -641,15 +647,15 @@ class PBHInstance:
     # conversion factors into GeV for temperature units we understand
     _temperature_conversions = {'Kelvin': Kelvin, 'GeV': 1.0}
 
-
     # capture models engine instance and formation temperature of the PBH, measured in GeV
     # T_rad_init: temperature of radiation bath at PBH formation
     # accretion_efficiency: accretion efficiency factor F in Bondi-Hoyle-Lyttleton model
     # collapse_fraction: fraction of Hubble volume that collapses to PBH
     # num_sample_ponts: number of T samples to take
-    def __init__(self, params, T_rad_init: float, models=_DEFAULT_MODEL_SET,
-                 accretion_efficiency_F=0.5, collapse_fraction_f=0.5, delta=0.0, num_samples=_NumTSamplePoints,
-                 compute_rates=False):
+    def __init__(self, params, T_rad_init: float, astar: float=None, J: float=None,
+                 models=_DEFAULT_MODEL_SET,
+                 accretion_efficiency_F: float=0.5, collapse_fraction_f: float=0.5, delta: float=0.0,
+                 num_samples: int=_NumTSamplePoints, compute_rates: bool=False):
         self._params = params
 
         engine_RS = RS5D.Model(params)
@@ -678,18 +684,24 @@ class PBHInstance:
 
         for label in models:
             if label == 'GreybodyRS5D':
+                if astar is not None or J is not None:
+                    raise RuntimeError('GreybodyRS5D lifetime model does not support angular momentum')
                 model = RS5D_Friedlander.FriedlanderLifetimeModel(engine_RS, accretion_efficiency_F=accretion_efficiency_F,
                                                                   use_effective_radius=True, use_Page_suppression=True)
                 self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples,
                                                          compute_rates=compute_rates)
 
             elif label == 'GreybodyStandard4D':
+                if astar is not None or J is not None:
+                    raise RuntimeError('GreybodyStandard4D lifetime model does not support angular momentum')
                 model = Standard4D_Friedlander.FriedlanderLifetimeModel(engine_4D, accretion_efficiency_F=accretion_efficiency_F,
                                                                         use_effective_radius=True, use_Page_suppression=True)
                 self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples,
                                                          compute_rates=compute_rates)
 
             elif label == 'StefanBoltzmannRS5D':
+                if astar is not None or J is not None:
+                    raise RuntimeError('StefanBoltzmannRS5D lifetime model does not support angular momentum')
                 model = RS5D_StefanBoltzmann.LifetimeModel(engine_RS,
                                                            accretion_efficiency_F=accretion_efficiency_F,
                                                            use_effective_radius=True, use_Page_suppression=True)
@@ -697,6 +709,8 @@ class PBHInstance:
                                                          compute_rates=compute_rates)
 
             elif label == 'StefanBoltzmannStandard4D':
+                if astar is not None or J is not None:
+                    raise RuntimeError('StefanBoltzmannStandard4D lifetime model does not support angular momentum')
                 model = Standard4D_StefanBoltzmann.LifetimeModel(engine_4D,
                                                                  accretion_efficiency_F=accretion_efficiency_F,
                                                                  use_effective_radius=True, use_Page_suppression=True)
@@ -704,6 +718,8 @@ class PBHInstance:
                                                          compute_rates=compute_rates)
 
             elif label == 'StefanBoltzmannRS5D-noreff':
+                if astar is not None or J is not None:
+                    raise RuntimeError('StefanBoltzmannRS5D-noreff lifetime model does not support angular momentum')
                 model = RS5D_StefanBoltzmann.LifetimeModel(engine_RS,
                                                            accretion_efficiency_F=accretion_efficiency_F,
                                                            use_effective_radius=False, use_Page_suppression=True)
@@ -711,6 +727,8 @@ class PBHInstance:
                                                          compute_rates=compute_rates)
 
             elif label == 'StefanBoltzmannStandard4D-noreff':
+                if astar is not None or J is not None:
+                    raise RuntimeError('StefanBoltzmannStandard4D-noreff lifetime model does not support angular momentum')
                 model = Standard4D_StefanBoltzmann.LifetimeModel(engine_4D,
                                                                  accretion_efficiency_F=accretion_efficiency_F,
                                                                  use_effective_radius=False, use_Page_suppression=True)
@@ -718,6 +736,9 @@ class PBHInstance:
                                                          compute_rates=compute_rates)
 
             elif label == 'StefanBoltzmannRS5D-fixedg':
+                # 'fixedg' is fixed number of degrees of freedom in Hawking quanta
+                if astar is not None or J is not None:
+                    raise RuntimeError('StefanBoltzmannRS5D-fixedg lifetime model does not support angular momentum')
                 model = RS5D_StefanBoltzmann.LifetimeModel(engine_RS,
                                                            accretion_efficiency_F=accretion_efficiency_F,
                                                            use_effective_radius=True, use_Page_suppression=True,
@@ -726,6 +747,9 @@ class PBHInstance:
                                                          compute_rates=compute_rates)
 
             elif label == 'StefanBoltzmannStandard4D-fixedg':
+                # 'fixedg' is fixed number of degrees of freedom in Hawking quanta
+                if astar is not None or J is not None:
+                    raise RuntimeError('StefanBoltzmannStandard4D-fixedg lifetime model does not support angular momentum')
                 model = Standard4D_StefanBoltzmann.LifetimeModel(engine_4D,
                                                                  accretion_efficiency_F=accretion_efficiency_F,
                                                                  use_effective_radius=True, use_Page_suppression=True,
@@ -734,6 +758,9 @@ class PBHInstance:
                                                          compute_rates=compute_rates)
 
             elif label == 'StefanBoltzmannRS5D-fixedN':
+                # 'fixedN' is fixed number of degrees of freedom in Hawking quanta *and* the thermal bath
+                if astar is not None or J is not None:
+                    raise RuntimeError('StefanBoltzmannRS5D-fixedN lifetime model does not support angular momentum')
                 model = RS5D_StefanBoltzmann.LifetimeModel(engine_RS_fixedN,
                                                            accretion_efficiency_F=accretion_efficiency_F,
                                                            use_effective_radius=True, use_Page_suppression=True,
@@ -742,6 +769,9 @@ class PBHInstance:
                                                          compute_rates=compute_rates)
 
             elif label == 'StefanBoltzmannStandard4D-fixedN':
+                # 'fixedN' is fixed number of degrees of freedom in Hawking quanta *and* the thermal bath
+                if astar is not None or J is not None:
+                    raise RuntimeError('StefanBoltzmannStandard4D-fixedN lifetime model does not support angular momentum')
                 model = Standard4D_StefanBoltzmann.LifetimeModel(engine_4D_fixedN,
                                                                  accretion_efficiency_F=accretion_efficiency_F,
                                                                  use_effective_radius=True, use_Page_suppression=True,
@@ -750,20 +780,33 @@ class PBHInstance:
                                                          compute_rates=compute_rates)
 
             elif label == 'StefanBoltzmannRS5D-noPage':
+                if astar is not None or J is not None:
+                    raise RuntimeError('StefanBoltzmannRS5D-noPage lifetime model does not support angular momentum')
                 model = RS5D_StefanBoltzmann.LifetimeModel(engine_RS,
                                                            accretion_efficiency_F=accretion_efficiency_F,
-                                                           use_effective_radius=True, use_Page_suppression=False,
-                                                           fixed_g4=gstar_full_SM, fixed_g5=5.0)
+                                                           use_effective_radius=True, use_Page_suppression=False)
                 self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples,
                                                          compute_rates=compute_rates)
 
             elif label == 'StefanBoltzmannStandard4D-noPage':
+                if astar is not None or J is not None:
+                    raise RuntimeError('StefanBoltzmannStandard4D-noPage lifetime model does not support angular momentum')
                 model = Standard4D_StefanBoltzmann.LifetimeModel(engine_4D,
                                                                  accretion_efficiency_F=accretion_efficiency_F,
-                                                                 use_effective_radius=True, use_Page_suppression=False,
-                                                                 fixed_g4=gstar_full_SM)
+                                                                 use_effective_radius=True, use_Page_suppression=False)
                 self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples,
                                                          compute_rates=compute_rates)
+
+            elif label == 'Kerr':
+                if astar is None and J is None:
+                    print('PBHInstance: initial angular momentum was not supplied for Kerr model; defaulting to astar = 0.0')
+                    astar = 0.0
+                model = Standard4D_Kerr.LifetimeModel(engine_4D,
+                                                      accretion_efficiency_F=accretion_efficiency_F,
+                                                      use_effective_radius=True, use_Page_suppression=True)
+                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model,
+                                                         astar_init=astar, J_init=J,
+                                                         num_samples=num_samples, compute_rates=compute_rates)
 
             else:
                 raise RuntimeError('LifetimeKit.PBHInstance: unknown model type "{label}"'.format(label=label))

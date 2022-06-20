@@ -1,11 +1,13 @@
 import math
 
+import numpy as np
+
 from ..cosmology.standard4D import Model, Kerr
-from ...models_base import BaseSpinningGreybodyLifetimeModel, StefanBoltzmann4D
 from ...greybody_tables.Kerr import Kerr_greybody_table_4D, Kerr_graviton_greybody_table_4D
+from ...models_base import BaseSpinningGreybodyLifetimeModel, StefanBoltzmann4D
 
 
-class KerrLifetimeModel(BaseSpinningGreybodyLifetimeModel):
+class LifetimeModel(BaseSpinningGreybodyLifetimeModel):
     """
     Evaluate RHS of the black hole evolution model for a spinning Kerr black hole in 4-dimensions,
     using Kerr estimates for the xi values (i.e. Page f and g factors). These were ultimately
@@ -94,6 +96,12 @@ class KerrLifetimeModel(BaseSpinningGreybodyLifetimeModel):
         logJ = state_asarray[1]
         self._PBH.set_M(math.exp(logM), 'GeV')
         self._PBH.set_J(J=math.exp(logJ))
+
+        from LifetimeKit import Kelvin, Gram
+        # print('T_rad = {Trad} Kelvin, M = {M} gram, J = {J}, astar = {astar}'.format(Trad=T_rad / Kelvin,
+        #                                                                              M=self._PBH.M / Gram,
+        #                                                                              J=self._PBH.J,
+        #                                                                              astar=self._PBH.astar))
 
         # compute current Hubble rate at this radiation temperature
         H = self.engine.Hubble(T=T_rad)

@@ -557,7 +557,7 @@ class BaseSpinningGreybodyLifetimeModel(BaseGreybodyLifetimeModel):
 
                 g = data['dof'] if data['xi-per-dof'] else 1.0
                 xi_M = data['xi_M']
-                dM_dt += g * xi_M(astar)
+                dM_dt += -g * xi_M(astar)
         except ZeroDivisionError:
             return float("nan")
 
@@ -593,7 +593,7 @@ class BaseSpinningGreybodyLifetimeModel(BaseGreybodyLifetimeModel):
 
                 g = data['dof'] if data['xi-per-dof'] else 1.0
                 xi_J = data['xi_J']
-                dJ_dt += g * xi_J(astar)
+                dJ_dt += -g * xi_J(astar)
         except ZeroDivisionError:
             return float("nan")
 
@@ -609,7 +609,7 @@ class BaseSpinningGreybodyLifetimeModel(BaseGreybodyLifetimeModel):
         :param PBH:
         :return:
         """
-        return self._sum_dMdt_species(PBH, self.xi_species_list().keys())
+        return self._sum_dMdt_species(PBH, self.xi_species_list(PBH).keys())
 
     def _dJdt_evaporation(self, T_rad, PBH):
         """
@@ -621,7 +621,7 @@ class BaseSpinningGreybodyLifetimeModel(BaseGreybodyLifetimeModel):
         :param PBH:
         :return:
         """
-        return self._sum_dJdt_species(PBH, self.xi_species_list().keys())
+        return self._sum_dJdt_species(PBH, self.xi_species_list(PBH).keys())
 
     def _dJdt_quarks(self, T_rad: float, PBH) -> float:
         """
