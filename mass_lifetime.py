@@ -113,6 +113,7 @@ def compute_lifetime(cache: ActorHandle, serial_batch: List[int]) -> List[float]
                           labels['4D_to_5D_Kelvin']: None if history.T_transition_4Dto5D is None else history.T_transition_4Dto5D / lkit.Kelvin,
                           labels['5D_to_4D_GeV']: history.T_transition_5Dto4D,
                           labels['5D_to_4D_Kelvin']: None if history.T_transition_5Dto4D is None else history.T_transition_5Dto4D / lkit.Kelvin,
+                          labels['initially_5D']: history.initially_5D,
                           labels['evaporated']: history.evaporated,
                           labels['runaway_accretion']: history.runaway_accretion,
                           labels['compute']: history.compute_time}
