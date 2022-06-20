@@ -350,13 +350,10 @@ class PBHLifetimeModel:
         # run the integration
         self._integrate(LifetimeModel, observer)
 
-        # allocate dictionary for mass emission rates; will be populated by _compute_emission_rates() if enabled
+        # allocate dictionary for mass (and angular momentum) emission rates; will be populated by
+        # _compute_emission_rates() if enabled
         self.dMdt = {}
-
-        if self._using_J:
-            # allocation dictionary for angular momentum emission rates; will be populated by _compute_emission_rates()
-            # if enabled
-            self.dJdt = {}
+        self.dJdt = {}
 
         if compute_rates:
             self._compute_emission_rates(J_init, LifetimeModel)
