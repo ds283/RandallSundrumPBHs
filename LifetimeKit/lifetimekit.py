@@ -27,7 +27,7 @@ _DEFAULT_MODEL_SET = ['StefanBoltzmannRS5D', 'GreybodyRS5D', 'StefanBoltzmannSta
 _UNIT_ERROR_MESSAGE = 'PBHLifetimeModel: unit "{unit}" not understood in constructor'
 _MISSING_HISTORY_MESSAGE = 'History "{label}" not calculated for this PBH lifetime model'
 
-_ASTAR_TOLERANCE = 1E-6
+_ASTAR_TOLERANCE = 1E-10
 
 class LifetimeObserver:
     """
@@ -421,7 +421,7 @@ class PBHLifetimeModel:
         :return:
         """
         # set up stepper; need to use on that supports solout, which the SUNDIALS ones don't seem to do
-        stepper = ode(LifetimeModel).set_integrator('dopri5', rtol=1E-8, nsteps=5000)
+        stepper = ode(LifetimeModel).set_integrator('dopri5', rtol=1E-8, nsteps=10000)
         stepper.set_solout(Observer)
 
         # set up initial conditions for the PBH and the radiation bath
