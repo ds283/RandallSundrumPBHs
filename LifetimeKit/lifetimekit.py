@@ -340,7 +340,8 @@ class PBHLifetimeModel:
         if self._using_J:
             observer = LifetimeObserver(self._engine, LifetimeModel.BlackHoleType,
                                         self.logT_sample_points, self.M_sample_points, self.x_sample_points,
-                                        self.T_Hawking_sample_points, self._relic_scale, self.M_init)
+                                        self.T_Hawking_sample_points, self._relic_scale, self.M_init,
+                                        J_init=self.J_init, J_grid=self.J_sample_points)
         else:
             observer = LifetimeObserver(self._engine, LifetimeModel.BlackHoleType,
                                         self.logT_sample_points, self.M_sample_points, self.x_sample_points,
@@ -548,12 +549,11 @@ class PBHLifetimeModel:
         if temperature_units is not None and temperature_units not in self._temperature_conversions:
             raise RuntimeError(_UNIT_ERROR_MESSAGE.format(unit=temperature_units))
 
-
     def dMdt_plot(self, filename, show_rates=None, mass_units='gram', time_units='year', temperature_units='Kelvin'):
         self._validate_units(mass_units=mass_units, time_units=time_units, temperature_units=temperature_units)
 
         # if no models specified, plot them all
-        if show_rates is None:
+        if show_rates is None or not isinstance(show_rates, list):
             show_rates = self.dMdt.keys()
 
         mass_units_to_GeV = self._mass_conversions[mass_units]
@@ -577,10 +577,9 @@ class PBHLifetimeModel:
         plt.legend()
         plt.savefig(filename)
 
-
     def dMdt_relative_plot(self, filename, show_rates=None, compare_rate='stefanboltzmann', temperature_units='Kelvin'):
         # if no models specified, plot them all
-        if show_rates is None:
+        if show_rates is None or not isinstance(show_rates, list):
             show_rates = self.dMdt.keys()
 
         temperature_units_to_GeV = self._temperature_conversions[temperature_units]
@@ -614,7 +613,7 @@ class PBHLifetimeModel:
         self._validate_units(mass_units=mass_units, time_units=time_units, temperature_units=temperature_units)
 
         # if no models specified, plot them all
-        if show_rates is None:
+        if show_rates is None or not isinstance(show_rates, list):
             show_rates = self.dMdt.keys()
 
         mass_units_to_GeV = self._mass_conversions[mass_units]
@@ -636,6 +635,33 @@ class PBHLifetimeModel:
         df = pd.DataFrame(data)
         df.index.name = 'index'
         df.to_csv(filename)
+
+    def dJdt_plot(self, filename, show_rates=None, time_units='year', temperature_units='Kelvin'):
+        self._validate_units(time_units=time_units, temperature_units=temperature_units)
+
+        # if no models specified, plot them all
+        if show_rates is None or not isinstance(show_rates, list):
+            show_rates = self.dJdt.keys()
+
+        temperature_units_to_GeV = self._temperature_conversions[temperature_units]
+        time_units_to_seconds = self._time_conversions[time_units]
+
+        plt.figure()
+
+        T_values = self.T_sample_points / temperature_units_to_GeV
+        for label in show_rates:
+            if label in self.dMdt:
+                history = np.abs(self.dJdt[label] / time_units_to_seconds)
+
+                plt.loglog(T_values, history, label='{key}'.format(key=label))
+            else:
+                if self._verbose:
+                    print(_MISSING_HISTORY_MESSAGE.format(label=label))
+
+        plt.xlabel('Radiation temperature $T_{{\mathrm{{rad}}}}$ / {unit}'.format(unit=temperature_units))
+        plt.ylabel('$|dJ/dt|$ / {tunit}$^{{-1}}$'.format(tunit=time_units))
+        plt.legend()
+        plt.savefig(filename)
 
 
 # class PBHInstance captures details of a PBH that forms at a specified initial temperature
@@ -812,8 +838,15 @@ class PBHInstance:
                 raise RuntimeError('LifetimeKit.PBHInstance: unknown model type "{label}"'.format(label=label))
 
 
-    # produce plot of PBH mass over its lifetime, as a function of the radiation temperature T
     def mass_plot(self, filename, models=None, mass_units='gram', temperature_units='Kelvin'):
+        """
+        produce plot of PBH mass over its lifetime, as a function of the radiation temperature T
+        :param filename:
+        :param models:
+        :param mass_units:
+        :param temperature_units:
+        :return:
+        """
         # check desired units are sensible
         if mass_units not in self._mass_conversions:
             raise RuntimeError('PBHLifetimeModel.lifetime_plot(): unit "{unit}" not understood in '
@@ -824,7 +857,7 @@ class PBHInstance:
                                'constructor'.format(unit=temperature_units))
 
         # if no models specified, plot them all
-        if models is None:
+        if models is None or not isinstance(models, list):
             models = self.lifetimes.keys()
 
         mass_units_to_GeV = self._mass_conversions[mass_units]
@@ -846,15 +879,52 @@ class PBHInstance:
         plt.savefig(filename)
 
 
-    # produce plot of PBH Hawking temperature over its lifetime, as a function of the radiation temperature T
+    def angular_momentum_plot(self, filename, models=None, temperature_units='Kelvin'):
+        """
+        produce plot of PBH angular momentum over its lifetime, as a function of the radiation temperature T
+        :param filename:
+        :param models:
+        :return:
+        """
+        if temperature_units not in self._temperature_conversions:
+            raise RuntimeError('PBHLifetimeModel.lifetime_plot: unit "{unit}" not understood in '
+                               'constructor'.format(unit=temperature_units))
+
+        if models is None or not isinstance(models, list):
+            models = self.lifetimes.keys()
+
+        temperature_units_to_GeV = self._temperature_conversions[temperature_units]
+
+        plt.figure()
+
+        for label in models:
+            if label in self.lifetimes:
+                history = self.lifetimes[label]
+                Trad_values = history.T_sample_points / temperature_units_to_GeV
+                J_values = history.J_sample_points
+
+                plt.loglog(Trad_values, J_values, label='{key}'.format(key=label))
+
+        plt.xlabel('Radiation temperature $T$ / {unit}'.format(unit=temperature_units))
+        plt.ylabel('PBH angular momentum $J_{{\mathrm{{PBH}}}}$')
+        plt.legend()
+        plt.savefig(filename)
+
     def T_Hawking_plot(self, filename, models=None, temperature_units='Kelvin'):
+        """
+        produce plot of PBH Hawking temperature over its lifetime, as a function of the radiation temperature T
+        :param filename:
+        :param models:
+        :param temperature_units:
+        :return:
+        """
         # check desired units are sensible
         if temperature_units not in self._temperature_conversions:
             raise RuntimeError('PBHLifetimeModel.lifetime_plot: unit "{unit}" not understood in '
                                'constructor'.format(unit=temperature_units))
 
         # if no models specified, plot them all
-        if models is None:
+        if models is None or not isinstance(models, list):
             models = self.lifetimes.keys()
 
         temperature_units_to_GeV = self._temperature_conversions[temperature_units]
