@@ -434,7 +434,7 @@ class PBHLifetimeModel:
                 while stepper.successful() and Observer.next_sample_point is not None and stepper.t > self.logT_min \
                         and not Observer.terminated:
                     stepper.integrate(Observer.next_sample_point - 0.001)
-        except OverflowError as e:
+        except OverflowError:
             # if an overflow error occurred, assume this was due to runaway accretion
             self.runaway_accretion = True
         else:
