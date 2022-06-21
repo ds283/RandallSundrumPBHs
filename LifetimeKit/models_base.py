@@ -541,17 +541,16 @@ class BaseSpinningGreybodyLifetimeModel(BaseGreybodyLifetimeModel):
         # compute Hawking temperature
         T_Hawking = PBH.T_Hawking
 
-        # for the 5D Randall-Sundrum spinning black hole, the PBH class will switch astar between the
-        # Kerr and Myers-Perry values depending on the current 4D vs 5D state, so the value that is returned
-        # will be exactly right to feed into the splines in xi_species_list
-        astar = PBH.astar
+        # for the 5D Randall-Sundrum black hole, this will switch between the Kerr a* = J/Jmax and the Myers-Perry
+        # a* = a/Rh as needed
+        xi_astar_arg = PBH.xi_astar_argument
 
-        # BlackMax greybody tables only go up to astar = 3/2 (with the Myers-Perry definition of astar),
-        # so for larger values of astar we obtain an estimate simply by capping them.
-        # For Kerr this doesn't matteer because astar < 1.0.
+        # BlackMax greybody tables only go up to a* = 3/2 (with the Myers-Perry definition of a*),
+        # so for larger values of a* we obtain an estimate simply by capping them.
+        # For Kerr this doesn't cause any problems, because there a* < 1.0.
         # TODO: consider sourcing more complete greybody tables for d=5
-        if astar > BlackMax_maximum_astar:
-            astar = BlackMax_maximum_astar
+        if xi_astar_arg > BlackMax_maximum_astar:
+            xi_astar_arg = BlackMax_maximum_astar
 
         # cache reference to xi-table dictionary
         xi_species_list = self.xi_species_list(PBH)
@@ -569,7 +568,7 @@ class BaseSpinningGreybodyLifetimeModel(BaseGreybodyLifetimeModel):
 
                 g = data['dof'] if data['xi-per-dof'] else 1.0
                 xi_M = data['xi_M']
-                dM_dt += -g * xi_M(astar)
+                dM_dt += -g * xi_M(xi_astar_arg)
         except ZeroDivisionError:
             return float("nan")
 
@@ -588,17 +587,16 @@ class BaseSpinningGreybodyLifetimeModel(BaseGreybodyLifetimeModel):
         # compute Hawking temperature
         T_Hawking = PBH.T_Hawking
 
-        # for the 5D Randall-Sundrum spinning black hole, the PBH class will switch astar between the
-        # Kerr and Myers-Perry values depending on the current 4D vs 5D state, so the value that is returned
-        # will be exactly right to feed into the splines in xi_species_list
-        astar = PBH.astar
+        # for the 5D Randall-Sundrum black hole, this will switch between the Kerr a* = J/Jmax and the Myers-Perry
+        # a* = a/Rh as needed
+        xi_astar_arg = PBH.xi_astar_argument
 
-        # BlackMax greybody tables only go up to astar = 3/2 (with the Myers-Perry definition of astar),
+        # BlackMax greybody tables only go up to a* = 3/2 (with the Myers-Perry definition of a*),
         # so for larger values of astar we obtain an estimate simply by capping them.
-        # For Kerr this doesn't matteer because astar < 1.0.
+        # For Kerr this doesn't cause any problems, because there a* < 1.0.
         # TODO: consider sourcing more complete greybody tables for d=5
-        if astar > BlackMax_maximum_astar:
-            astar = BlackMax_maximum_astar
+        if xi_astar_arg > BlackMax_maximum_astar:
+            xi_astar_arg = BlackMax_maximum_astar
 
         # cache reference to xi-table dictionary
         # in the 5D Randall-Sundrum spinning black hole, this will switch between the 4D and 5D tables
@@ -618,7 +616,7 @@ class BaseSpinningGreybodyLifetimeModel(BaseGreybodyLifetimeModel):
 
                 g = data['dof'] if data['xi-per-dof'] else 1.0
                 xi_J = data['xi_J']
-                dJ_dt += -g * xi_J(astar)
+                dJ_dt += -g * xi_J(xi_astar_arg)
         except ZeroDivisionError:
             return float("nan")
 
@@ -802,11 +800,31 @@ class BaseSpinningBlackHole(BaseBlackHole):
 
     @property
     @abstractmethod
-    def astar(self) -> float:
+    def set_J(self, J: float=None, J_over_Jmax: float=None):
         """
-        query for current value of astar. This is a bit awkward for the Randall-Sundrum black hole,
-        because the meaning of astar changes depending whether we're currently in the 4D or 5D regime.
-        TODO: might be better to find another way to deal with this
+        set angular momentum for this black hole, either by specifying the spin parameter J directly,
+        or by specifying J/Jmax
+        :param J:
+        :param J_over_Jmax:
+        :return:
+        """
+
+    @property
+    @abstractmethod
+    def xi_astar_argument(self) -> float:
+        """
+        query for current value of the a* parameter needed to evaluate the fitting functions for xi(a*)
+        :return:
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def J_over_Jmax(self) -> float:
+        """
+        query for the current value of J/Jmax. This is used in preference to a*, which has an ambiguous
+        interpretation - it isn't defined in the same way for Kerr (where J = a* J_max) and Myers-Perry
+        (where J = (a*/sqrt(1+a*^2)) J_max)
         :return:
         """
         pass

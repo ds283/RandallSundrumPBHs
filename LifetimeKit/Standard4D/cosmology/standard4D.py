@@ -119,15 +119,15 @@ class Kerr(BaseSpinningBlackHole):
     momentum, etc.
     """
 
-    def __init__(self, params, M: float, J: float=None, astar: float=None, units='GeV'):
+    def __init__(self, params, M: float, J: float=None, J_over_Jmax: float=None, units='GeV'):
         """
         Instantiate a Kerr black hole model. This requires specification of the mass M and angular momentum J
         :param params: parameter container
         :param M: black hole mass, in units specified by 'units'
         :param J: (optional) black hole angular momentum, which is dimensionless
-        :param astar: (optional) black hole angular momentum, specified in terms of astar, where 0 <= astar <= 1.
-        If both are specified, astar is used in preference. If neither is specified, the angular momentum is set
-        to zero.
+        :param J_over_Jmax: (optional) black hole angular momentum, specified as J/Jmax, for 0 <= J/Jmax < 1.
+        For Kerr, J/Jmax is the same as the a* parameter. If both are specified, J/Jmax is used in preference.
+        If neither is specified, the angular momentum is set to zero.
         :param units: units used to measure the black hole mass
         """
         super().__init__(params, M, units)
@@ -135,7 +135,7 @@ class Kerr(BaseSpinningBlackHole):
         # assign current angular momentum value
         # define a 'None' value first, in order to define all instance attributes within __init__()
         self.J = None
-        self.set_J(J=J, astar=astar)
+        self.set_J(J=J, J_over_Jmax=J_over_Jmax)
 
     @property
     def J_limit(self) -> float:
@@ -147,48 +147,53 @@ class Kerr(BaseSpinningBlackHole):
         M_M4_sq = M_M4 * M_M4
         return M_M4_sq / Const_8Pi
 
-    def set_J(self, J: float=None, astar: float=None) -> None:
+    def set_J(self, J: float=None, J_over_Jmax: float=None) -> None:
         """
         Set the current value of J for this PBH
         """
-        M_Mp = self.M / self.params.M4
-        M_Mp_sq = M_Mp * M_Mp
-        J_limit = M_Mp_sq / Const_8Pi
+        J_limit = self.J_limit
 
-        if astar is not None:
-            # check supplied value of astar is valid
-            if astar < 0.0:
-                raise RuntimeError('standard4D.Kerr: angular momentum parameter astar should not be negative '
-                                   '(astar={astar})'.format(astar=astar))
-            if astar > 1.0:
-                raise RuntimeError('standard4D.Kerr: angular momentum parameter astar should be less than unity '
-                                   '(astar={astar})'.format(astar=astar))
+        if J_over_Jmax is not None:
+            # check supplied value of J/Jmax is valid
+            if J_over_Jmax < 0.0:
+                raise RuntimeError('standard4D.Kerr: angular momentum parameter J/Jmax=a* should not be negative '
+                                   '(requested value was J/Jmax={JJmax})'.format(JJmax=J_over_Jmax))
+            if J_over_Jmax > 1.0:
+                raise RuntimeError('standard4D.Kerr: angular momentum parameter J/Jmax=a* should be less than unity '
+                                   '(requested value was J/Jmax={JJmax})'.format(JJmax=J_over_Jmax))
 
-            # compute J in terms of astar
-            self.J = astar * J_limit
+            # compute J in terms of J/Jmax
+            self.J = J_over_Jmax * J_limit
 
         elif J is not None:
             # check supplied value of J is valid
             if J < 0.0:
-                raise RuntimeError('standard4D.Kerr: angular momentum J should not be negative (J={J})'.format(J=J))
+                raise RuntimeError('standard4D.Kerr: angular momentum J should not be negative '
+                                   '(requested value was J={J})'.format(J=J))
 
             if J > J_limit:
-                raise RuntimeError('standard4D.Kerr: angular momentum J exceeds maximum allowed value J={maxJ} '
-                                   '(requested value was J={J})'.format(maxJ=J_limit, J=J))
+                raise RuntimeError('standard4D.Kerr: angular momentum J exceeds maximum allowed value Jmax={Jmax} '
+                                   '(requested value was J={J})'.format(Jmax=J_limit, J=J))
             self.J = J
 
         else:
-            raise RuntimeError('Kerr.setJ: neither J nor astar was specified')
-
+            raise RuntimeError('standard4D.Kerr: neither J nor J/Jmax=a* was specified')
 
     @property
-    def astar(self) -> float:
+    def xi_astar_argument(self) -> float:
         """
-        query for the current value of astar
+        query for current value of the a* parameter needed to evaluate the fitting functions for xi(a*)
         """
-        Mp_M = self.params.M4 / self.M
-        Mp_M_sq = Mp_M*Mp_M
-        return Const_8Pi * Mp_M_sq * self.J
+        return self.J_over_Jmax
+
+    @property
+    def J_over_Jmax(self) -> float:
+        """
+        query for the current value of J/Jmax. This is used in preference to a*, which has an ambiguous
+        interpretation - it isn't defined in the same way for Kerr (where J = a* J_max) and Myers-Perry
+        (where J = (a*/sqrt(1+a*^2)) J_max)
+        """
+        return self.J/self.J_limit
 
     @property
     def radius(self) -> float:
@@ -196,7 +201,7 @@ class Kerr(BaseSpinningBlackHole):
         query for the current radius of the black hole horizon, measured in 1/GeV
         the formula is R_h = (R_s/2) * (1 + sqrt(1-astar^2)) where R_s = 2MG is the Schwarzschild radius
         """
-        astar = self.astar
+        astar = self.J_over_Jmax
         Rs = Const_Radius_4D * (self.M / self.params.M4) / self.params.M4
         return (Rs / 2.0) * (1.0 + math.sqrt(1.0 - astar*astar))
 
@@ -225,7 +230,7 @@ class Kerr(BaseSpinningBlackHole):
         query for the Hawking temperature, measured in GeV
         the formula is T_H = 1/(4pi R_h) * sqrt(1 - astar^2)
         """
-        astar = self.astar
+        astar = self.J_over_Jmax
         try:
             return 1.0 / (Const_4Pi * self.radius) * math.sqrt(1.0 - astar*astar)
         except ZeroDivisionError:
@@ -238,7 +243,7 @@ class Kerr(BaseSpinningBlackHole):
         """
         query for the t parameter, which gives the coefficient in the relationship T_Hawking = 1/(t * R_h)
         """
-        astar = self.astar
+        astar = self.J_over_Jmax
         return Const_4Pi / math.sqrt(1.0 - astar*astar)
 
     def compute_analytic_Trad_final(self, Ti_rad, relic_scale, use_effective_radius=True) -> float:

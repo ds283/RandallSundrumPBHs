@@ -407,18 +407,17 @@ class SpinningBlackHole(BaseSpinningBlackHole):
     whether the hole is behaving in its 5D or 4D regime.
     """
 
-    def __init__(self, params, M: float, J: float=None, astar: float=None, units='GeV'):
+    def __init__(self, params, M: float, J: float=None, J_over_Jmax: float=None, units='GeV'):
         """
         Instantiate a brane black hole model with spin. This requires a specification of the mass M
         and angular momentum J associated with the black hole. Note that we don't allow pec
         :param params: parameter container
         :param M: black hole mass, in units specified by 'units'
         :param J: (optional) black hole angular momentum, which is dimensionless
-        :param astar: black hole angular momentum, specified in terms of astar, where 0 <= astar <= 1.
-        If both are specified, astar is used in preference. If neither is specified, the angular momentum is set
-        to zero. Note that, in the 5D regime, the definition of astar used here *DOES NOT AGREE* with the
-        conventional Myers-Perry one.
-        :param units: units used to measure the black hole mass
+        :param J_over_Jmax: black hole angular momentum, specified in terms of J/Jmax. Here Jmax is always
+        theh Myers-Perry limit on the spin parameter, because that is always the controlling one.
+        If both are specified, J/Jmax is used in preference. If neither is specified, the angular momentum is set
+        to zero.
         """
         super().__init__(params, M, units)
 
@@ -431,7 +430,7 @@ class SpinningBlackHole(BaseSpinningBlackHole):
         # assign current angular momentum value
         # define a 'None' value first, in order to define all instance attributes within __init__()
         self.J = None
-        self.set_J(J=J, astar=astar)
+        self.set_J(J=J, J_over_Jmax=J_over_Jmax)
 
     @property
     def J_limit_5D(self) -> float:
@@ -458,59 +457,49 @@ class SpinningBlackHole(BaseSpinningBlackHole):
     @property
     def J_limit(self) -> float:
         """
-        query for the maximum currenty-allowed J
+        query for the maximum currently-allowed J. For a Randall-Sundrum 5D black hole, that is always the
+        Myers-Perry limit, because: (i) at low M, the black hole is always in its Myers-Perry phase anyway, and
+        the corresponding J_max is the appropriate one; and (ii) at higher M, if we increase J, the black hole will
+        do a dimensional transition and get to a Myers-Perry phase before J can approach the Kerr J_max.
         :return:
         """
-        if self.is_5D:
-            return self.J_limit_5D
+        return self.J_limit_5D
 
-        return self.J_limit_4D
-
-    def set_J(self, J: float=None, astar: float=None) -> None:
+    def set_J(self, J: float=None, J_over_Jmax: float=None) -> None:
         """
-        Sets the current value of J for this PBH
+        Sets the current value of J for this PBH, either by specifying it as the direct spin parameter J,
+        or (probably more convenient) as the ratio J/Jmax.
+        Note that for a Randall-Sundrum black hole, the Jmax for Myers-Perry is always the relevant one.
         :param J:
-        :param astar:
+        :param J_over_Jmax:
         :return:
         """
-        if astar is not None:
-            # first try 5D value
-            J_limit_MyersPerry = self.J_limit_5D
+        J_limit = self.J_limit
 
-            # try to see whether this gives a valid 5D solution
-            self.J = astar * J_limit_MyersPerry
-            if self.is_5D:
-                # if so, return at this point
-                return
+        if J_over_Jmax is not None:
+            if J_over_Jmax < 0.0:
+                raise RuntimeError('RandallSundrum5D.SpinningBlackHole: angular momentum parameter J/Jmax should not '
+                                   'be negative (requested value was J/Jmax={JJmax})'.format(JJmax=J_over_Jmax))
+            if J_over_Jmax > 1.0:
+                raise RuntimeError('RandallSundrum5D.SpinningBlackHole: angular momentum parameter J/Jmax should be '
+                                   'less than unity (requested value was J/Jmax={JJmax})'.format(JJmax=J_over_Jmax))
 
-            # the 5D solution wasn't valid, so we should interpret this as a 4D solution
-            J_limit_Kerr = self.J_limit_4D
+            # the 5D value of Jmax is always controlling,
+            self.J = J_over_Jmax * J_limit
 
-            self.J = astar * J_limit_Kerr
-            if not self.is_5D:
-                return
+        elif J is not None:
+            # check supplied value of J is valid
+            if J < 0.0:
+                raise RuntimeError('RandallSundrum5D.SpinningBlackHole: angular momentum J should not be negative '
+                                   '(requested value was J={J})'.format(J=J))
 
-            raise RuntimeError('RandallSundrum5D.SpinningBlackHole: could not find consistent PBH configuration with '
-                               'this value for  astar={astar}'.format(astar=astar))
+            if J > J_limit:
+                raise RuntimeError('RandallSundrum5D.SpinningBlackHole: angular momentum J exceeds maximum allowed value Jmax={Jmax} '
+                                   '(requested value was J={J})'.format(Jmax=J_limit, J=J))
+            self.J = J
 
-        if J is None:
-            raise RuntimeError('RandallSundrum5D.SpinningBlackHole: neither J nor astar was specified')
-
-        # check supplied value of J is valid
-        if J < 0.0:
-            raise RuntimeError('RandallSundrum5D.SpinningBlackHole: angular momentum J should not be negative '
-                               '(J={J})'.format(J=J))
-
-        self.J = J
-        try:
-            J_limit = self.J_limit
-        except ValueError:
-            raise RuntimeError('RandallSundrum5D.SpinningBlackHole: angular momentum J exceeds maximum allowed '
-                               'value J={maxJ} (requested value was J={J})'.format(maxJ=self.J_limit, J=J))
-
-        if J > J_limit:
-            raise RuntimeError('RandallSundrum5D.SpinningBlackHole: angular momentum J exceeds maximum allowed '
-                               'value J={maxJ} (requested value was J={J})'.format(maxJ=self.J_limit, J=J))
+        else:
+            raise RuntimeError('RandallSundrum5D.SpinningBlackHole: neither J nor J/Jmax was specified')
 
     @property
     def mu(self) -> float:
@@ -521,6 +510,14 @@ class SpinningBlackHole(BaseSpinningBlackHole):
         return self.M / self._mu_prefactor
 
     @property
+    def a(self) -> float:
+        """
+        query for the Myers-Perry angular momentum parameter j
+        :return:
+        """
+        return (3.0*self.J) / (2.0*self.M)
+
+    @property
     def radius_5D(self) -> float:
         """
         query for current radius of the black hole horizon computed using 5D Myers-Perry formula,
@@ -528,8 +525,7 @@ class SpinningBlackHole(BaseSpinningBlackHole):
         formula is R_h = sqrt(mu - a^2) where mu is the Myers-Perry mass parameter
         :return:
         """
-        a = (3.0*self.J) / (2.0*self.M)
-        a_sq = a*a
+        a_sq = self.a * self.a
 
         if a_sq > self.mu:
             raise ValueError('Angular momentum value too large (J = {J}, Jmax_5D = {Jmax_5D}, Jmax_4D = {Jmax_4D}, '
@@ -547,13 +543,15 @@ class SpinningBlackHole(BaseSpinningBlackHole):
         :return:
         """
         astar = self.astar_Kerr
-        astar_sq = astar*astar
-        Rs = Const_Radius_4D * (self.M / self.params.M4) / self.params.M4
 
-        if astar_sq > 1.0:
+        # a* > 1 should be impossible, because we will arrive at an extremal Myers-Perry black hole before we
+        # get there ... but test, just to be sure
+        if astar > 1.0:
             raise ValueError('Angular momentum value too large (J = {J}, Jmax_5D = {Jmax_5D}, Jmax_4D = {Jmax_4D}, '
                              'J/Jmax_5D = {Jratio_5D}, J/Jmax_4D = {Jratio_4D})'.format(J=self.J, Jmax_5D=self.J_limit_5D, Jmax_4D=self.J_limit_4D,
                                                                                         Jratio_5D=self.J/self.J_limit_5D, Jratio_4D=self.J/self.J_limit_4D))
+        astar_sq = astar*astar
+        Rs = Const_Radius_4D * (self.M / self.params.M4) / self.params.M4
 
         return (Rs / 2.0) * (1.0 + math.sqrt(1.0 - astar_sq))
 
@@ -593,16 +591,14 @@ class SpinningBlackHole(BaseSpinningBlackHole):
         query for the current value of astar, computed using the Myers-Perr formula astar = a/rh
         :return:
         """
-        a = (3.0*self.J) / (2.0*self.M)
-        Rh = self.radius_5D
-        return a/Rh
+        return self.a/self.radius_5D
 
     @property
-    def astar(self) -> float:
+    def xi_astar_argument(self) -> float:
         """
-        query for the current value of astar, whose interpretation changes depending whether we're
-        currently in a 4D or 5D regime. This is a bit awkward.
-        TODO: might be better to find another way to deal with this
+        query for the current value of the parameter a* that is needed as an argument for the xi(a*) fitting functions.
+        This should be the Kerr a* parameter a* = J/Jmax when the black hole is in its Kerr phase, and
+        the Myers-Perry a* parameter a* = a/Rh when the black hole is in its Myers-Perry phase.
         :return:
         """
         if self.is_5D:
@@ -613,15 +609,12 @@ class SpinningBlackHole(BaseSpinningBlackHole):
     @property
     def J_over_Jmax(self):
         """
-        return 'pseudo' astar = J/J_max for the current configuration.
-        This is useful because the Kerr and Myers-Perry astar are not continuous at the 4D <-> 5D crossover, and
-        they have different ranges. The 'pseudo' astar as 0 <= J_over_Jmax <= 1 for all configurations.
+        query for the current value of J/Jmax. This is used in preference to a*, which has an ambiguous
+        interpretation - it isn't defined in the same way for Kerr (where J = a* J_max) and Myers-Perry
+        (where J = (a*/sqrt(1+a*^2)) J_max)
         :return:
         """
-        if self.is_5D:
-            return self.J / self.J_limit_5D
-
-        return self.J / self.J_limit_4D # = astar_Kerr
+        return self.J / self.J_limit_5D
 
     @property
     def reff_5D(self) -> float:

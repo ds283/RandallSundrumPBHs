@@ -29,22 +29,22 @@ params = lkit.RS5D.Parameters(M5=M5_value)
 num_samples = 500
 
 # baseline Friedlander et al. greybody model with J=0
-Friedlander_astar0 = lkit.PBHInstance(params, T_init, models=['GreybodyRS5D'], compute_rates=True,
+Friedlander_JJmax0 = lkit.PBHInstance(params, T_init, models=['GreybodyRS5D'], compute_rates=True,
                                       num_samples=num_samples)
 
 # spinning greybody model with J=0
-Spinning_astar0 = lkit.PBHInstance(params, T_init, models=['SpinningRS5D'], compute_rates=True,
+Spinning_JJmax0 = lkit.PBHInstance(params, T_init, models=['SpinningRS5D'], compute_rates=True,
                                    num_samples=num_samples)
 
-# spinning greybody model with astar=0.9
-Spinning_astar0pt7 = lkit.PBHInstance(params, T_init, astar=0.7, models=['SpinningRS5D'], compute_rates=True,
+# spinning greybody model with J/Jmax=0.7
+Spinning_JJmax0pt7 = lkit.PBHInstance(params, T_init, J_over_Jmax=0.7, models=['SpinningRS5D'], compute_rates=True,
                                       num_samples=num_samples)
-Spinning_astar0pt7.angular_momentum_plot('Spinning_astar0pt7_J.pdf')
+Spinning_JJmax0pt7.angular_momentum_plot('Spinning_astar0pt7_J.pdf')
 
 lifetimes = {
-    'Friedlander': Friedlander_astar0.lifetimes['GreybodyRS5D'],
-    'Spinning_RS5D_astar0': Spinning_astar0.lifetimes['SpinningRS5D'],
-    'Spinning_RS5D_astar0pt7': Spinning_astar0pt7.lifetimes['SpinningRS5D']}
+    'Friedlander': Friedlander_JJmax0.lifetimes['GreybodyRS5D'],
+    'Spinning_RS5D_JJmax0': Spinning_JJmax0.lifetimes['SpinningRS5D'],
+    'Spinning_RS5D_JJmax0pt7': Spinning_JJmax0pt7.lifetimes['SpinningRS5D']}
 
 plt.figure()
 for label in lifetimes:
