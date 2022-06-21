@@ -251,9 +251,9 @@ class PBHLifetimeModel:
             if PBH.J < 0.0:
                 raise RuntimeError('PBHLifetimeModel: intitial angular momentum should be non-negative')
 
-            if hasattr(PBH, 'pseudo_astar'):
+            if hasattr(PBH, 'J_over_Jmax'):
                 # For the spinning Randall-Sundrum 5D black hole this test is best done with the 'pseudo' astar
-                if PBH.pseudo_astar < _ASTAR_TOLERANCE:
+                if PBH.J_over_Jmax < _ASTAR_TOLERANCE:
                     PBH.set_J(astar=_ASTAR_TOLERANCE)
             elif hasattr(PBH, 'astar'):
                 if PBH.astar < _ASTAR_TOLERANCE:

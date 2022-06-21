@@ -591,17 +591,17 @@ class SpinningBlackHole(BaseBlackHole):
         return self.astar_Kerr
 
     @property
-    def pseudo_astar(self):
+    def J_over_Jmax(self):
         """
         return 'pseudo' astar = J/J_max for the current configuration.
         This is useful because the Kerr and Myers-Perry astar are not continuous at the 4D <-> 5D crossover, and
-        they have different ranges. The 'pseudo' astar as 0 <= pseudo_astar <= 1 for all configurations.
+        they have different ranges. The 'pseudo' astar as 0 <= J_over_Jmax <= 1 for all configurations.
         :return:
         """
         if self.is_5D:
             return self.J / self.J_limit_5D
 
-        return self.astar_Kerr
+        return self.J / self.J_limit_4D # = astar_Kerr
 
     @property
     def reff_5D(self) -> float:
