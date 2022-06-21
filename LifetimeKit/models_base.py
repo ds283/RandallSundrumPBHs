@@ -781,3 +781,31 @@ class BaseBlackHole(ABC):
         T_Hawking = 1/(t * R_h). t is dimensionless
         """
         pass
+
+class BaseSpinningBlackHole(BaseBlackHole):
+    def __init__(self, params, M: float, units='GeV'):
+        """
+        capture basic details about the PBH model, which we pass to the BaseBlackHole superclass
+        """
+        super().__init__(params, M, units=units)
+
+    @property
+    @abstractmethod
+    def J_limit(self) -> float:
+        """
+        spinning black holes in D <= 5 dimensions usually have a maximum possible angular momentum;
+        this method should return the current value for that
+        :return:
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def astar(self) -> float:
+        """
+        query for current value of astar. This is a bit awkward for the Randall-Sundrum black hole,
+        because the meaning of astar changes depending whether we're currently in the 4D or 5D regime.
+        TODO: might be better to find another way to deal with this
+        :return:
+        """
+        pass

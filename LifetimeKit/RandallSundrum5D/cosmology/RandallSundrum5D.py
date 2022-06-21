@@ -2,7 +2,7 @@ import math
 
 from LifetimeKit.constants import RadiationConstant4D, StefanBoltzmannConstant4D, StefanBoltzmannConstant5D, \
     gstar_full_SM
-from LifetimeKit.models_base import BaseCosmology, BaseBlackHole
+from LifetimeKit.models_base import BaseCosmology, BaseBlackHole, BaseSpinningBlackHole
 from LifetimeKit.natural_units import M4, Kelvin, Metre, Kilogram, Gram, SolarMass
 
 # numerical constant in test (based on mass M) for whether black hole behaves as 4D Schwarzschild
@@ -393,7 +393,7 @@ class SpinlessBlackHole(BaseBlackHole):
                           5.0, self.params.StefanBoltzmannConstant5D, self.params.M4, self.params.M5,
                           Const_Reff_5D if use_effective_radius else 1.0)
 
-class SpinningBlackHole(BaseBlackHole):
+class SpinningBlackHole(BaseSpinningBlackHole):
     """
     Represents a spinning black hole on a Randall-Sundrum brane. We model this using a Kerr metric
     when the black hole radius is large, and a 5D Myers-Perry black hole with single spin parameter when
@@ -435,18 +435,32 @@ class SpinningBlackHole(BaseBlackHole):
 
     @property
     def J_limit_5D(self) -> float:
+        """
+        query for the maximum allowed J for the current value of M, interpreting this is a 5D
+        Myers-Perry black hole
+        :return:
+        """
         M_M5 = self.M / self.params.M5
         M_M5_power32 = math.pow(M_M5, 3.0 / 2.0)
         return Const_J_limit_Myers_Perry * M_M5_power32
 
     @property
     def J_limit_4D(self) -> float:
+        """
+        query for the maximum allowed J for the current value of M, interpreting this as a 4D
+        Kerr black hole
+        :return:
+        """
         M_M4 = self.M / self.params.M4
         M_M4_sq = M_M4 * M_M4
         return M_M4_sq / Const_8Pi
 
     @property
     def J_limit(self) -> float:
+        """
+        query for the maximum currenty-allowed J
+        :return:
+        """
         if self.is_5D:
             return self.J_limit_5D
 
@@ -585,6 +599,12 @@ class SpinningBlackHole(BaseBlackHole):
 
     @property
     def astar(self) -> float:
+        """
+        query for the current value of astar, whose interpretation changes depending whether we're
+        currently in a 4D or 5D regime. This is a bit awkward.
+        TODO: might be better to find another way to deal with this
+        :return:
+        """
         if self.is_5D:
             return self.astar_MyersPerry
 

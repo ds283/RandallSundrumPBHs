@@ -1,6 +1,6 @@
 import math
 
-from ...models_base import BaseCosmology, BaseBlackHole
+from ...models_base import BaseCosmology, BaseBlackHole, BaseSpinningBlackHole
 from ...constants import gstar_full_SM
 
 Const_M_H = 4.0 * math.sqrt(3.0) * math.pi
@@ -112,7 +112,7 @@ class Schwarzschild(BaseBlackHole):
                           Const_Reff_4D if use_effective_radius else 1.0)
 
 
-class Kerr(BaseBlackHole):
+class Kerr(BaseSpinningBlackHole):
     """
     Model for a Kerr black hole. This is specified by its mass and angular momentum.
     Black holes model can be queried for physical properties, such as radius, Hawking temperature, mass, angular
@@ -136,6 +136,16 @@ class Kerr(BaseBlackHole):
         # define a 'None' value first, in order to define all instance attributes within __init__()
         self.J = None
         self.set_J(J=J, astar=astar)
+
+    @property
+    def J_limit(self) -> float:
+        """
+        query for the maximum allowed J for the current value of M
+        :return:
+        """
+        M_M4 = self.M / self.params.M4
+        M_M4_sq = M_M4 * M_M4
+        return M_M4_sq / Const_8Pi
 
     def set_J(self, J: float=None, astar: float=None) -> None:
         """
