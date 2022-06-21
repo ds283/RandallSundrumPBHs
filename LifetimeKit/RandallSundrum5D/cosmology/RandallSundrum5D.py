@@ -518,7 +518,9 @@ class SpinningBlackHole(BaseBlackHole):
         a_sq = a*a
 
         if a_sq > self.mu:
-            raise ValueError('Angular momentum value too large')
+            raise ValueError('Angular momentum value too large (J = {J}, Jmax_5D = {Jmax_5D}, Jmax_4D = {Jmax_4D}, '
+                             'J/Jmax_5D = {Jratio_5D}, J/Jmax_4D = {Jratio_4D})'.format(J=self.J, Jmax_5D=self.J_limit_5D, Jmax_4D=self.J_limit_4D,
+                                                                                        Jratio_5D=self.J/self.J_limit_5D, Jratio_4D=self.J/self.J_limit_4D))
 
         return math.sqrt(self.mu - a_sq)
 
@@ -535,7 +537,9 @@ class SpinningBlackHole(BaseBlackHole):
         Rs = Const_Radius_4D * (self.M / self.params.M4) / self.params.M4
 
         if astar_sq > 1.0:
-            raise ValueError('Angular momentum value too large')
+            raise ValueError('Angular momentum value too large (J = {J}, Jmax_5D = {Jmax_5D}, Jmax_4D = {Jmax_4D}, '
+                             'J/Jmax_5D = {Jratio_5D}, J/Jmax_4D = {Jratio_4D})'.format(J=self.J, Jmax_5D=self.J_limit_5D, Jmax_4D=self.J_limit_4D,
+                                                                                        Jratio_5D=self.J/self.J_limit_5D, Jratio_4D=self.J/self.J_limit_4D))
 
         return (Rs / 2.0) * (1.0 + math.sqrt(1.0 - astar_sq))
 
