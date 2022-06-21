@@ -539,7 +539,18 @@ class BaseSpinningGreybodyLifetimeModel(BaseGreybodyLifetimeModel):
 
         # compute Hawking temperature
         T_Hawking = PBH.T_Hawking
+
+        # for the 5D Randall-Sundrum spinning black hole, the PBH class will switch astar between the
+        # Kerr and Myers-Perry values depending on the current 4D vs 5D state, so the value that is returned
+        # will be exactly right to feed into the splines in xi_species_list
         astar = PBH.astar
+
+        # BlackMax greybody tables only go up to astar = 3/2 (with the Myers-Perry definition of astar),
+        # so for larger values of astar we obtain an estimate simply by capping them.
+        # For Kerr this doesn't matteer because astar < 1.0.
+        # TODO: source more complete greybody tables for d=5
+        if astar > 3.0 / 2.0:
+            astar = 3.0 / 2.0
 
         # cache reference to xi-table dictionary
         xi_species_list = self.xi_species_list(PBH)
@@ -580,6 +591,13 @@ class BaseSpinningGreybodyLifetimeModel(BaseGreybodyLifetimeModel):
         # Kerr and Myers-Perry values depending on the current 4D vs 5D state, so the value that is returned
         # will be exactly right to feed into the splines in xi_species_list
         astar = PBH.astar
+
+        # BlackMax greybody tables only go up to astar = 3/2 (with the Myers-Perry definition of astar),
+        # so for larger values of astar we obtain an estimate simply by capping them.
+        # For Kerr this doesn't matteer because astar < 1.0.
+        # TODO: source more complete greybody tables for d=5
+        if astar > 3.0/2.0:
+            astar = 3.0/2.0
 
         # cache reference to xi-table dictionary
         # in the 5D Randall-Sundrum spinning black hole, this will switch between the 4D and 5D tables
