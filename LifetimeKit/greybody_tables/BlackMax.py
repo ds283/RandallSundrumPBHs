@@ -8,6 +8,8 @@ from .Friedlander import xi0_spin2_5D, xi0_spin2_4D
 # greybody factors extracted from the BlackMax greybody database
 astar = np.asarray([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5])
 
+BlackMax_maximum_astar = 1.5
+
 xi_dMdt_spin0 = np.asarray([0.016733779047978143,
                             0.0168586918073312,
                             0.017274178095103735,

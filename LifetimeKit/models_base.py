@@ -7,6 +7,7 @@ import numpy as np
 from .constants import Page_suppression_factor
 from .natural_units import Kelvin, Kilogram, Gram
 from .particle_data import SM_particle_table
+from .greybody_tables.BlackMax import BlackMax_maximum_astar
 
 # tolerance for binning particle masses (expressed in GeV) into a single threshold
 T_threshold_tolerance = 1E-8
@@ -548,9 +549,9 @@ class BaseSpinningGreybodyLifetimeModel(BaseGreybodyLifetimeModel):
         # BlackMax greybody tables only go up to astar = 3/2 (with the Myers-Perry definition of astar),
         # so for larger values of astar we obtain an estimate simply by capping them.
         # For Kerr this doesn't matteer because astar < 1.0.
-        # TODO: source more complete greybody tables for d=5
-        if astar > 3.0 / 2.0:
-            astar = 3.0 / 2.0
+        # TODO: consider sourcing more complete greybody tables for d=5
+        if astar > BlackMax_maximum_astar:
+            astar = BlackMax_maximum_astar
 
         # cache reference to xi-table dictionary
         xi_species_list = self.xi_species_list(PBH)
@@ -595,9 +596,9 @@ class BaseSpinningGreybodyLifetimeModel(BaseGreybodyLifetimeModel):
         # BlackMax greybody tables only go up to astar = 3/2 (with the Myers-Perry definition of astar),
         # so for larger values of astar we obtain an estimate simply by capping them.
         # For Kerr this doesn't matteer because astar < 1.0.
-        # TODO: source more complete greybody tables for d=5
-        if astar > 3.0/2.0:
-            astar = 3.0/2.0
+        # TODO: consider sourcing more complete greybody tables for d=5
+        if astar > BlackMax_maximum_astar:
+            astar = BlackMax_maximum_astar
 
         # cache reference to xi-table dictionary
         # in the 5D Randall-Sundrum spinning black hole, this will switch between the 4D and 5D tables
