@@ -221,13 +221,18 @@ class SpinlessBlackHole(BaseBlackHole):
     (4/3) * ell, where ell is the AdS curvature radius. This makes the black hole temperatures continuous.
     """
 
-    def __init__(self, params: Parameters, M: float, units='GeV') -> None:
+    def __init__(self, params: Parameters, M: float, units='GeV', strict=True) -> None:
         """
         capture (i) initial mass value, and (ii) a parameter container instance so we can decide whether
         we are in the 4D or 5D regime based on the AdS radius.
         The initial mass value can be specified in grams, kilograms, or GeV, but defaults to GeV
+        :param params: parameter container
+        :param M: black hole mass, in units specified by 'units'
+        :param units: units used to measure the black hole mass
+        :param strict: perform stricter validation checks on parameters (defaults to True); may need to be disabled
+        to allow construction of BH models with M < M4 that would usually produce a relic
         """
-        super().__init__(params, M, units=units)
+        super().__init__(params, M, units=units, strict=strict)
 
         # cache value of sqrt(M4/M5)
         self._M4_over_M5_sqrt = math.sqrt(1.0/self.params.M_ratio)
@@ -407,7 +412,7 @@ class SpinningBlackHole(BaseSpinningBlackHole):
     whether the hole is behaving in its 5D or 4D regime.
     """
 
-    def __init__(self, params, M: float, J: float=None, J_over_Jmax: float=None, units='GeV'):
+    def __init__(self, params, M: float, J: float=None, J_over_Jmax: float=None, units='GeV', strict=True):
         """
         Instantiate a brane black hole model with spin. This requires a specification of the mass M
         and angular momentum J associated with the black hole. Note that we don't allow pec
@@ -418,8 +423,10 @@ class SpinningBlackHole(BaseSpinningBlackHole):
         theh Myers-Perry limit on the spin parameter, because that is always the controlling one.
         If both are specified, J/Jmax is used in preference. If neither is specified, the angular momentum is set
         to zero.
+        :param strict: perform stricter validation checks on parameters (defaults to True); may need to be disabled
+        to allow construction of BH models with M < M4 that would usually produce a relic
         """
-        super().__init__(params, M, units)
+        super().__init__(params, M, units=units, strict=strict)
 
         self._M4_over_M5 = self.params.M4 / self.params.M5
         self._M4_over_M5_cube = self._M4_over_M5*self._M4_over_M5*self._M4_over_M5

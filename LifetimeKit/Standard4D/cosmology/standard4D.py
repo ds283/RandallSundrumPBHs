@@ -45,14 +45,16 @@ class Schwarzschild(BaseBlackHole):
     Black hole models can be queried for physical properties, such as radius, Hawking temperature, mass, etc.
     """
 
-    def __init__(self, params, M: float, units='GeV'):
+    def __init__(self, params, M: float, units='GeV', strict=True):
         """
         Instantiate a Schwarzschild black hole model. This requires only specification of the mass.
         :param params: parameter container
         :param M: black hole mass, in units specified by 'units'
         :param units: units used to measure the black hole mass
+        :param strict: perform stricter validation checks on parameters (defaults to True); may need to be disabled
+        to allow construction of BH models with M < M4 that would usually produce a relic
         """
-        super().__init__(params, M, units=units)
+        super().__init__(params, M, units=units, strict=strict)
 
     @property
     def radius(self) -> float:
@@ -119,7 +121,7 @@ class Kerr(BaseSpinningBlackHole):
     momentum, etc.
     """
 
-    def __init__(self, params, M: float, J: float=None, J_over_Jmax: float=None, units='GeV'):
+    def __init__(self, params, M: float, J: float=None, J_over_Jmax: float=None, units='GeV', strict=True):
         """
         Instantiate a Kerr black hole model. This requires specification of the mass M and angular momentum J
         :param params: parameter container
@@ -129,8 +131,10 @@ class Kerr(BaseSpinningBlackHole):
         For Kerr, J/Jmax is the same as the a* parameter. If both are specified, J/Jmax is used in preference.
         If neither is specified, the angular momentum is set to zero.
         :param units: units used to measure the black hole mass
+        :param strict: perform stricter validation checks on parameters (defaults to True); may need to be disabled
+        to allow construction of BH models with M < M4 that would usually produce a relic
         """
-        super().__init__(params, M, units)
+        super().__init__(params, M, units=units, strict=strict)
 
         # assign current angular momentum value
         # define a 'None' value first, in order to define all instance attributes within __init__()

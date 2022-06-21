@@ -145,15 +145,16 @@ class LifetimeObserver:
 
         # extract current value of angular momentum, is used
         if self._using_J:
-            J = math.exp(state_asarray[1])
-            self._PBH.set_J(J)
+            gamma = state_asarray[1]
+            J_over_Jmax = 1.0/(1.0 + math.exp(-gamma))
+            self._PBH.set_J(J_over_Jmax=J_over_Jmax)
 
         # if current mass is larger than previous maximum, reset our running estimate of the maximum
         if self.M_max is None or M > self.M_max:
             self.M_max = self._PBH.M
 
         # if current angular momentum is larger than previous maximum, reset our running estimate of the maximum
-        if self._using_J and (self.J_max is None or J > self.J_max):
+        if self._using_J and (self.J_max is None or self._PBH.J > self.J_max):
             self.J_max = self._PBH.J
 
         # detect transitions from 5D to 4D and vice versa, if this is a 5D black hole type
@@ -264,10 +265,11 @@ class PBHLifetimeModel:
         self.M_init = PBH.M
         self.T_rad_init = T_rad_init
 
-        # integration actually proceeds with log(M) and log(J)
+        # integration actually proceeds with log(M) and gamma = log(beta/(1-beta)) where beta=J/Jmax
         self.logM_init = math.log(M_init)
         if self._using_J:
-            self.logJ_init = math.log(PBH.J)
+            beta = PBH.J_over_Jmax
+            self.gamma_init = math.log(beta / (1.0 - beta))
 
         # integration is done in terms of log(x) and log(T), where x = M/M_H(T) is the PBH mass expressed
         # as a fraction of the Hubble mass M_H
@@ -423,7 +425,7 @@ class PBHLifetimeModel:
         # to keep the numerics sensible, we can't run the integration directly in grams; the numbers get too large,
         # making the integrator need a very small stepsize to keep up. So we use log values instead
         if self._using_J:
-            stepper.set_initial_value(np.asarray([self.logM_init, self.logJ_init]), self.logT_rad_init)
+            stepper.set_initial_value(np.asarray([self.logM_init, self.gamma_init]), self.logT_rad_init)
         else:
             stepper.set_initial_value(self.logM_init, self.logT_rad_init)
 
@@ -453,9 +455,16 @@ class PBHLifetimeModel:
             if self._using_J:
                 self.J_sample_points = np.resize(self.J_sample_points, index)
 
+        # create an instance of the appropriate black hole type
         M = math.exp(stepper.y[0])
+
         if self._using_J:
-            J = math.exp(stepper.y[1])
+            gamma = stepper.y[1]
+            J_over_Jmax = 1.0/(1.0 + math.exp(-gamma))
+            PBH = LifetimeModel.BlackHoleType(self._engine.params, M=M, J_over_Jmax=J_over_Jmax, units='GeV',
+                                              strict=False)
+        else:
+            PBH = LifetimeModel.BlackHoleType(self._engine.params, M=M, units='GeV', strict=False)
 
         T_rad = math.exp(stepper.t)
 
@@ -507,12 +516,6 @@ class PBHLifetimeModel:
         # this code corresponds to "step size becomes too small", which we interpret to mean
         # that we're close to the point of evaporation down to a relic
 
-        # create an instance of the appropriate black hole type
-        if self._using_J:
-            PBH = LifetimeModel.BlackHoleType(self._engine.params, M=M, J=J, units='GeV')
-        else:
-            PBH = LifetimeModel.BlackHoleType(self._engine.params, M=M, units='GeV')
-
         # get current radiation temperature in GeV
         Ti_rad = math.exp(stepper.t)
 
@@ -521,9 +524,10 @@ class PBHLifetimeModel:
         self.T_lifetime = \
             PBH.compute_analytic_Trad_final(Ti_rad, self._relic_scale, use_effective_radius=use_reff)
         self.M_final = self._relic_scale
+
         # harder to know what to do about J
         if self._using_J:
-            self.J_final = J
+            self.J_final = PBH.J
 
         # record the shift due to using the analytic model
         self.T_shift = Ti_rad - self.T_lifetime

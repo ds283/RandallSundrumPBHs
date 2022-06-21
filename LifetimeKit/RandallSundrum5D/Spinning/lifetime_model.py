@@ -97,9 +97,11 @@ class LifetimeModel(BaseSpinningGreybodyLifetimeModel):
 
         # read the PBH mass and angular momentum, then set our self._PBH object to these values
         logM = state_asarray[0]
-        logJ = state_asarray[1]
+        gamma = state_asarray[1]
+        beta = 1.0 / (1.0 + math.exp(-gamma))
+
         self._PBH.set_M(math.exp(logM), 'GeV')
-        self._PBH.set_J(J=math.exp(logJ))
+        self._PBH.set_J(J_over_Jmax=beta)
 
         # compute current Hubble rate at this radiation temperature
         H = self.engine.Hubble(T=T_rad)
@@ -111,7 +113,10 @@ class LifetimeModel(BaseSpinningGreybodyLifetimeModel):
             # EVAPORATION
             dlogM_dlogT += -self._dMdt_evaporation(T_rad, self._PBH) / (self._PBH.M * H)
             dlogJ_dlogT = -self._dJdt_evaporation(T_rad, self._PBH) / (self._PBH.J * H)
+
+            dgamma_dlogT = (1.0 / (1.0 - beta)) * (dlogJ_dlogT - 3.0/2.0 * dlogM_dlogT)
         except ZeroDivisionError:
             dlogM_dlogT = float("nan")
+            dgamma_dlogT = float("nan")
 
-        return np.asarray([dlogM_dlogT, dlogJ_dlogT])
+        return np.asarray([dlogM_dlogT, dgamma_dlogT])

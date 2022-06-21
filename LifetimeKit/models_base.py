@@ -702,12 +702,17 @@ class BaseBlackHole(ABC):
 
     _mass_conversions = {'gram': Gram, 'kilogram': Kilogram, 'GeV': 1.0}
 
-    def __init__(self, params, M: float, units='GeV'):
+    def __init__(self, params, M: float, units='GeV', strict=True):
         """
         capture basic details about the PBH model, including a parameters object for the cosmology in which
         it is living, and the mass M.
         Other properties such as angular momentum that not all black holes share should be captured
         in derived classes.
+        :param params: parameter container
+        :param M: black hole mass, in units specified by 'units'
+        :param units: units used to measure the black hole mass
+        :param strict: perform stricter validation checks on parameters (defaults to True); may need to be disabled
+        to allow construction of BH models with M < M4 that would usually produce a relic
         """
         self.params = params
 
@@ -722,7 +727,7 @@ class BaseBlackHole(ABC):
 
         # check mass is larger than 4D Planck mass (has to be done *after* assignment so that any units
         # conversions have taken place)
-        if self.M <= params.M4:
+        if strict and self.M <= params.M4:
             raise RuntimeError('BaseBlackHole: Initial black hole mass {mass} GeV should be larger than the '
                                '4D Planck mass {MP} GeV in order that the PBH does not begin life as a '
                                'relic'.format(mass=self.M, MP=params.M4))
@@ -782,11 +787,16 @@ class BaseBlackHole(ABC):
         pass
 
 class BaseSpinningBlackHole(BaseBlackHole):
-    def __init__(self, params, M: float, units='GeV'):
+    def __init__(self, params, M: float, units='GeV', strict=True):
         """
         capture basic details about the PBH model, which we pass to the BaseBlackHole superclass
+        :param params: parameter container
+        :param M: black hole mass, in units specified by 'units'
+        :param units: units used to measure the black hole mass
+        :param strict: perform stricter validation checks on parameters (defaults to True); may need to be disabled
+        to allow construction of BH models with M < M4 that would usually produce a relic
         """
-        super().__init__(params, M, units=units)
+        super().__init__(params, M, units=units, strict=strict)
 
     @property
     @abstractmethod
