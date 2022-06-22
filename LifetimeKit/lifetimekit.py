@@ -37,7 +37,7 @@ class LifetimeObserver:
     """
 
     def __init__(self, engine, BlackHoleType, sample_grid, M_grid, x_grid, T_Hawking_grid, M_relic, M_init,
-                 J_init=None, J_grid=None):
+                 J_init=None, J_grid=None, J_over_Jmax_grid=None):
         """
         Instantiate a LifetimeObserver instance.
         The constructor captures model engine instance. _sample_grid should be a numpy 1d array representing
@@ -53,6 +53,7 @@ class LifetimeObserver:
         :param M_init: initial PBH mass (in GeV)
         :param J_init: initial PBH angular momentum (dimensionless)
         :param J_grid: grid of sample points for angular momentum J (dimensionless)
+        :param J_over_Jmax_grid: grid of sample points for angular momentum J/Jmax (dimensionless)
         """
         if engine is None:
             raise RuntimeError('LifetimeObserver: supplied model instance is None')
@@ -88,7 +89,8 @@ class LifetimeObserver:
 
         # capture maximum angular momentum achieved during lifetime, if used
         if self._using_J:
-            self.J_max = J_init
+            self.J_max = self._PBH.J
+            self.J_over_Jmax_max = self._PBH.J_over_Jmax
 
         # capture time of 4D to 5D transition (if one occurs)
         # TODO: how should we handle this when there is rotation, and possibly multiple transition events?
@@ -110,8 +112,12 @@ class LifetimeObserver:
 
         if self._using_J:
             if J_grid is None:
-                raise RuntimeError('LifetimeObserver: if J is supplied, a J sample grid must be supplied also')
+                raise RuntimeError('LifetimeObserver: if J is supplied, a J sample grid must also be supplied')
+            if J_over_Jmax_grid is None:
+                raise RuntimeError('LifetimeObserver: if J is supplied a J/Jmax sample grid must also be supplied')
+
             self._J_grid = J_grid
+            self._J_over_Jmax_grid = J_over_Jmax_grid
 
         self._sample_grid_length = sample_grid.size
 
@@ -154,8 +160,11 @@ class LifetimeObserver:
             self.M_max = self._PBH.M
 
         # if current angular momentum is larger than previous maximum, reset our running estimate of the maximum
-        if self._using_J and (self.J_max is None or self._PBH.J > self.J_max):
-            self.J_max = self._PBH.J
+        if self._using_J:
+            if self.J_max is None or self._PBH.J > self.J_max:
+                self.J_max = self._PBH.J
+            if self.J_over_Jmax_max is None or self._PBH.J_over_Jmax > self.J_over_Jmax_max:
+                self.J_over_Jmax_max = self._PBH.J_over_Jmax
 
         # detect transitions from 5D to 4D and vice versa, if this is a 5D black hole type
         if self._PBH_was_5D is not None:
@@ -181,6 +190,7 @@ class LifetimeObserver:
 
             if self._using_J:
                 self._J_grid[self.sample_grid_current_index] = self._PBH.J
+                self._J_over_Jmax_grid[self.sample_grid_current_index] = self._PBH.J_over_Jmax
 
             self.sample_grid_current_index += 1
             if self.sample_grid_current_index < self._sample_grid_length:
@@ -258,6 +268,7 @@ class PBHLifetimeModel:
             # capture initial value for angular momentum; this allows a conversion from J/Jmax to J to be done
             # by the PBH instance class
             self.J_init = PBH.J
+            self.J_over_Jmax_init = PBH.J_over_Jmax
         else:
             PBH = LifetimeModel.BlackHoleType(self._engine.params, M=M_init, units='GeV')
 
@@ -292,6 +303,7 @@ class PBHLifetimeModel:
         if self._using_J:
             # reserve space for angular momentum history
             self.J_sample_points = np.zeros_like(self.logT_sample_points)
+            self.J_over_Jmax_sample_points = np.zeros_like(self.logT_sample_points)
 
         # if PBH model has an 'is_5D' property, capture its value; otherwise, record 'None' to indicate that this
         # PBH type has no concept of 4D/5D transition
@@ -318,8 +330,14 @@ class PBHLifetimeModel:
             # track final angular momentum
             self.J_final = None
 
+            # track final value of J/Jmax
+            self.J_over_Jmax_final = None
+
             # track maximum angular momentum
             self.J_max = None
+
+            # track maximum value of J/Jmax
+            self.J_over_Jmax_max = None
 
         # track time of 4D to 5D transition, if one occurs
         # TODO: how should we handle this when there is rotation, and possibly multiple transition events?
@@ -345,7 +363,8 @@ class PBHLifetimeModel:
             observer = LifetimeObserver(self._engine, LifetimeModel.BlackHoleType,
                                         self.logT_sample_points, self.M_sample_points, self.x_sample_points,
                                         self.T_Hawking_sample_points, self._relic_scale, self.M_init,
-                                        J_init=self.J_init, J_grid=self.J_sample_points)
+                                        J_init=self.J_init, J_grid=self.J_sample_points,
+                                        J_over_Jmax_grid=self.J_over_Jmax_sample_points)
         else:
             observer = LifetimeObserver(self._engine, LifetimeModel.BlackHoleType,
                                         self.logT_sample_points, self.M_sample_points, self.x_sample_points,
@@ -454,6 +473,7 @@ class PBHLifetimeModel:
 
             if self._using_J:
                 self.J_sample_points = np.resize(self.J_sample_points, index)
+                self.J_over_Jmax_sample_points = np.resize(self.J_over_Jmax_final, index)
 
         # create an instance of the appropriate black hole type
         M = math.exp(stepper.y[0])
@@ -476,6 +496,11 @@ class PBHLifetimeModel:
         # extract maximum mass value achieved during lifetime from observer
         self.M_max = Observer.M_max
 
+        # extract maximum angular momentum achieved during lifetime from observer
+        if self._using_J:
+            self.J_max = Observer.J_max
+            self.J_over_Jmax_max = Observer.J_over_Jmax_max
+
         # if the observer terminated the integration, this is because the PBH evaporation proceeded
         # to the point where we produce a relic (or because the PBH survives until the present day),
         # so we can record the lifetime and exit
@@ -485,6 +510,7 @@ class PBHLifetimeModel:
             self.M_final = PBH.M
             if self._using_J:
                 self.J_final = PBH.J
+                self.J_over_Jmax_final = PBH.J_over_Jmax
 
             # extract time of 4D -> 5D transition (if one occurs); this is reliable since the integration
             # concluded ok
@@ -528,6 +554,7 @@ class PBHLifetimeModel:
         # harder to know what to do about J
         if self._using_J:
             self.J_final = PBH.J
+            self.J_over_Jmax_final = PBH.J_over_Jmax
 
         # record the shift due to using the analytic model
         self.T_shift = Ti_rad - self.T_lifetime
