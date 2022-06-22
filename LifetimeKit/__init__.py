@@ -7,6 +7,6 @@ from .Standard4D import StefanBoltzmann as Standard4D_StefanBoltzmann
 from .Standard4D import Friedlander as Standard4D_Friedlander
 from .Standard4D import Kerr as Standard4D_Kerr
 from .lifetimekit import PBHInstance, PBHLifetimeModel
-from .natural_units import Gram, Kilogram, Metre, Kilometre, Kelvin, SolarMass, Mpc
+from .natural_units import Gram, Kilogram, Metre, Kilometre, Kelvin, SolarMass, Mpc, Year
 
 from .timer import Timer
