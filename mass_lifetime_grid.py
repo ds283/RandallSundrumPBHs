@@ -65,6 +65,7 @@ def _build_labels(h: str):
             '4D_to_5D_Kelvin': '{h}_4D_to_5D_Kelvin'.format(h=h),
             '5D_to_4D_GeV': '{h}_5D_to_4D_GeV'.format(h=h),
             '5D_to_4D_Kelvin': '{h}_5D_to_4D_Kelvin'.format(h=h),
+            'initially_5D': '{h}_initially_5D'.format(h=h),
             'Mmax_GeV': '{h}_Mmax_GeV'.format(h=h),
             'Mmax_Gram': '{h}_Mmax_Gram'.format(h=h),
             'evaporated': '{h}_evaporated'.format(h=h),
@@ -77,24 +78,24 @@ def compute_lifetime(cache: ActorHandle, serial_batch: List[int]) -> List[float]
     times = []
 
     for serial in serial_batch:
-        data = ray.get(cache.get_work_item.remote(serial))
-
-        # extract parameter set for this work item
-        _serial, M5, Tinit, F, f = data
-
-        params = lkit.RS5D.Parameters(M5)
-
-        solution = lkit.PBHInstance(params, Tinit, models=histories.values(),
-                                    accretion_efficiency_F=F, collapse_fraction_f=f)
-
-        data = {'serial': serial,
-                'timestamp': datetime.now(),
-                'Minit_5D_GeV': solution.M_init_5D,
-                'Minit_5D_Gram': solution.M_init_5D/lkit.Gram,
-                'Minit_4D_GeV': solution.M_init_4D,
-                'Minit_4D_Gram': solution.M_init_4D/lkit.Gram}
-
         with lkit.Timer() as timer:
+            data = ray.get(cache.get_work_item.remote(serial))
+
+            # extract parameter set for this work item
+            _serial, M5, Tinit, F, f = data
+
+            params = lkit.RS5D.Parameters(M5)
+
+            solution = lkit.PBHInstance(params, Tinit, models=histories.values(),
+                                        accretion_efficiency_F=F, collapse_fraction_f=f)
+
+            data = {'serial': serial,
+                    'timestamp': datetime.now(),
+                    'Minit_5D_GeV': solution.M_init_5D,
+                    'Minit_5D_Gram': solution.M_init_5D/lkit.Gram,
+                    'Minit_4D_GeV': solution.M_init_4D,
+                    'Minit_4D_Gram': solution.M_init_4D/lkit.Gram}
+
             for history_label in histories.keys():
                 model_label = histories[history_label]
 
