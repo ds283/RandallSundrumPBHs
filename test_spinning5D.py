@@ -4,9 +4,13 @@ from matplotlib import pyplot as plt
 import seaborn as sns
 sns.set()
 
+# test configuration that shows large lifetime shifts from SpinGrid
+M5_value = 3.684e14
+T_init = 5.0525e13
+
 # a black hole configuration that evaporates quite early, for testing impact of changing F et al.
-M5_value = 1.3209e16
-T_init = 2.7495e15
+# M5_value = 1.3209e16
+# T_init = 2.7495e15
 
 # black hole that has not evaporated by present day with M < 1E15 g
 # M5_value = 1.9035e10
@@ -35,6 +39,12 @@ Friedlander_JJmax0 = lkit.PBHInstance(params, T_init, models=['GreybodyRS5D'], c
 # spinning greybody model with J=0
 Spinning_JJmax0 = lkit.PBHInstance(params, T_init, models=['SpinningRS5D'], compute_rates=True,
                                    num_samples=num_samples)
+Spinning_JJmax0.angular_momentum_plot('Spinning_astar0_J.pdf')
+
+# spinning greybody model with J/Jmax=0.3
+Spinning_JJmax0pt3 = lkit.PBHInstance(params, T_init, J_over_Jmax=0.3, models=['SpinningRS5D'], compute_rates=True,
+                                      num_samples=num_samples)
+Spinning_JJmax0pt3.angular_momentum_plot('Spinning_astar0pt3_J.pdf')
 
 # spinning greybody model with J/Jmax=0.7
 Spinning_JJmax0pt7 = lkit.PBHInstance(params, T_init, J_over_Jmax=0.7, models=['SpinningRS5D'], compute_rates=True,
@@ -44,6 +54,7 @@ Spinning_JJmax0pt7.angular_momentum_plot('Spinning_astar0pt7_J.pdf')
 lifetimes = {
     'Friedlander': Friedlander_JJmax0.lifetimes['GreybodyRS5D'],
     'Spinning_RS5D_JJmax0': Spinning_JJmax0.lifetimes['SpinningRS5D'],
+    'Spinning_RS5D_JJmax0pt3': Spinning_JJmax0pt3.lifetimes['SpinningRS5D'],
     'Spinning_RS5D_JJmax0pt7': Spinning_JJmax0pt7.lifetimes['SpinningRS5D']}
 
 plt.figure()
@@ -94,9 +105,19 @@ for label in lifetimes:
     if hasattr(history, 'J_init'):
         J = history.J_init
         if J is not None:
-            print('   PBH initial J = {finalJ}'.format(finalJ=J))
+            print('   PBH initial J = {initJ}'.format(initJ=J))
 
     if hasattr(history, 'J_final'):
         J = history.J_final
         if J is not None:
             print('   PBH final J = {finalJ}'.format(finalJ=J))
+
+    if hasattr(history, 'J_over_Jmax_init'):
+        J = history.J_over_Jmax_init
+        if J is not None:
+            print('   PBH initial J/Jamx = {initJ}'.format(initJ=J))
+
+    if hasattr(history, 'J_over_Jmax_final'):
+        J = history.J_over_Jmax_final
+        if J is not None:
+            print('   PBH final J/Jmax = {finalJ}'.format(finalJ=J))
