@@ -231,8 +231,8 @@ class BlackMaxSpectrum:
                 # we can do this using numpy element-by-element multiplication
                 d2E_dt_domega = self.x_samples * spectrum
 
-                d2E_dt_domega_spline = InterpolatedUnivariateSpline(self.x_samples, d2E_dt_domega)
-                d2J_dt_domega_spline = InterpolatedUnivariateSpline(self.x_samples, d2J_dt_domega)
+                d2E_dt_domega_spline = InterpolatedUnivariateSpline(self.x_samples, d2E_dt_domega, ext='raise')
+                d2J_dt_domega_spline = InterpolatedUnivariateSpline(self.x_samples, d2J_dt_domega, ext='raise')
 
                 dE_dt = 2.0*pi * d2E_dt_domega_spline.integral(0.0, self.max_x)
                 dJ_dt = 2.0*pi * d2J_dt_domega_spline.integral(0.0, self.max_x)

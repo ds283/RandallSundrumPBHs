@@ -177,15 +177,15 @@ xi_dJdt_spin1 = np.insert(xi_dJdt_spin1_pre, 0, 0.0)
 xi_dJdt_spin2 = np.insert(xi_dJdt_spin2_pre, 0, 0.0)
 
 # build splines for each of these functions
-xi_dMdt_spin0_spline = InterpolatedUnivariateSpline(astar, xi_dMdt_spin0)
-xi_dMdt_spin0pt5_spline = InterpolatedUnivariateSpline(astar, xi_dMdt_spin0pt5)
-xi_dMdt_spin1_spline = InterpolatedUnivariateSpline(astar, xi_dMdt_spin1)
-xi_dMdt_spin2_spline = InterpolatedUnivariateSpline(astar, xi_dMdt_spin2)
+xi_dMdt_spin0_spline = InterpolatedUnivariateSpline(astar, xi_dMdt_spin0, ext='raise')
+xi_dMdt_spin0pt5_spline = InterpolatedUnivariateSpline(astar, xi_dMdt_spin0pt5, ext='raise')
+xi_dMdt_spin1_spline = InterpolatedUnivariateSpline(astar, xi_dMdt_spin1, ext='raise')
+xi_dMdt_spin2_spline = InterpolatedUnivariateSpline(astar, xi_dMdt_spin2, ext='raise')
 
-xi_dJdt_spin0_spline = InterpolatedUnivariateSpline(astar, xi_dJdt_spin0)
-xi_dJdt_spin0pt5_spline = InterpolatedUnivariateSpline(astar, xi_dJdt_spin0pt5)
-xi_dJdt_spin1_spline = InterpolatedUnivariateSpline(astar, xi_dJdt_spin1)
-xi_dJdt_spin2_spline = InterpolatedUnivariateSpline(astar, xi_dJdt_spin2)
+xi_dJdt_spin0_spline = InterpolatedUnivariateSpline(astar, xi_dJdt_spin0, ext='raise')
+xi_dJdt_spin0pt5_spline = InterpolatedUnivariateSpline(astar, xi_dJdt_spin0pt5, ext='raise')
+xi_dJdt_spin1_spline = InterpolatedUnivariateSpline(astar, xi_dJdt_spin1, ext='raise')
+xi_dJdt_spin2_spline = InterpolatedUnivariateSpline(astar, xi_dJdt_spin2, ext='raise')
 
 Kerr_greybody_table_4D = _table_merge(SM_particle_base_table,
  {'Higgs': {'xi_M': xi_dMdt_spin0_spline, 'xi_J': xi_dJdt_spin0_spline, 'xi-per-dof': True},

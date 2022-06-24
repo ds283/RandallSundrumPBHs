@@ -1,9 +1,11 @@
+import math
+
 import numpy as np
 from scipy.interpolate import InterpolatedUnivariateSpline
 
-from ..particle_data import _table_merge, SM_particle_base_table
-from .Kerr import xi_dMdt_spin2_spline, xi_dJdt_spin2_spline
 from .Friedlander import xi0_spin2_5D, xi0_spin2_4D
+from .Kerr import xi_dMdt_spin2_spline, xi_dJdt_spin2_spline
+from ..particle_data import _table_merge, SM_particle_base_table
 
 # greybody factors extracted from the BlackMax greybody database
 astar = np.asarray([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5])
@@ -113,13 +115,13 @@ xi_dJdt_spin1 = np.asarray([1.4871197939461763e-16,
                             1.4009011326594107])
 
 # build splines for each of these functions
-xi_dMdt_spin0_spline = InterpolatedUnivariateSpline(astar, xi_dMdt_spin0)
-xi_dMdt_spin0pt5_spline = InterpolatedUnivariateSpline(astar, xi_dMdt_spin0pt5)
-xi_dMdt_spin1_spline = InterpolatedUnivariateSpline(astar, xi_dMdt_spin1)
+xi_dMdt_spin0_spline = InterpolatedUnivariateSpline(astar, xi_dMdt_spin0, ext='raise')
+xi_dMdt_spin0pt5_spline = InterpolatedUnivariateSpline(astar, xi_dMdt_spin0pt5, ext='raise')
+xi_dMdt_spin1_spline = InterpolatedUnivariateSpline(astar, xi_dMdt_spin1, ext='raise')
 
-xi_dJdt_spin0_spline = InterpolatedUnivariateSpline(astar, xi_dJdt_spin0)
-xi_dJdt_spin0pt5_spline = InterpolatedUnivariateSpline(astar, xi_dJdt_spin0pt5)
-xi_dJdt_spin1_spline = InterpolatedUnivariateSpline(astar, xi_dJdt_spin1)
+xi_dJdt_spin0_spline = InterpolatedUnivariateSpline(astar, xi_dJdt_spin0, ext='raise')
+xi_dJdt_spin0pt5_spline = InterpolatedUnivariateSpline(astar, xi_dJdt_spin0pt5, ext='raise')
+xi_dJdt_spin1_spline = InterpolatedUnivariateSpline(astar, xi_dJdt_spin1, ext='raise')
 
 BlackMax_greybody_table_5D = _table_merge(SM_particle_base_table,
  {'Higgs': {'xi_M': xi_dMdt_spin0_spline, 'xi_J': xi_dJdt_spin0_spline, 'xi-per-dof': True},
@@ -144,11 +146,15 @@ BlackMax_greybody_table_5D = _table_merge(SM_particle_base_table,
 # at zero angular momentum
 _xi_dMdt_spin2_rescale = xi0_spin2_5D/xi0_spin2_4D
 
-def _estimated_xi_dMdt_spin2(T_H: float) -> float:
-    return _xi_dMdt_spin2_rescale * xi_dMdt_spin2_spline(T_H)
+def _estimated_xi_dMdt_spin2(astar_MP: float) -> float:
+    # Kerr astar is not the same as Myers-Perry astar
+    aster_Kerr = astar_MP / math.sqrt(1.0 + astar_MP*astar_MP)
+    return _xi_dMdt_spin2_rescale * xi_dMdt_spin2_spline(aster_Kerr)
 
-def _estimated_xi_dJdt_spin2(T_H: float) -> float:
-    return _xi_dMdt_spin2_rescale * xi_dJdt_spin2_spline(T_H)
+def _estimated_xi_dJdt_spin2(astar_MP: float) -> float:
+    # Kerr astar is not the same as Myers-Perry astar
+    aster_Kerr = astar_MP / math.sqrt(1.0 + astar_MP*astar_MP)
+    return _xi_dMdt_spin2_rescale * xi_dJdt_spin2_spline(aster_Kerr)
 
 BlackMax_graviton_greybody_table_5D = \
  {'5D graviton': {'mass': 0.0, 'dof': 5.0,
