@@ -36,6 +36,8 @@ Const_J_limit_Myers_Perry = 2.0 / (3.0 * math.sqrt(3.0) * math.pi)
 # constant appearing in calculation of the Myers-Perry my parameter
 Const_mu_prefactor = 3.0 * math.pi * math.pi
 
+_ASTAR_TOLERANCE = 1E-6
+
 
 # Analytic lifetime model for 4D Schwarzschild black hole, for evaporation only, neglecting accretion
 def Solve_4D_T(Ti, Mi, Mf, gstar, a, tension, g4, sigma4, g5, sigma5, M4, alpha):
@@ -534,10 +536,14 @@ class SpinningBlackHole(BaseSpinningBlackHole):
         """
         a_sq = self.a * self.a
 
+        if (a_sq - self.mu)/self.mu > _ASTAR_TOLERANCE:
+            raise ValueError('RandallSundrum5D.SpinningBlackHole: radius_5D angular momentum value too large '
+                             '(J = {J}, Jmax_5D = {Jmax_5D}, Jmax_4D = {Jmax_4D}, J/Jmax_5D = {Jratio_5D}, J/Jmax_4D '
+                             '= {Jratio_4D})'.format(J=self.J, Jmax_5D=self.J_limit_5D, Jmax_4D=self.J_limit_4D,
+                                                     Jratio_5D=self.J/self.J_limit_5D, Jratio_4D=self.J/self.J_limit_4D))
+
         if a_sq > self.mu:
-            raise ValueError('Angular momentum value too large (J = {J}, Jmax_5D = {Jmax_5D}, Jmax_4D = {Jmax_4D}, '
-                             'J/Jmax_5D = {Jratio_5D}, J/Jmax_4D = {Jratio_4D})'.format(J=self.J, Jmax_5D=self.J_limit_5D, Jmax_4D=self.J_limit_4D,
-                                                                                        Jratio_5D=self.J/self.J_limit_5D, Jratio_4D=self.J/self.J_limit_4D))
+            return 0.0
 
         return math.sqrt(self.mu - a_sq)
 
@@ -553,13 +559,18 @@ class SpinningBlackHole(BaseSpinningBlackHole):
 
         # a* > 1 should be impossible, because we will arrive at an extremal Myers-Perry black hole before we
         # get there ... but test, just to be sure
-        if astar > 1.0:
-            raise ValueError('Angular momentum value too large (J = {J}, Jmax_5D = {Jmax_5D}, Jmax_4D = {Jmax_4D}, '
-                             'J/Jmax_5D = {Jratio_5D}, J/Jmax_4D = {Jratio_4D})'.format(J=self.J, Jmax_5D=self.J_limit_5D, Jmax_4D=self.J_limit_4D,
-                                                                                        Jratio_5D=self.J/self.J_limit_5D, Jratio_4D=self.J/self.J_limit_4D))
-        astar_sq = astar*astar
+        if astar - 1.0 > _ASTAR_TOLERANCE:
+            raise ValueError('RandallSundrum5D.SpinningBlackHole: radius_4D angular momentum value too large '
+                             '(J = {J}, Jmax_5D = {Jmax_5D}, Jmax_4D = {Jmax_4D}, J/Jmax_5D = {Jratio_5D}, J/Jmax_4D '
+                             '= {Jratio_4D})'.format(J=self.J, Jmax_5D=self.J_limit_5D, Jmax_4D=self.J_limit_4D,
+                                                     Jratio_5D=self.J/self.J_limit_5D, Jratio_4D=self.J/self.J_limit_4D))
+
         Rs = Const_Radius_4D * (self.M / self.params.M4) / self.params.M4
 
+        if astar > 1.0:
+            return Rs / 2.0
+
+        astar_sq = astar*astar
         return (Rs / 2.0) * (1.0 + math.sqrt(1.0 - astar_sq))
 
     @property
