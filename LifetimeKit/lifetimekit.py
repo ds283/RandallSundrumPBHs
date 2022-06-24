@@ -473,7 +473,7 @@ class PBHLifetimeModel:
 
             if self._using_J:
                 self.J_sample_points = np.resize(self.J_sample_points, index)
-                self.J_over_Jmax_sample_points = np.resize(self.J_over_Jmax_final, index)
+                self.J_over_Jmax_sample_points = np.resize(self.J_over_Jmax_sample_points, index)
 
         # create an instance of the appropriate black hole type
         M = math.exp(stepper.y[0])
@@ -925,21 +925,26 @@ class PBHInstance:
                 plt.loglog(Trad_values, M_values, label='{key}'.format(key=label))
 
         plt.xlabel('Radiation temperature $T$ / {unit}'.format(unit=temperature_units))
-        plt.ylabel('PBH mass $M_{{\mathrm{{PBH}}}}$ / {unit}'.format(unit=mass_units))
+        plt.ylabel('PBH mass $M$ / {unit}'.format(unit=mass_units))
         plt.legend()
         plt.savefig(filename)
 
 
-    def angular_momentum_plot(self, filename, models=None, temperature_units='Kelvin'):
+    def angular_momentum_plot(self, filename, models=None, temperature_units='Kelvin', type='J'):
         """
         produce plot of PBH angular momentum over its lifetime, as a function of the radiation temperature T
         :param filename:
         :param models:
+        :param temperature_units:
+        :param type:
         :return:
         """
         if temperature_units not in self._temperature_conversions:
-            raise RuntimeError('PBHLifetimeModel.lifetime_plot: unit "{unit}" not understood in '
+            raise RuntimeError('PBHLifetimeModel.angular_momentum_plot: unit "{unit}" not understood in '
                                'constructor'.format(unit=temperature_units))
+
+        if type not in ['J', 'J/Jmax']:
+            raise ValueError('PBHLifetimeModel.angular_momentum_plot: unknown plot type "{type}"'.format(type=type))
 
         if models is None or not isinstance(models, list):
             models = self.lifetimes.keys()
@@ -952,12 +957,21 @@ class PBHInstance:
             if label in self.lifetimes:
                 history = self.lifetimes[label]
                 Trad_values = history.T_sample_points / temperature_units_to_GeV
-                J_values = history.J_sample_points
 
-                plt.loglog(Trad_values, J_values, label='{key}'.format(key=label))
+                if type == 'J':
+                    J_values = history.J_sample_points
+                    plt.loglog(Trad_values, J_values, label='{key}'.format(key=label))
+
+                elif type == 'J/Jmax':
+                    J_values = history.J_over_Jmax_sample_points
+                    plt.loglog(Trad_values, J_values, label='{key}'.format(key=label))
 
         plt.xlabel('Radiation temperature $T$ / {unit}'.format(unit=temperature_units))
-        plt.ylabel('PBH angular momentum $J_{{\mathrm{{PBH}}}}$')
+
+        if type == 'J':
+            plt.ylabel('PBH angular momentum $J$')
+        elif type == 'J/Jmax':
+            plt.ylabel('PBH angular momentum $J/J_{{\text{{max}}}}$')
         plt.legend()
         plt.savefig(filename)
 

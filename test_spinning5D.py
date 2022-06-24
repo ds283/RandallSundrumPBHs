@@ -39,17 +39,20 @@ Friedlander_JJmax0 = lkit.PBHInstance(params, T_init, models=['GreybodyRS5D'], c
 # spinning greybody model with J=0
 Spinning_JJmax0 = lkit.PBHInstance(params, T_init, models=['SpinningRS5D'], compute_rates=True,
                                    num_samples=num_samples)
-Spinning_JJmax0.angular_momentum_plot('Spinning_astar0_J.pdf')
+Spinning_JJmax0.angular_momentum_plot('Spinning_astar0_J.pdf', type='J')
+Spinning_JJmax0.angular_momentum_plot('Spinning_astar0_JJmax.pdf', type='J/Jmax')
 
 # spinning greybody model with J/Jmax=0.3
 Spinning_JJmax0pt3 = lkit.PBHInstance(params, T_init, J_over_Jmax=0.3, models=['SpinningRS5D'], compute_rates=True,
                                       num_samples=num_samples)
-Spinning_JJmax0pt3.angular_momentum_plot('Spinning_astar0pt3_J.pdf')
+Spinning_JJmax0pt3.angular_momentum_plot('Spinning_astar0pt3_J.pdf', type='J')
+Spinning_JJmax0pt3.angular_momentum_plot('Spinning_astar0pt3_JJmax.pdf', type='J/Jmax')
 
 # spinning greybody model with J/Jmax=0.7
 Spinning_JJmax0pt7 = lkit.PBHInstance(params, T_init, J_over_Jmax=0.7, models=['SpinningRS5D'], compute_rates=True,
                                       num_samples=num_samples)
-Spinning_JJmax0pt7.angular_momentum_plot('Spinning_astar0pt7_J.pdf')
+Spinning_JJmax0pt7.angular_momentum_plot('Spinning_astar0pt7_J.pdf', type='J')
+Spinning_JJmax0pt7.angular_momentum_plot('Spinning_astar0pt7_JJmax.pdf', type='J/Jmax')
 
 lifetimes = {
     'Friedlander': Friedlander_JJmax0.lifetimes['GreybodyRS5D'],
