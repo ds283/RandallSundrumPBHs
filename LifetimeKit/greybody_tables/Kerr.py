@@ -144,7 +144,7 @@ _g2 = np.asarray([1.064E-4,
 # for details, see 15 June 2022 calculation "Relationship between Page f, g factors and Friedlander et al. xi factors"
 def _convert_f_to_xi(astar_sample, f_sample):
     astar_sq = astar_sample * astar_sample
-    return 2.0 * pi * (2.0 + astar_sq + 2.0*np.sqrt(1.0 - astar_sq)) * f_sample
+    return 2.0 * pi * (2.0 - astar_sq + 2.0*np.sqrt(1.0 - astar_sq)) * f_sample
 
 _xi_dMdt_spin0 = _convert_f_to_xi(_astar, _f0)
 _xi_dMdt_spin0pt5 = _convert_f_to_xi(_astar, _f0pt5)
