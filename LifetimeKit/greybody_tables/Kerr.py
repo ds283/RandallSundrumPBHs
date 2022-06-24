@@ -216,8 +216,8 @@ class _Kerr_interpolator:
 
 
 # build splines for each of these functions
-xi_dMdt_spin0_spline = _Kerr_interpolator(_astar, _xi_dMdt_spin0, _xi0_spin0_4D, deg=7)
-xi_dMdt_spin0pt5_spline = _Kerr_interpolator(_astar, _xi_dMdt_spin0pt5, _xi0_spin0pt5_4D, deg=7)
+xi_dMdt_spin0_spline = _Kerr_interpolator(_astar, _xi_dMdt_spin0, _xi0_spin0_4D, deg=5)
+xi_dMdt_spin0pt5_spline = _Kerr_interpolator(_astar, _xi_dMdt_spin0pt5, _xi0_spin0pt5_4D, deg=9)
 xi_dMdt_spin1_spline = _Kerr_interpolator(_astar, _xi_dMdt_spin1, _xi0_spin1_4D, deg=5)
 xi_dMdt_spin2_spline = _Kerr_interpolator(_astar, _xi_dMdt_spin2, _xi0_spin2_4D, deg=5)
 
