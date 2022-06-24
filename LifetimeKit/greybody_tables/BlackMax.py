@@ -11,7 +11,7 @@ from ..particle_data import _table_merge, SM_particle_base_table
 # greybody factors extracted from the BlackMax greybody database
 _astar = np.asarray([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5])
 
-BlackMax_maximum_astar = 1.5
+_BlackMax_maximum_astar = 1.5
 
 _xi_dMdt_spin0 = np.asarray([0.016733779047978143,
                              0.0168586918073312,
@@ -115,14 +115,59 @@ _xi_dJdt_spin1 = np.asarray([1.4871197939461763e-16,
                              1.1205783273694725,
                              1.4009011326594107])
 
-# build splines for each of these functions
-xi_dMdt_spin0_spline = InterpolatedUnivariateSpline(_astar, _xi_dMdt_spin0, ext='raise')
-xi_dMdt_spin0pt5_spline = InterpolatedUnivariateSpline(_astar, _xi_dMdt_spin0pt5, ext='raise')
-xi_dMdt_spin1_spline = InterpolatedUnivariateSpline(_astar, _xi_dMdt_spin1, ext='raise')
+class _BlackMax_interpolator:
+    """
+    An interpolating class for the BlackMax emission rates. Unlike the Kerr emission rates,
+    it seems possible to fit an InterpolatedUnivariateSpline to the BlackMax rates
+    quite accurately (perhaps because of the regular spacing of the a* sample values?
+    The Kerr ones pile up logarithmically near a*=1)
+    """
 
-xi_dJdt_spin0_spline = InterpolatedUnivariateSpline(_astar, _xi_dJdt_spin0, ext='raise')
-xi_dJdt_spin0pt5_spline = InterpolatedUnivariateSpline(_astar, _xi_dJdt_spin0pt5, ext='raise')
-xi_dJdt_spin1_spline = InterpolatedUnivariateSpline(_astar, _xi_dJdt_spin1, ext='raise')
+    def __init__(self, astar_grid, value_grid) -> None:
+        """
+        Capture the (a*, value) sample grid.
+        :param astar_grid:
+        :param value_grid:
+        """
+
+        self._astar_grid = np.asarray(astar_grid)
+
+        self._value_grid = np.asarray(value_grid)
+
+        self._fit = InterpolatedUnivariateSpline(self._astar_grid, self._value_grid)
+
+
+    def __call__(self, astar):
+        if isinstance(astar, float):
+            return self._evaluate(astar)
+
+        if isinstance(astar, list):
+            return [self._evaluate(a) for a in astar]
+
+        if isinstance(astar, np.ndarray):
+            return np.array(list(map(self._evaluate, astar)), dtype=astar.dtype)
+
+        return self._evaluate(astar)
+
+
+    def _evaluate(self, astar: float) -> float:
+        if astar < 0.0:
+            raise ValueError("Myers-Perry a* parameter should be >= 0.0")
+
+        # cap a* value at the maximum for which BlackMax tabulate the greybody factors
+        if astar > _BlackMax_maximum_astar:
+            astar = _BlackMax_maximum_astar
+
+        return self._fit(astar)
+
+# build splines for each of these functions
+xi_dMdt_spin0_spline = _BlackMax_interpolator(_astar, _xi_dMdt_spin0)
+xi_dMdt_spin0pt5_spline = _BlackMax_interpolator(_astar, _xi_dMdt_spin0pt5)
+xi_dMdt_spin1_spline = _BlackMax_interpolator(_astar, _xi_dMdt_spin1)
+
+xi_dJdt_spin0_spline = _BlackMax_interpolator(_astar, _xi_dJdt_spin0)
+xi_dJdt_spin0pt5_spline = _BlackMax_interpolator(_astar, _xi_dJdt_spin0pt5)
+xi_dJdt_spin1_spline = _BlackMax_interpolator(_astar, _xi_dJdt_spin1)
 
 BlackMax_greybody_table_5D = _table_merge(SM_particle_base_table,
  {'Higgs': {'xi_M': xi_dMdt_spin0_spline, 'xi_J': xi_dJdt_spin0_spline, 'xi-per-dof': True},
@@ -147,16 +192,41 @@ BlackMax_greybody_table_5D = _table_merge(SM_particle_base_table,
 # at zero angular momentum
 _xi_dMdt_spin2_rescale = _xi0_spin2_5D / _xi0_spin2_4D
 
-def xi_dMdt_spin2_spline(astar_MP: float) -> float:
-    # Kerr astar is not the same as Myers-Perry astar
-    astar_Kerr = astar_MP / np.sqrt(1.0 + astar_MP*astar_MP)
-    return _xi_dMdt_spin2_rescale * _Kerr_dMdt_spin2(astar_Kerr)
+class _BlackMax_to_Kerr_adapter:
+    """
+    For gravitons, we do not have BlackMax tabulated values for the emisison rates.
+    So, currently, we are bodging this by using the functional form of the Kerr
+    graviton emission, rescaled to match the J=0 5d graviton emission rate
+    """
 
-def xi_dJdt_spin2_spline(astar_MP: float) -> float:
-    # Kerr astar is not the same as Myers-Perry astar
-    aster_Kerr = astar_MP / np.sqrt(1.0 + astar_MP*astar_MP)
-    return _xi_dMdt_spin2_rescale * _Kerr_dJdt_spin2(aster_Kerr)
+    def __init__(self, Kerr_spline):
+        self._Kerr_spline = Kerr_spline
+
+    def __call__(self, astar):
+        if isinstance(astar, float):
+            return self._evaluate(astar)
+
+        if isinstance(astar, list):
+            return [self._evaluate(a) for a in astar]
+
+        if isinstance(astar, np.ndarray):
+            return np.array(list(map(self._evaluate, astar)), dtype=astar.dtype)
+
+        return self._evaluate(astar)
+
+    def _evaluate(self, astar):
+        if astar < 0.0:
+            raise ValueError("Myers-Perry a* parameter should be >= 0.0")
+
+        # cap a* value at the maximum for which BlackMax tabulate the greybody factors
+        if astar > _BlackMax_maximum_astar:
+            astar = _BlackMax_maximum_astar
+
+        astar_Kerr = astar / np.sqrt(1.0 + astar*astar)
+        return _xi_dMdt_spin2_rescale * self._Kerr_spline(astar_Kerr)
 
 BlackMax_graviton_greybody_table_5D = \
  {'5D graviton': {'mass': 0.0, 'dof': 5.0,
-                  'xi_M': xi_dMdt_spin2_spline, 'xi_J': xi_dJdt_spin2_spline, 'xi-per-dof': False}}
+                  'xi_M': _BlackMax_to_Kerr_adapter(_Kerr_dMdt_spin2),
+                  'xi_J': _BlackMax_to_Kerr_adapter(_Kerr_dJdt_spin2),
+                  'xi-per-dof': False}}

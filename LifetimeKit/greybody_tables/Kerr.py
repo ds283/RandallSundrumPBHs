@@ -1,6 +1,5 @@
 from math import pi, exp
 
-import numpy
 import numpy as np
 from numpy.polynomial import Chebyshev
 
@@ -196,7 +195,7 @@ class _Kerr_interpolator:
         if isinstance(astar, list):
             return [self._evaluate(a) for a in astar]
 
-        if isinstance(astar, numpy.ndarray):
+        if isinstance(astar, np.ndarray):
             return np.array(list(map(self._evaluate, astar)), dtype=astar.dtype)
 
         return self._evaluate(astar)

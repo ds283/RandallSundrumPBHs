@@ -1,13 +1,12 @@
 import math
-from operator import itemgetter
 from abc import ABC, abstractmethod
+from operator import itemgetter
 
 import numpy as np
 
 from .constants import Page_suppression_factor
 from .natural_units import Kelvin, Kilogram, Gram
 from .particle_data import SM_particle_table
-from .greybody_tables.BlackMax import BlackMax_maximum_astar
 
 # tolerance for binning particle masses (expressed in GeV) into a single threshold
 T_threshold_tolerance = 1E-8
@@ -545,13 +544,6 @@ class BaseSpinningGreybodyLifetimeModel(BaseGreybodyLifetimeModel):
         # a* = a/Rh as needed
         xi_astar_arg = PBH.xi_astar_argument
 
-        # BlackMax greybody tables only go up to a* = 3/2 (with the Myers-Perry definition of a*),
-        # so for larger values of a* we obtain an estimate simply by capping them.
-        # For Kerr this doesn't cause any problems, because there a* < 1.0.
-        # TODO: consider sourcing more complete greybody tables for d=5
-        if xi_astar_arg > BlackMax_maximum_astar:
-            xi_astar_arg = BlackMax_maximum_astar
-
         # cache reference to xi-table dictionary
         xi_species_list = self.xi_species_list(PBH)
 
@@ -590,13 +582,6 @@ class BaseSpinningGreybodyLifetimeModel(BaseGreybodyLifetimeModel):
         # for the 5D Randall-Sundrum black hole, this will switch between the Kerr a* = J/Jmax and the Myers-Perry
         # a* = a/Rh as needed
         xi_astar_arg = PBH.xi_astar_argument
-
-        # BlackMax greybody tables only go up to a* = 3/2 (with the Myers-Perry definition of a*),
-        # so for larger values of astar we obtain an estimate simply by capping them.
-        # For Kerr this doesn't cause any problems, because there a* < 1.0.
-        # TODO: consider sourcing more complete greybody tables for d=5
-        if xi_astar_arg > BlackMax_maximum_astar:
-            xi_astar_arg = BlackMax_maximum_astar
 
         # cache reference to xi-table dictionary
         # in the 5D Randall-Sundrum spinning black hole, this will switch between the 4D and 5D tables
