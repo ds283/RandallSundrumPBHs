@@ -345,7 +345,7 @@ class BaseStefanBoltzmannLifetimeModel:
             raise RuntimeError('BaseStefanBoltzmannLifetimeModel: supplied engine instance is not of expected type')
 
         self.engine = engine
-        self._params = engine.params
+        self._params = engine._params
 
         self._accretion_efficiency_F = accretion_efficiency_F
         self._use_effective_radius = use_effective_radius
@@ -357,7 +357,7 @@ class BaseStefanBoltzmannLifetimeModel:
                                               use_Page_suppression)
 
         # create a PBHModel instance; the value assigned to the mass doesn't matter
-        self._PBH = BlackHole(self.engine.params, 1.0, units='gram')
+        self._PBH = BlackHole(self.engine._params, 1.0, units='gram')
 
         # build table of mass thresholds associated with Hawking quanta; this is used in the Stefan-Boltzmann
         # approximation
@@ -644,7 +644,7 @@ class BaseSpinningGreybodyLifetimeModel(BaseGreybodyLifetimeModel):
 
         # create a PBH model instance; for this type of black hole, we expect it to have both
         # mass and angular momentum
-        self._PBH = BlackHole(self.engine.params, 1.0, J=0.0, units='gram')
+        self._PBH = BlackHole(self.engine._params, 1.0, J=0.0, units='gram')
 
     def _sum_dMdt_species(self, PBH, species: str) -> float:
         """
