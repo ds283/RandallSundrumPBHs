@@ -5,8 +5,8 @@ import seaborn as sns
 sns.set()
 
 # test configuration for which PBH evaporates in 5D regime, but seems to exhibit residual spin in SpinGrid
-M5_value = 2.4517e10
-T_init = 5.1943e8
+M5_value = 2214346357.7798195
+T_init = 2232484.217080292
 
 # a black hole configuration that evaporates quite early, for testing impact of changing F et al.
 # M5_value = 1.3209e16
