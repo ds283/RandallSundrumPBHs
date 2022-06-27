@@ -287,6 +287,7 @@ class BaseGreybodyLifetimeModel(ABC):
         :param use_effective_radius:
         :param use_Page_suppression:
         """
+        super().__init__()
         if engine is None or not isinstance(engine, Model):
             raise RuntimeError('BaseFriedlanderGreybodyLifetimeModel: supplied engine instance is not of expected type')
 
@@ -699,15 +700,16 @@ class BaseBlackHole(ABC):
         :param strict: perform stricter validation checks on parameters (defaults to True); may need to be disabled
         to allow construction of BH models with M < M4 that would usually produce a relic
         """
+        super().__init__()
         self.params = params
 
         # assign current mass value in GeV
         # define a 'None' value first, in order to define all instance attributes within __init__()
-        self.M = None
+        self.M: float = None
         self.set_M(M, units)
 
         # check mass is positive
-        if self.M < 0:
+        if self.M < 0.0:
             raise RuntimeError('BaseBlackHole: Initial black hole mass should be positive (M={M} GeV)'.format(M=M))
 
         # check mass is larger than 4D Planck mass (has to be done *after* assignment so that any units
