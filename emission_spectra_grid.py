@@ -26,7 +26,7 @@ else:
     set_progress_bars(False)
 
 
-def compute_emission_rates(serial_batch) -> List[float]:
+def compute_emission_rates(serial_batch):
     batch = []
     times = []
 
@@ -40,20 +40,25 @@ def compute_emission_rates(serial_batch) -> List[float]:
             # get mass of Hubble volume expressed in GeV
             M_Hubble = engine.M_Hubble(T=Tinit)
 
-            # compute initial mass in GeV
-            M_init = f * M_Hubble
+            # compute wanted initial mass in GeV, which should be about 20 times heavier than the minimal mass
+            M_input = f * M_Hubble
+            M_target = 20.0 * M_input
+            T_target = engine.find_Tinit_from_Minit(M=M_target, units='GeV')
 
             model = lkit.RS5D_Friedlander.LifetimeModel(engine, accretion_efficiency_F=F,
                                                         use_Page_suppression=True, use_effective_radius=True)
-            soln = lkit.PBHLifetimeModel(M_init, Tinit, model, num_samples=500, compute_rates=False)
+            soln = lkit.PBHLifetimeModel(M_target, T_target, model, num_samples=500, compute_rates=False)
 
             PBH = lkit.RS5D.SpinlessBlackHole(params, M=soln.M_final, units='GeV', strict=False)
 
             data = {'serial': _serial,
                     'timestamp': datetime.now(),
                     'M5_GeV': M5,
-                    'Minit_5D_GeV': M_init,
-                    'Minit_5D_Gram': M_init/lkit.Gram,
+                    'Minput_GeV': M_input,
+                    'Mtarget_GeV': M_target,
+                    'Minit_GeV': soln.M_init,
+                    'Minit_Gram': soln.M_init/lkit.Gram,
+                    'Minit_to_Mtarget_ratio': soln.M_init/M_target,
                     'F': F,
                     'f': f,
                     'Tinit_GeV': Tinit,
