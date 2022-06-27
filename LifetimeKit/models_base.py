@@ -3,17 +3,27 @@ from abc import ABC, abstractmethod
 from operator import itemgetter
 
 import numpy as np
+from scipy.optimize import brentq
 
 from .constants import Page_suppression_factor
-from .natural_units import Kelvin, Kilogram, Gram
+from .natural_units import Kelvin, Kilogram, Gram, SolarMass
 from .particle_data import SM_particle_table
 
 # tolerance for binning particle masses (expressed in GeV) into a single threshold
-T_threshold_tolerance = 1E-8
+_T_threshold_tolerance = 1E-8
 
-Const_2Pi = 2.0 * math.pi
-Const_4Pi = 4.0 * math.pi
-Const_PiOver2 = math.pi / 2.0
+_Const_2Pi = 2.0 * math.pi
+_Const_4Pi = 4.0 * math.pi
+_Const_PiOver2 = math.pi / 2.0
+
+# minimum temperature for which we search when trying to compute a T_init given
+# an M_init. For now, we take this to be TeV = 1E3 GeV
+# The answer is expressed in GeV
+_MINIMUM_SEARCH_TEMPERATURE = 1E3
+
+_TEMPERATURE_COMPARE_TOLERANCE = 1E-6
+
+_ROOT_SEARCH_TOLERANCE = 1E-3
 
 def build_cumulative_g_table(particle_table, weight=None):
     # build a list of particle records ordered by their mass
@@ -36,7 +46,7 @@ def build_cumulative_g_table(particle_table, weight=None):
 
         while current_particle_index < num_particles:
             next_record = particles[current_particle_index]
-            if next_record['mass'] - next_threshold > T_threshold_tolerance:
+            if next_record['mass'] - next_threshold > _T_threshold_tolerance:
                 break
 
             cumulative_g += next_record['dof'] * (next_record[weight] if weight is not None else 1.0)
@@ -53,19 +63,30 @@ def build_cumulative_g_table(particle_table, weight=None):
     return T_thresholds, g_values
 
 
-class BaseCosmology:
+class BaseCosmology(ABC):
+    """
+    Defines interface and common infrastructure for a cosmology engine
+    """
+    # conversion factors into GeV for mass units we understand
+    _mass_conversions = {'gram': Gram, 'kilogram': Kilogram, 'SolarMass': SolarMass, 'GeV': 1.0}
 
-    def __init__(self, params, fixed_g=None):
-        self.params = params
+    def __init__(self, params, fixed_g=None) -> None:
+        super().__init__()
+        self._params = params
 
         self.SM_thresholds, self.SM_g_values = build_cumulative_g_table(SM_particle_table, weight='spin-weight')
         self.SM_num_thresholds = len(self.SM_thresholds)
 
         self._fixed_g = fixed_g
 
-    # compute the radiation energy density in GeV^4 from a temperature supplied in GeV
-    # currently, we assume there are a fixed number of relativistic species
-    def rho_radiation(self, T=None, log_T=None):
+    def rho_radiation(self, T: float=None, log_T: float=None) -> float:
+        """
+        Compute the radiation energy density in GeV^4 from a temperature supplied in GeV.
+        Currently, we assume there are a fixed number of relativistic species
+        :param T:
+        :param log_T:
+        :return:
+        """
         # if T is not supplied, try to use log_T
         if T is not None:
             _T = T
@@ -76,24 +97,24 @@ class BaseCosmology:
 
         # check that supplied temperature is lower than the intended maximum temperature
         # (usually the 4D or 5D Planck mass, but model-dependent)
-        if T > self.params.Tmax:
+        if _T/self._params.Tmax > 1.0 + _TEMPERATURE_COMPARE_TOLERANCE:
             raise RuntimeError('Temperature T = {TGeV:.3g} GeV = {TKelvin:.3g} K is higher than the specified '
                                'maximum temperature Tmax = {TmaxGeV:.3g} GeV = '
-                               '{TmaxKelvin:.3g} K'.format(TGeV=T, TKelvin=T/Kelvin,
-                                                           TmaxGeV=self.params.Tmax, TmaxKelvin=self.params.Tmax/Kelvin))
+                               '{TmaxKelvin:.3g} K'.format(TGeV=_T, TKelvin=_T/Kelvin,
+                                                           TmaxGeV=self._params.Tmax, TmaxKelvin=self._params.Tmax / Kelvin))
 
-        Tsq = T*T
+        Tsq = _T*_T
         T4 = Tsq*Tsq
 
         if self._fixed_g:
             g = self._fixed_g
         else:
-            g = self.g(T)
+            g = self.g(_T)
 
-        return self.params.RadiationConstant * g * T4
+        return self._params.RadiationConstant * g * T4
 
 
-    def g(self, T):
+    def g(self, T: float) -> float:
         """
         Compute number of relativistic degrees of freedom in the radiation bath at temperature T
         """
@@ -105,20 +126,118 @@ class BaseCosmology:
 
         return self.SM_g_values[index]
 
+    @abstractmethod
+    def Hubble(self, T: float=None, log_T: float=None) -> float:
+        """
+        compute the Hubble rate in GeV at a time corresponding to a temperature supplied in GeV
+        :param T:
+        :param log_T:
+        :return:
+        """
+        pass
+
+    @abstractmethod
+    def R_Hubble(self, T: float=None, log_T: float=None) -> float:
+        """
+        compute the Hubble length in 1/GeV at a time corresponding to a temperature supplied in GeV
+        the formula here is R_H = 1/H
+        :param T:
+        :param log_T:
+        :return:
+        """
+        pass
+
+    @abstractmethod
+    def M_Hubble(self, T: float=None, log_T: float=None) -> float:
+        """
+        compute the mass (in GeV) enclosed within the Hubble length, at a time corresponding to a temperature supplied in GeV
+        the formula here is M_H = (4/3) pi rho R_H^3, but we compute it directly to avoid multiple evaluations of rho
+        :param T:
+        :param log_T:
+        :return:
+        """
+        pass
+
+    def find_Tinit_from_Minit(self, M: float, units: str='GeV') -> float:
+        """
+        solve to find the initial radiation temperature that corresponds to a given
+        initial PBH mass M_init
+        :param M:
+        :param units:
+        :return:
+        """
+        if units not in self._mass_conversions:
+            raise RuntimeError('BaseCosmology.find_Tinit_from_Minit: unit "{unit}" not understood in constructor'.format(unit=units))
+
+        units_to_GeV = self._mass_conversions[units]
+        M_target = M * units_to_GeV
+        log_M_target = math.log(M_target)
+
+        # try to bracket the root within a sensible range of temperature
+        log_T_max = math.log(self._params.Tmax)
+        log_T_min = math.log(_MINIMUM_SEARCH_TEMPERATURE)
+
+        def log_M_Hubble_root(log_T: float) -> float:
+            return math.log(self.M_Hubble(log_T=log_T)) - log_M_target
+
+        log_T_sample = np.linspace(start=log_T_min, stop=log_T_max, num=50)
+        # print('log_T_min = {min}, log_T_max = {max}, T_max = {Tmax}'.format(min=log_T_min, max=log_T_max, Tmax=self._params.Tmax))
+
+        root_sample = np.array(list(map(log_M_Hubble_root, log_T_sample)), dtype=np.float64)
+
+        # print('M_target = {Mtarget} gram'.format(Mtarget=M_target/Gram))
+        # print('log_T_sample = {Tsamp}'.format(Tsamp=log_T_sample))
+        # print('log_M_sample = {logMsamp}'.format(logMsamp=log_M_sample))
+        # print('root_sample = {root}'.format(root=root_sample))
+
+        # find where elements of M_sample change sign
+        sign_changes = np.where(np.diff(np.sign(root_sample)) != 0)[0] + 1
+        # print('sign_changes = {changes}'.format(changes=sign_changes))
+
+        if sign_changes.size == 0:
+            raise RuntimeError('BaseCosmology.find_Tinit_from_Minit: found no roots')
+        if sign_changes.size > 1:
+            raise RuntimeError('BaseCosmology.find_Tinit_from_Minit: found multiple roots')
+
+        sign_change_point = sign_changes[0]
+        a = log_T_sample[sign_change_point-1]
+        b = log_T_sample[sign_change_point]
+        if log_M_Hubble_root(a)*log_M_Hubble_root(b) > 0.0:
+            raise RuntimeError('BaseCosmology.find_Tinit_from_Minit: extrema did not bracket a root')
+
+        found_logT = brentq(log_M_Hubble_root, a=a, b=b)
+        found_T = math.exp(found_logT)
+        found_M = self.M_Hubble(log_T=found_logT)
+
+        found_vs_sought = found_M/M_target
+        if math.fabs(found_vs_sought - 1.0) > _ROOT_SEARCH_TOLERANCE:
+            raise RuntimeError('BaseCosmology.find_Tinit_from_Minit: target M = {Mtarget} gram, '
+                               'found M = {Mfound} gram, found T = {Tfound} K'.format(Mtarget=M_target / Gram,
+                                                                                      Mfound=found_M / Gram,
+                                                                                      Tfound=found_T / Kelvin))
+
+        return found_T
+
 
 class BondiHoyleLyttletonAccretionModel:
     """
     Shared implementation used by all instances of Bondi-Hoyle-Lyttleton-type
     accretion models
     """
-    def __init__(self, engine, accretion_efficiency_F, use_effective_radius, use_Page_suppression):
+    def __init__(self, engine, accretion_efficiency_F, use_effective_radius, use_Page_suppression) -> None:
         self.engine = engine
 
         self._accretion_efficiency_F = accretion_efficiency_F
         self._use_effective_radius = use_effective_radius
         self._use_Page_suppression = use_Page_suppression
 
-    def rate(self, T_rad, PBH):
+    def rate(self, T_rad: float, PBH) -> float:
+        """
+        Compute accretion rate (in GeV^2) for a given PBH instance at a given radiation temperature (in GeV)
+        :param T_rad:
+        :param PBH:
+        :return:
+        """
         # compute horizon radius in 1/GeV
         rh = PBH.radius
         rh_sq = rh*rh
@@ -143,13 +262,13 @@ class StefanBoltzmann4D:
     Shared implementation of Stefan-Boltzmann law in 4D
     """
 
-    def __init__(self, SB_4D: float, use_effective_radius=True, use_Page_suppression=True):
+    def __init__(self, SB_4D: float, use_effective_radius=True, use_Page_suppression=True) -> None:
         self._use_effective_radius = use_effective_radius
         self._use_Page_suppression = use_Page_suppression
 
         self._SB_4D = SB_4D
 
-    def rate(self, PBH, g4=1.0):
+    def rate(self, PBH, g4: float=1.0) -> float:
         # compute horizon radius in 1/GeV
         rh = PBH.radius
         rh_sq = rh*rh
@@ -161,7 +280,7 @@ class StefanBoltzmann4D:
         t = PBH.t
         t4 = t*t*t*t
 
-        evap_prefactor = Const_4Pi * alpha_sq / (t4 * rh_sq)
+        evap_prefactor = _Const_4Pi * alpha_sq / (t4 * rh_sq)
         evap_dof = g4 * self._SB_4D
 
         dM_dt = -evap_prefactor * evap_dof / (Page_suppression_factor if self._use_Page_suppression else 1.0)
@@ -174,14 +293,14 @@ class StefanBoltzmann5D:
     Shared implementation of Stefan-Boltzmannn law in 5D
     """
 
-    def __init__(self, SB_4D: float, SB_5D: float, use_effective_radius=True, use_Page_suppression=True):
+    def __init__(self, SB_4D: float, SB_5D: float, use_effective_radius=True, use_Page_suppression=True) -> None:
         self._use_effective_radius = use_effective_radius
         self._use_Page_suppression = use_Page_suppression
 
         self._SB_4D = SB_4D
         self._SB_5D = SB_5D
 
-    def dMdt(self, PBH, g4=0.0, g5=1.0):
+    def dMdt(self, PBH, g4: float=0.0, g5: float=1.0) -> float:
         # compute horizon radius in 1/GeV
         rh = PBH.radius
         rh_sq = rh*rh
@@ -194,8 +313,8 @@ class StefanBoltzmann5D:
         t4 = t*t*t*t
 
         try:
-            evap_prefactor = Const_4Pi * alpha_sq / (t4 * rh_sq)
-            evap_dof = (g4 * self._SB_4D + Const_PiOver2 * alpha * g5 * self._SB_5D / t)
+            evap_prefactor = _Const_4Pi * alpha_sq / (t4 * rh_sq)
+            evap_dof = (g4 * self._SB_4D + _Const_PiOver2 * alpha * g5 * self._SB_5D / t)
 
             dM_dt = -evap_prefactor * evap_dof / (Page_suppression_factor if self._use_Page_suppression else 1.0)
         except ZeroDivisionError:
@@ -210,7 +329,7 @@ class BaseStefanBoltzmannLifetimeModel:
 
     def __init__(self, engine, Model, BlackHole, accretion_efficiency_F=0.3,
                  use_effective_radius=True, use_Page_suppression=True,
-                 extra_4D_state_table=None):
+                 extra_4D_state_table=None) -> None:
         """
         To speed up computations, we want to cache the number of relativistic degrees of freedom
         available at any given temperature.
@@ -256,7 +375,7 @@ class BaseStefanBoltzmannLifetimeModel:
         self._num_thresholds = len(self._thresholds)
 
 
-    def g4(self, T_Hawking):
+    def g4(self, T_Hawking: float) -> float:
         """
         Compute number of relativistic degrees of freedom available for Hawking quanta to radiate into,
         based on Standard Model particles
@@ -269,7 +388,7 @@ class BaseStefanBoltzmannLifetimeModel:
 
         return self._g_values[index]
 
-    def _dMdt_accretion(self, T_rad, PBH):
+    def _dMdt_accretion(self, T_rad: float, PBH) -> float:
         return self._accretion_model.rate(T_rad, PBH)
 
 
@@ -279,7 +398,7 @@ class BaseGreybodyLifetimeModel(ABC):
     """
 
     def __init__(self, engine, Model, accretion_efficiency_F=0.3,
-                 use_effective_radius=True, use_Page_suppression=True):
+                 use_effective_radius=True, use_Page_suppression=True) -> None:
         """
         :param engine: a model engine instance to use for computations
         :param Model: expected type of engine
@@ -292,7 +411,7 @@ class BaseGreybodyLifetimeModel(ABC):
             raise RuntimeError('BaseFriedlanderGreybodyLifetimeModel: supplied engine instance is not of expected type')
 
         self.engine = engine
-        self._params = engine.params
+        self._params = engine._params
 
         self._use_effective_radius = use_effective_radius
         self._use_Page_suppression = use_Page_suppression
@@ -386,7 +505,7 @@ class BaseFriedlanderGreybodyLifetimeModel(BaseGreybodyLifetimeModel):
     """
 
     def __init__(self, engine, Model, BlackHole, accretion_efficiency_F=0.3,
-                 use_effective_radius=True, use_Page_suppression=True):
+                 use_effective_radius=True, use_Page_suppression=True) -> None:
         """
         :param engine: a model engine instance to use for computations
         :param Model: expected type of engine
@@ -400,7 +519,7 @@ class BaseFriedlanderGreybodyLifetimeModel(BaseGreybodyLifetimeModel):
 
         # create a PBH model instance; for a Friedlander et al. model, this just has mass but no angular
         # moementum the value assigned to the mass doesn't matter
-        self._PBH = BlackHole(self.engine.params, 1.0, units='gram')
+        self._PBH = BlackHole(self.engine._params, 1.0, units='gram')
 
     @abstractmethod
     def massless_xi(self, PBH):
@@ -440,7 +559,7 @@ class BaseFriedlanderGreybodyLifetimeModel(BaseGreybodyLifetimeModel):
         """
         pass
 
-    def _sum_dMdt_species(self, PBH, species: str):
+    def _sum_dMdt_species(self, PBH, species: str) -> float:
         """
         compute dM/dt for the species labels in 'species', for the black hole parameter configurations
         in 'PBH'
@@ -472,9 +591,9 @@ class BaseFriedlanderGreybodyLifetimeModel(BaseGreybodyLifetimeModel):
             else:
                 dM_dt += record
 
-        return -dM_dt / (Const_2Pi * rh_sq)
+        return -dM_dt / (_Const_2Pi * rh_sq)
 
-    def _dMdt_evaporation(self, T_rad, PBH):
+    def _dMdt_evaporation(self, T_rad: float, PBH) -> float:
         """
         Compute evaporation rate for a specified black hole configuration.
         Note that the radiation temperature is supplied as T_rad, although it is not used; this is
@@ -497,7 +616,7 @@ class BaseFriedlanderGreybodyLifetimeModel(BaseGreybodyLifetimeModel):
 
         # sum over xi factors to get evaporation rate
         try:
-            dM_dt = -(massless_xi + sum([xi(T_Hawking) for xi in massive_xi])) / (Const_2Pi * rh_sq)
+            dM_dt = -(massless_xi + sum([xi(T_Hawking) for xi in massive_xi])) / (_Const_2Pi * rh_sq)
         except ZeroDivisionError:
             dM_dt = float("nan")
 
@@ -511,7 +630,7 @@ class BaseSpinningGreybodyLifetimeModel(BaseGreybodyLifetimeModel):
     """
 
     def __init__(self, engine, Model, BlackHole, accretion_efficiency_F=0.3,
-                 use_effective_radius=True, use_Page_suppression=True):
+                 use_effective_radius=True, use_Page_suppression=True) -> None:
         """
         :param engine: a model engine instance to use for computations
         :param Model: expected type of engine
@@ -527,7 +646,7 @@ class BaseSpinningGreybodyLifetimeModel(BaseGreybodyLifetimeModel):
         # mass and angular momentum
         self._PBH = BlackHole(self.engine.params, 1.0, J=0.0, units='gram')
 
-    def _sum_dMdt_species(self, PBH, species: str):
+    def _sum_dMdt_species(self, PBH, species: str) -> float:
         """
         compute dM/dt for the species labels in 'species', for the black hole parameter configurations
         in 'PBH'
@@ -565,9 +684,9 @@ class BaseSpinningGreybodyLifetimeModel(BaseGreybodyLifetimeModel):
         except ZeroDivisionError:
             return float("nan")
 
-        return dM_dt / (Const_2Pi * rh_sq)
+        return dM_dt / (_Const_2Pi * rh_sq)
 
-    def _sum_dJdt_species(self, PBH, species: str):
+    def _sum_dJdt_species(self, PBH, species: str) -> float:
         """
         compute dJ/dt for the species labels in 'species', for the black hole parameter configurations
         in 'PBH'
@@ -606,9 +725,9 @@ class BaseSpinningGreybodyLifetimeModel(BaseGreybodyLifetimeModel):
         except ZeroDivisionError:
             return float("nan")
 
-        return dJ_dt / (Const_2Pi * rh)
+        return dJ_dt / (_Const_2Pi * rh)
 
-    def _dMdt_evaporation(self, T_rad, PBH):
+    def _dMdt_evaporation(self, T_rad: float, PBH) -> float:
         """
         Compute evaporation rate for a specified black hole configuration.
         Note that the radiation temperature is supplied as T_rad, although it is not used; this is
@@ -620,7 +739,7 @@ class BaseSpinningGreybodyLifetimeModel(BaseGreybodyLifetimeModel):
         """
         return self._sum_dMdt_species(PBH, self.xi_species_list(PBH).keys())
 
-    def _dJdt_evaporation(self, T_rad, PBH):
+    def _dJdt_evaporation(self, T_rad: float, PBH) -> float:
         """
         Compute evaporation rate for a specified black hole configuration.
         Note that the radiation temperature is supplied as T_rad, although it is not used; this is
@@ -688,7 +807,7 @@ class BaseBlackHole(ABC):
 
     _mass_conversions = {'gram': Gram, 'kilogram': Kilogram, 'GeV': 1.0}
 
-    def __init__(self, params, M: float, units='GeV', strict=True):
+    def __init__(self, params, M: float, units='GeV', strict=True) -> None:
         """
         capture basic details about the PBH model, including a parameters object for the cosmology in which
         it is living, and the mass M.
@@ -774,7 +893,7 @@ class BaseBlackHole(ABC):
         pass
 
 class BaseSpinningBlackHole(BaseBlackHole):
-    def __init__(self, params, M: float, units='GeV', strict=True):
+    def __init__(self, params, M: float, units='GeV', strict=True) -> None:
         """
         capture basic details about the PBH model, which we pass to the BaseBlackHole superclass
         :param params: parameter container

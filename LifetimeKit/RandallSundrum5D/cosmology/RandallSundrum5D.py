@@ -786,22 +786,38 @@ class Model(BaseCosmology):
     def __init__(self, params: Parameters, fixed_g=None):
         super().__init__(params, fixed_g)
 
-    # compute the Hubble rate in GeV at a time corresponding to a temperature supplied in GeV
-    def Hubble(self, T=None, log_T=None):
+    def Hubble(self, T: float=None, log_T: float=None) -> float:
+        """
+        compute the Hubble rate in GeV at a time corresponding to a temperature supplied in GeV
+
+        :param T:
+        :param log_T:
+        :return:
+        """
         rho = self.rho_radiation(T, log_T)
 
-        return 1.0 / (Const_Sqrt_3 * self.params.M4) * math.sqrt(rho * (1.0 + rho / (2.0 * self.params.tension)))
+        return 1.0 / (Const_Sqrt_3 * self._params.M4) * math.sqrt(rho * (1.0 + rho / (2.0 * self._params.tension)))
 
-    # compute the Hubble length in 1/GeV at a time corresponding to a temperature supplied in GeV
-    # the formula here is R_H = 1/H
-    def R_Hubble(self, T=None, log_T=None):
+    def R_Hubble(self, T: float=None, log_T: float=None) -> float:
+        """
+        compute the Hubble length in 1/GeV at a time corresponding to a temperature supplied in GeV
+        the formula here is R_H = 1/H
+        :param T:
+        :param log_T:
+        :return:
+        """
         return 1.0 / self.Hubble(T, log_T)
 
-    # compute the mass (in GeV) enclosed within the Hubble length, at a time corresponding to a temperature supplied in GeV
-    # the formula here is M_H = (4/3) pi rho R_H^3, but we compute it directly to avoid multiple evaluations of rho
-    def M_Hubble(self, T=None, log_T=None):
+    def M_Hubble(self, T: float=None, log_T: float=None) -> float:
+        """
+        compute the mass (in GeV) enclosed within the Hubble length, at a time corresponding to a temperature supplied in GeV
+        the formula here is M_H = (4/3) pi rho R_H^3, but we compute it directly to avoid multiple evaluations of rho
+        :param T:
+        :param log_T:
+        :return:
+        """
         rho = self.rho_radiation(T, log_T)
-        M_H = Const_M_H * self.params.M4 * self.params.M4 * self.params.M4 \
-              * math.pow(1.0 + rho / (2.0 * self.params.tension), -3.0/2.0) / math.sqrt(rho)
+        M_H = Const_M_H * self._params.M4 * self._params.M4 * self._params.M4 \
+              * math.pow(1.0 + rho / (2.0 * self._params.tension), -3.0 / 2.0) / math.sqrt(rho)
 
         return M_H

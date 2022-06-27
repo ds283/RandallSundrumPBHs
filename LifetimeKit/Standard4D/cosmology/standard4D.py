@@ -276,7 +276,7 @@ class Model(BaseCosmology):
         """
         rho = self.rho_radiation(T, log_T)
 
-        return 1.0 / (Const_Sqrt_3 * self.params.M4) * math.sqrt(rho)
+        return 1.0 / (Const_Sqrt_3 * self._params.M4) * math.sqrt(rho)
 
     def R_Hubble(self, T=None, log_T=None):
         """
@@ -290,6 +290,6 @@ class Model(BaseCosmology):
         compute the mass (in GeV) enclosed within the Hubble length, at a time corresponding to a temperature supplied in GeV
         """
         rho = self.rho_radiation(T, log_T)
-        M_H = Const_M_H * self.params.M4 * self.params.M4 * self.params.M4 / math.sqrt(rho)
+        M_H = Const_M_H * self._params.M4 * self._params.M4 * self._params.M4 / math.sqrt(rho)
 
         return M_H

@@ -75,9 +75,9 @@ class LifetimeObserver:
 
         # instantiate BlackHole object corresponding to this engine
         if self._using_J:
-            self._PBH = BlackHoleType(self._engine.params, M=M_init, J=J_init, units='GeV')
+            self._PBH = BlackHoleType(self._engine._params, M=M_init, J=J_init, units='GeV')
         else:
-            self._PBH = BlackHoleType(self._engine.params, M=M_init, units='GeV')
+            self._PBH = BlackHoleType(self._engine._params, M=M_init, units='GeV')
 
         # self.terminated is a flag that is set when the integration should terminate because a relic
         # has formed; self.M_relic records the PBH mass where we declare a relic forms
@@ -240,7 +240,7 @@ class PBHLifetimeModel:
         """
         # LifetimeModel should include an engine field to which we can refer
         self._engine = LifetimeModel.engine
-        self._params = self._engine.params
+        self._params = self._engine._params
 
         # print verbose debugging/information messages
         self._verbose = verbose
@@ -256,7 +256,7 @@ class PBHLifetimeModel:
         # this will check e.g that all constraint on J are respected.
         # We also want to use this to check whether the black hole is 5D at formation (if there is a concept of that)
         if self._using_J:
-            PBH = LifetimeModel.BlackHoleType(self._engine.params, M=M_init, J_over_Jmax=J_over_Jmax_init, J=J_init, units='GeV')
+            PBH = LifetimeModel.BlackHoleType(self._engine._params, M=M_init, J_over_Jmax=J_over_Jmax_init, J=J_init, units='GeV')
 
             # PBH.J entry will now be populated, even if specification was via J/Jmax
             if PBH.J < 0.0:
@@ -270,7 +270,7 @@ class PBHLifetimeModel:
             self.J_init = PBH.J
             self.J_over_Jmax_init = PBH.J_over_Jmax
         else:
-            PBH = LifetimeModel.BlackHoleType(self._engine.params, M=M_init, units='GeV')
+            PBH = LifetimeModel.BlackHoleType(self._engine._params, M=M_init, units='GeV')
 
         # capture initial values for mass and radiation bath
         self.M_init = PBH.M
@@ -481,10 +481,10 @@ class PBHLifetimeModel:
         if self._using_J:
             gamma = stepper.y[1]
             J_over_Jmax = 1.0/(1.0 + math.exp(-gamma))
-            PBH = LifetimeModel.BlackHoleType(self._engine.params, M=M, J_over_Jmax=J_over_Jmax, units='GeV',
+            PBH = LifetimeModel.BlackHoleType(self._engine._params, M=M, J_over_Jmax=J_over_Jmax, units='GeV',
                                               strict=False)
         else:
-            PBH = LifetimeModel.BlackHoleType(self._engine.params, M=M, units='GeV', strict=False)
+            PBH = LifetimeModel.BlackHoleType(self._engine._params, M=M, units='GeV', strict=False)
 
         T_rad = math.exp(stepper.t)
 
