@@ -158,7 +158,7 @@ class BaseCosmology(ABC):
         """
         pass
 
-    def find_Tinit_from_Minit(self, M: float, units: str='GeV') -> float:
+    def find_Tinit_from_Minit(self, M: float, units: str='GeV', collapse_fraction_f: float=0.5) -> float:
         """
         solve to find the initial radiation temperature that corresponds to a given
         initial PBH mass M_init
@@ -178,7 +178,7 @@ class BaseCosmology(ABC):
         log_T_min = math.log(_MINIMUM_SEARCH_TEMPERATURE)
 
         def log_M_Hubble_root(log_T: float) -> float:
-            return math.log(self.M_Hubble(log_T=log_T)) - log_M_target
+            return math.log(collapse_fraction_f * self.M_Hubble(log_T=log_T)) - log_M_target
 
         log_T_sample = np.linspace(start=log_T_min, stop=log_T_max, num=50)
         # print('log_T_min = {min}, log_T_max = {max}, T_max = {Tmax}'.format(min=log_T_min, max=log_T_max, Tmax=self._params.Tmax))
@@ -187,7 +187,6 @@ class BaseCosmology(ABC):
 
         # print('M_target = {Mtarget} gram'.format(Mtarget=M_target/Gram))
         # print('log_T_sample = {Tsamp}'.format(Tsamp=log_T_sample))
-        # print('log_M_sample = {logMsamp}'.format(logMsamp=log_M_sample))
         # print('root_sample = {root}'.format(root=root_sample))
 
         # find where elements of M_sample change sign
@@ -207,7 +206,8 @@ class BaseCosmology(ABC):
 
         found_logT = brentq(log_M_Hubble_root, a=a, b=b)
         found_T = math.exp(found_logT)
-        found_M = self.M_Hubble(log_T=found_logT)
+        found_M = collapse_fraction_f * self.M_Hubble(log_T=found_logT)
+        # print('found_M = {Mfound} gram'.format(Mfound=found_M/Gram))
 
         found_vs_sought = found_M/M_target
         if math.fabs(found_vs_sought - 1.0) > _ROOT_SEARCH_TOLERANCE:
