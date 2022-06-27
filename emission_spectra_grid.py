@@ -46,7 +46,7 @@ def compute_emission_rates(serial_batch):
             target_multipliers = [1.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0, 20.0]
             for n, multiplier in enumerate(target_multipliers):
                 M_target = multiplier * M_input
-                T_target = engine.find_Tinit_from_Minit(M=M_target, units='GeV')
+                T_target = engine.find_Tinit_from_Minit(M=M_target, units='GeV', collapse_fraction_f=f)
 
                 model = lkit.RS5D_Friedlander.LifetimeModel(engine, accretion_efficiency_F=F,
                                                             use_Page_suppression=True, use_effective_radius=True)
