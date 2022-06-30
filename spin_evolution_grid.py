@@ -1,6 +1,6 @@
 import argparse
-from datetime import datetime
 import sys
+from datetime import datetime
 from functools import partial
 from typing import List
 
@@ -9,10 +9,9 @@ import ray
 from ray.actor import ActorHandle
 from ray.data import Dataset, set_progress_bars
 
+import CacheKit as ckit
 import LifetimeKit as lkit
 from LifetimeKit.constants import T_CMB
-import CacheKit as ckit
-from progressbar import ProgressBar, ProgressBarActor
 
 # parse arguments supplied on the command line
 parser = argparse.ArgumentParser()
@@ -157,6 +156,50 @@ def compute_lifetime(cache: ActorHandle, serial_batch: List[int]) -> List[float]
 
     return times
 
+def _test_valid(data) -> bool:
+    M5_data, Tinit_data, Tfinal_data, F_data, f_data = data
+
+    M5_serial, M5 = M5_data
+    Tinit_serial, Tinit = Tinit_data
+    Tfinal_serial, Tfinal = Tfinal_data
+    F_serial, F = F_data
+    f_serial, f = f_data
+
+    # Reject combinations where the initial temperature is larger than the 5D Planck mass.
+    # In this case, the quantum gravity corrections are not under control and the scenario
+    # probably does not make sense
+    if Tinit > M5:
+        return False
+
+    # reject combinations where there is runaway 4D accretion
+    # The criterion for this is f * F * (1 + delta) > 8/(3*alpha^2) where alpha is the
+    # effective radius scaling parameter. Here we are going to solve histories with and without
+    # using the effective radius, so with alpha = 3 sqrt(3) / 2 we get the combination
+    # 32.0/81.0. This is used in Guedens et al., but seems to have first been reported in the
+    # early Zel'dovich & Novikov paper ("The hypothesis of cores retarded during expansion
+    # and the hot cosmological model"), see their Eq. (2)
+    if F * f > 32.0 / 81.0:
+        return False
+
+    params = lkit.RS5D.Parameters(M5)
+    engine = lkit.RS5D.Model(params)
+
+    try:
+        # get mass of Hubble volume expressed in GeV
+        M_Hubble = engine.M_Hubble(T=Tinit)
+
+        # compute initial mass in GeV
+        M_init = f * M_Hubble
+
+        # constructing a PBHModel with this mass will raise an exception if the mass is out of bounds
+        # could possibly just write in the test here, but this way we abstract it into the PBHModel class
+        PBH_0 = lkit.RS5D.SpinningBlackHole(params, M=M_init, J_over_Jmax=0.0, units='GeV')
+        PBH_0pt3 = lkit.RS5D.SpinningBlackHole(params, M=M_init, J_over_Jmax=0.3, units='GeV')
+        PBH_0pt7 = lkit.RS5D.SpinningBlackHole(params, M=M_init, J_over_Jmax=0.7, units='GeV')
+    except RuntimeError:
+        return False
+
+    return True
 
 cache: ckit.Cache = \
     ckit.Cache.remote(list(histories.keys()), _build_labels,
@@ -187,7 +230,8 @@ if args.create_database is not None:
     # don't scan over final temperatures, so there is just a single element in the Tfinal grid
     Tfinal_grid = [Trad_final_GeV]
 
-    obj = cache.create_database.remote(args.create_database, M5_grid, Tinit_grid, Tfinal_grid, F_grid, f_grid)
+    obj = cache.create_database.remote(args.create_database, M5_grid, Tinit_grid, Tfinal_grid, F_grid, f_grid,
+                                       _test_valid)
     output = ray.get(obj)
 else:
     obj = cache.open_database.remote(args.database)
