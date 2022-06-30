@@ -247,7 +247,7 @@ class BlackMaxSpectrum:
 
                 # Currently this is disabled: it doesn't give an obvious improvement relative to
                 # sticking with the basic fitting function, and the match to the Ida, Oda & Park analytic
-                # approximations is marginally workse
+                # approximations is marginally worse
 
                 # prev_spectrum_point = spectrum[0]
                 # spectrum[0] = 0.0
