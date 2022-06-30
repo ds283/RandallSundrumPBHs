@@ -129,9 +129,6 @@ class Cache:
         Fs = self._create_F_table(F_grid)
         fs = self._create_f_table(f_grid)
 
-        self._work_table.create(self._engine)
-        self._data_table.create(self._engine)
-
         M5s_size = len(M5s)
         Tinits_size = len(Tinits)
         Tfinals_size = len(Tfinals)
@@ -149,19 +146,48 @@ class Cache:
         work = product(M5s, Tinits, Tfinals, Fs, fs)
 
         print('-- filtering work list')
-        work_pre_filter = ray.data.from_items(list(work)).map_batches(partial(_is_valid_batch, validator))
-        work_filtered = [x for (f, x) in work_pre_filter.iter_rows() if f is True]
-        print('   filtered list reduced to {sz} items'.format(sz=len(work_filtered)))
-        print(work_filtered)
-        print(work_filtered[0])
+        work_filtered = ray.data.from_items(list(work)).map_batches(partial(_is_valid_batch, validator))
 
         print('-- writing work list to database')
-        work_pre_items = list(enumerate(work_filtered))
-        print(work_pre_items)
-        print(work_pre_items[0])
-        print('WOBBLE BOBBLE OBB OBB OBB')
-        work_items: Dataset = ray.data.from_items(work_pre_items)
-        # work_items.map_batches(self._write_work_grid_items)
+        count = self._write_work_table(work_filtered)
+
+        print('## wrote {sz} work items'.format(sz=count))
+
+    def _write_work_table(self, work_filtered):
+        self._work_table.create(self._engine)
+        self._data_table.create(self._engine)
+
+        count = 0
+
+        with self._engine.begin() as conn:
+            for flag, data in work_filtered.iter_rows():
+                if not flag:
+                    continue
+
+                M5_data, Tinit_data, Tfinal_data, F_data, f_data = data
+
+                M5_serial, M5 = M5_data
+                Tinit_serial, Tinit = Tinit_data
+                Tfinal_serial, Tfinal = Tfinal_data
+                F_serial, F = F_data
+                f_serial, f = f_data
+
+                conn.execute(
+                    self._work_table.insert().values(
+                        serial=count,
+                        M5_serial=M5_serial,
+                        Tinit_serial=Tinit_serial,
+                        Tfinal_serial=Tfinal_serial,
+                        accrete_F_serial=F_serial,
+                        collapse_f_serial=f_serial
+                    )
+                )
+
+                count += 1
+
+            conn.commit()
+
+        return count
 
     def _create_M5_table(self, M5_grid: List[float]) -> List[Tuple[int, float]]:
         self._M5_table.create(self._engine)
@@ -272,35 +298,6 @@ class Cache:
             conn.commit()
 
         return serial_map
-    def _write_work_grid_items(self, batch: BatchListType) -> bool:
-        batch_out = []
-
-        # write work items into work table
-        with self._engine.begin() as conn:
-            for x in batch:
-                serial, (M5_data, Tinit_data, Tfinal_data, F_data, f_data) = x
-
-                M5_serial, M5 = M5_data
-                Tinit_serial, Tinit = Tinit_data
-                Tfinal_serial, Tfinal = Tfinal_data
-                F_serial, F = F_data
-                f_serial, f = f_data
-
-                conn.execute(
-                    self._work_table.insert().values(
-                        serial=serial,
-                        M5_serial=M5_serial,
-                        Tinit_serial=Tinit_serial,
-                        Tfinal_serial=Tfinal_serial,
-                        accrete_F_serial=F_serial,
-                        collapse_f_serial=f_serial
-                    )
-                )
-
-            conn.commit()
-            batch_out.append(True)
-
-        return batch_out
 
     def open_database(self, db_name: str) -> None:
         if self._engine is not None:
