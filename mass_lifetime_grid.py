@@ -2,7 +2,7 @@ import argparse
 import sys
 from datetime import datetime
 from functools import partial
-from typing import List, Tuple
+from typing import List
 
 import numpy as np
 import ray
@@ -146,6 +146,7 @@ def compute_lifetime(cache: ActorHandle, serial_batch: List[int]) -> List[float]
     cache.write_work_item.remote(batch)
 
     return times
+
 def _test_valid(data) -> bool:
     M5_data, Tinit_data, Tfinal_data, F_data, f_data = data
 
