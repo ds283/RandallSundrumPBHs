@@ -5,6 +5,7 @@ import numpy as np
 from scipy.integrate import ode
 import pandas as pd
 
+import LifetimeKit
 from .RandallSundrum5D import StefanBoltzmann as RS5D_StefanBoltzmann
 from .RandallSundrum5D import cosmology as RS5D
 from .RandallSundrum5D import Friedlander as RS5D_Friedlander
@@ -225,12 +226,13 @@ class PBHLifetimeModel:
     _time_conversions = {'second': 1.0, 'year': 60.0*60.0*24.0*365.0}
 
 
-    def __init__(self, M_init, T_rad_init, LifetimeModel, J_init=None, J_over_Jmax_init=None,
-                 num_samples=_NumTSamplePoints, compute_rates=False, verbose=False):
+    def __init__(self, M_init, T_rad_init, LifetimeModel, T_rad_final=None, J_init=None, J_over_Jmax_init=None,
+                 num_samples=_NumTSamplePoints, M_units='GeV', T_units='GeV', compute_rates=False, verbose=False):
         """
         Capture initial values and then integrate the lifetime.
-        :param M_init: initial PBH mass, expressed in GeV
-        :param T_rad_init: temperature of radiation bath at formation, expressed in GeV
+        :param M_init: initial PBH mass, expressed in units 'M_units'
+        :param T_rad_init: temperature of radiation bath at formation, expressed in units T_units
+        :param T_rad_final: temperature of the radiation bath at the end of the calculation, expressed in T_units
         :param LifetimeModel: model to use for lifetime calculations
         :param J_init: initial PBH angular momentum (a dimensionless quantity) if being used
         :param num_samples: number of samples to extract
@@ -245,18 +247,29 @@ class PBHLifetimeModel:
         # print verbose debugging/information messages
         self._verbose = verbose
 
+        self._validate_units(mass_units=M_units, temperature_units=T_units)
+
+        temperature_units_to_GeV = self._temperature_conversions[T_units]
+        mass_units_to_GeV = self._mass_conversions[M_units]
+
+        M_init_GeV = M_init * mass_units_to_GeV
+        T_rad_init_GeV = T_rad_init * temperature_units_to_GeV
+        T_rad_final_GeV = T_rad_final * temperature_units_to_GeV if T_rad_final is not None \
+            else T_CMB * LifetimeKit.Kelvin
+
         # basic sanity checking
-        if M_init <= 0.0:
+        if M_init_GeV <= 0.0:
             raise RuntimeError('PBHLifetimeModel: initial mass should be positive')
 
         # capture whether this integration includes angular momentum
         self._using_J = J_init is not None or J_over_Jmax_init is not None
 
         # check we can instantiate a PBH instance of the expected type
-        # this will check e.g that all constraint on J are respected.
+        # this will check e.g that all constraints on J are respected.
         # We also want to use this to check whether the black hole is 5D at formation (if there is a concept of that)
         if self._using_J:
-            PBH = LifetimeModel.BlackHoleType(self._engine._params, M=M_init, J_over_Jmax=J_over_Jmax_init, J=J_init, units='GeV')
+            PBH = LifetimeModel.BlackHoleType(self._engine._params, M=M_init_GeV, J=J_init,
+                                              J_over_Jmax=J_over_Jmax_init, units='GeV')
 
             # PBH.J entry will now be populated, even if specification was via J/Jmax
             if PBH.J < 0.0:
@@ -270,28 +283,29 @@ class PBHLifetimeModel:
             self.J_init = PBH.J
             self.J_over_Jmax_init = PBH.J_over_Jmax
         else:
-            PBH = LifetimeModel.BlackHoleType(self._engine._params, M=M_init, units='GeV')
+            PBH = LifetimeModel.BlackHoleType(self._engine._params, M=M_init_GeV, units='GeV')
 
         # capture initial values for mass and radiation bath
         self.M_init = PBH.M
-        self.T_rad_init = T_rad_init
+        self.T_rad_init = T_rad_init_GeV
 
         # integration actually proceeds with log(M) and gamma = log(beta/(1-beta)) where beta=J/Jmax
-        self.logM_init = math.log(M_init)
+        self.logM_init = math.log(M_init_GeV)
         if self._using_J:
             beta = PBH.J_over_Jmax
             self.gamma_init = math.log(beta / (1.0 - beta))
 
         # integration is done in terms of log(x) and log(T), where x = M/M_H(T) is the PBH mass expressed
         # as a fraction of the Hubble mass M_H
-        self.logT_rad_init = math.log(T_rad_init)
+        self.logT_rad_init = math.log(T_rad_init_GeV)
 
-        # sample soln_grid runs from initial temperature of the radiation bath at formation,
-        # down to current CMB temmperature T_CMB
-        self.T_min = T_CMB * Kelvin
-        self.logT_min = math.log(self.T_min)
+        # sample soln_grid runs from initial temperature of the radiation bath at formation
+        # down to the requested final temperature. That defaults to the current CMB temperature,
+        # but other interesting epochs could be BBN or the time of formation of the CMB.
+        self.T_min = T_rad_final_GeV
+        self.logT_min = math.log(T_rad_final_GeV)
 
-        self.T_sample_points = np.geomspace(T_rad_init, self.T_min, num_samples)
+        self.T_sample_points = np.geomspace(T_rad_init_GeV, T_rad_final_GeV, num_samples)
         self.logT_sample_points = np.log(self.T_sample_points)
 
         # reserve space for mass history, expressed as a PBH mass in GeV and as a fraction x of the
@@ -705,10 +719,9 @@ class PBHInstance:
     # conversion factors into GeV for temperature units we understand
     _temperature_conversions = {'Kelvin': Kelvin, 'GeV': 1.0}
 
-    def __init__(self, params, T_rad_init: float, J_over_Jmax: float=None, J: float=None,
-                 models=_DEFAULT_MODEL_SET,
-                 accretion_efficiency_F: float=0.5, collapse_fraction_f: float=0.5, delta: float=0.0,
-                 num_samples: int=_NumTSamplePoints, compute_rates: bool=False):
+    def __init__(self, params, T_rad_init: float, T_rad_final: float=None, J_over_Jmax: float=None, J: float=None,
+                 models=_DEFAULT_MODEL_SET, accretion_efficiency_F: float=0.5, collapse_fraction_f: float=0.5,
+                 delta: float=0.0, units='GeV', num_samples: int=_NumTSamplePoints, compute_rates: bool=False):
         """
         # capture models engine instance and formation temperature of the PBH, measured in GeV
         :param params:
@@ -722,6 +735,16 @@ class PBHInstance:
         :param num_samples: number of T_rad samples to take
         :param compute_rates: compute dM/dt and dJ/dt rates for different species groups
         """
+        if units not in self._temperature_conversions:
+            raise RuntimeError('PBHLifetimeModel: unit "{unit}" not understood in '
+                               'constructor'.format(unit=units))
+
+        temperature_units_to_GeV = self._temperature_conversions[units]
+
+        T_rad_init_GeV = T_rad_init * temperature_units_to_GeV
+        T_rad_final_GeV = T_rad_final * temperature_units_to_GeV if T_rad_final is not None \
+            else T_CMB * LifetimeKit.Kelvin
+
         self._params = params
 
         engine_RS = RS5D.Model(params)
@@ -736,8 +759,8 @@ class PBHInstance:
         x_init = collapse_fraction_f * (1.0 + delta)
 
         # get mass of Hubble volume expressed in GeV
-        M_Hubble_RS = engine_RS.M_Hubble(T=T_rad_init)
-        M_Hubble_4D = engine_4D.M_Hubble(T=T_rad_init)
+        M_Hubble_RS = engine_RS.M_Hubble(T=T_rad_init_GeV)
+        M_Hubble_4D = engine_4D.M_Hubble(T=T_rad_init_GeV)
 
         # compute initial mass in GeV
         M_init_5D = x_init * M_Hubble_RS
@@ -754,7 +777,8 @@ class PBHInstance:
                     raise RuntimeError('GreybodyRS5D lifetime model does not support angular momentum')
                 model = RS5D_Friedlander.LifetimeModel(engine_RS, accretion_efficiency_F=accretion_efficiency_F,
                                                        use_effective_radius=True, use_Page_suppression=True)
-                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples,
+                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init_GeV, model, T_rad_final=T_rad_final_GeV,
+                                                         M_units='GeV', T_units='GeV', num_samples=num_samples,
                                                          compute_rates=compute_rates)
 
             elif label == 'GreybodyStandard4D':
@@ -762,7 +786,8 @@ class PBHInstance:
                     raise RuntimeError('GreybodyStandard4D lifetime model does not support angular momentum')
                 model = Standard4D_Friedlander.LifetimeModel(engine_4D, accretion_efficiency_F=accretion_efficiency_F,
                                                              use_effective_radius=True, use_Page_suppression=True)
-                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples,
+                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init_GeV, model, T_rad_final=T_rad_final_GeV,
+                                                         M_units='GeV', T_units='GeV', num_samples=num_samples,
                                                          compute_rates=compute_rates)
 
             elif label == 'StefanBoltzmannRS5D':
@@ -771,7 +796,8 @@ class PBHInstance:
                 model = RS5D_StefanBoltzmann.LifetimeModel(engine_RS,
                                                            accretion_efficiency_F=accretion_efficiency_F,
                                                            use_effective_radius=True, use_Page_suppression=True)
-                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples,
+                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init_GeV, model, T_rad_final=T_rad_final_GeV,
+                                                         M_units='GeV', T_units='GeV', num_samples=num_samples,
                                                          compute_rates=compute_rates)
 
             elif label == 'StefanBoltzmannStandard4D':
@@ -780,7 +806,8 @@ class PBHInstance:
                 model = Standard4D_StefanBoltzmann.LifetimeModel(engine_4D,
                                                                  accretion_efficiency_F=accretion_efficiency_F,
                                                                  use_effective_radius=True, use_Page_suppression=True)
-                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples,
+                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init_GeV, model, T_rad_final=T_rad_final_GeV,
+                                                         M_units='GeV', T_units='GeV', num_samples=num_samples,
                                                          compute_rates=compute_rates)
 
             elif label == 'StefanBoltzmannRS5D-noreff':
@@ -789,7 +816,8 @@ class PBHInstance:
                 model = RS5D_StefanBoltzmann.LifetimeModel(engine_RS,
                                                            accretion_efficiency_F=accretion_efficiency_F,
                                                            use_effective_radius=False, use_Page_suppression=True)
-                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples,
+                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init_GeV, model, T_rad_final=T_rad_final_GeV,
+                                                         M_units='GeV', T_units='GeV', num_samples=num_samples,
                                                          compute_rates=compute_rates)
 
             elif label == 'StefanBoltzmannStandard4D-noreff':
@@ -798,7 +826,8 @@ class PBHInstance:
                 model = Standard4D_StefanBoltzmann.LifetimeModel(engine_4D,
                                                                  accretion_efficiency_F=accretion_efficiency_F,
                                                                  use_effective_radius=False, use_Page_suppression=True)
-                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples,
+                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init_GeV, model, T_rad_final=T_rad_final_GeV,
+                                                         M_units='GeV', T_units='GeV', num_samples=num_samples,
                                                          compute_rates=compute_rates)
 
             elif label == 'StefanBoltzmannRS5D-fixedg':
@@ -809,7 +838,8 @@ class PBHInstance:
                                                            accretion_efficiency_F=accretion_efficiency_F,
                                                            use_effective_radius=True, use_Page_suppression=True,
                                                            fixed_g4=gstar_full_SM, fixed_g5=5.0)
-                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples,
+                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init_GeV, model, T_rad_final=T_rad_final_GeV,
+                                                         M_units='GeV', T_units='GeV', num_samples=num_samples,
                                                          compute_rates=compute_rates)
 
             elif label == 'StefanBoltzmannStandard4D-fixedg':
@@ -820,7 +850,8 @@ class PBHInstance:
                                                                  accretion_efficiency_F=accretion_efficiency_F,
                                                                  use_effective_radius=True, use_Page_suppression=True,
                                                                  fixed_g4=gstar_full_SM)
-                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples,
+                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init_GeV, model, T_rad_final=T_rad_final_GeV,
+                                                         M_units='GeV', T_units='GeV', num_samples=num_samples,
                                                          compute_rates=compute_rates)
 
             elif label == 'StefanBoltzmannRS5D-fixedN':
@@ -831,7 +862,8 @@ class PBHInstance:
                                                            accretion_efficiency_F=accretion_efficiency_F,
                                                            use_effective_radius=True, use_Page_suppression=True,
                                                            fixed_g4=gstar_full_SM, fixed_g5=5.0)
-                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples,
+                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init_GeV, model, T_rad_final=T_rad_final_GeV,
+                                                         M_units='GeV', T_units='GeV', num_samples=num_samples,
                                                          compute_rates=compute_rates)
 
             elif label == 'StefanBoltzmannStandard4D-fixedN':
@@ -842,7 +874,8 @@ class PBHInstance:
                                                                  accretion_efficiency_F=accretion_efficiency_F,
                                                                  use_effective_radius=True, use_Page_suppression=True,
                                                                  fixed_g4=gstar_full_SM)
-                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples,
+                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init_GeV, model, T_rad_final=T_rad_final_GeV,
+                                                         M_units='GeV', T_units='GeV', num_samples=num_samples,
                                                          compute_rates=compute_rates)
 
             elif label == 'StefanBoltzmannRS5D-noPage':
@@ -851,7 +884,8 @@ class PBHInstance:
                 model = RS5D_StefanBoltzmann.LifetimeModel(engine_RS,
                                                            accretion_efficiency_F=accretion_efficiency_F,
                                                            use_effective_radius=True, use_Page_suppression=False)
-                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model, num_samples=num_samples,
+                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init_GeV, model, T_rad_final=T_rad_final_GeV,
+                                                         M_units='GeV', T_units='GeV', num_samples=num_samples,
                                                          compute_rates=compute_rates)
 
             elif label == 'StefanBoltzmannStandard4D-noPage':
@@ -860,7 +894,8 @@ class PBHInstance:
                 model = Standard4D_StefanBoltzmann.LifetimeModel(engine_4D,
                                                                  accretion_efficiency_F=accretion_efficiency_F,
                                                                  use_effective_radius=True, use_Page_suppression=False)
-                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model, num_samples=num_samples,
+                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init_GeV, model, T_rad_final=T_rad_final_GeV,
+                                                         M_units='GeV', T_units='GeV', num_samples=num_samples,
                                                          compute_rates=compute_rates)
 
             elif label == 'Kerr':
@@ -870,9 +905,10 @@ class PBHInstance:
                 model = Standard4D_Kerr.LifetimeModel(engine_4D,
                                                       accretion_efficiency_F=accretion_efficiency_F,
                                                       use_effective_radius=True, use_Page_suppression=True)
-                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init, model,
-                                                         J_over_Jmax_init=J_over_Jmax, J_init=J,
-                                                         num_samples=num_samples, compute_rates=compute_rates)
+                self.lifetimes[label] = PBHLifetimeModel(M_init_4D, T_rad_init_GeV, model, T_rad_final=T_rad_final_GeV,
+                                                         M_units='GeV', T_units='GeV', J_init=J,
+                                                         J_over_Jmax_init=J_over_Jmax, num_samples=num_samples,
+                                                         compute_rates=compute_rates)
 
             elif label == 'SpinningRS5D':
                 if J_over_Jmax is None and J is None:
@@ -881,9 +917,10 @@ class PBHInstance:
                 model = RS5D_Spinning.LifetimeModel(engine_RS,
                                                     accretion_efficiency_F=accretion_efficiency_F,
                                                     use_effective_radius=True, use_Page_suppression=True)
-                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init, model,
-                                                         J_over_Jmax_init=J_over_Jmax, J_init=J,
-                                                         num_samples=num_samples, compute_rates=compute_rates)
+                self.lifetimes[label] = PBHLifetimeModel(M_init_5D, T_rad_init_GeV, model, T_rad_final=T_rad_final_GeV,
+                                                         M_units='GeV', T_units='GeV', J_init=J,
+                                                         J_over_Jmax_init=J_over_Jmax, num_samples=num_samples,
+                                                         compute_rates=compute_rates)
 
             else:
                 raise RuntimeError('LifetimeKit.PBHInstance: unknown model type "{label}"'.format(label=label))

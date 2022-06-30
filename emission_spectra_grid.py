@@ -1,13 +1,12 @@
 import argparse
-import sys
 from datetime import datetime
-from typing import List
 
 import pandas as pd
 import ray
 from ray.data import from_items, set_progress_bars
 
 import LifetimeKit as lkit
+from LifetimeKit.constants import T_CMB
 
 # parse arguments supplied on the command line
 parser = argparse.ArgumentParser()
@@ -24,7 +23,6 @@ if args.progress_bar:
     set_progress_bars(True)
 else:
     set_progress_bars(False)
-
 
 def compute_emission_rates(serial_batch):
     batch = []
@@ -97,7 +95,8 @@ collapsef = 0.395
 
 df = pd.read_csv('evaporation_boundaryJ=0.csv')
 
-work_list = from_items([(serial, row['M5'], row['Tinit'], accreteF, collapsef) for serial, row in df.iterrows()])
+work_list = from_items([(serial, row['M5'], row['Tinit'], T_CMB*lkit.Kelvin, accreteF, collapsef)
+                        for serial, row in df.iterrows()])
 output = work_list.map_batches(compute_emission_rates)
 
 out_df = output.to_pandas()
