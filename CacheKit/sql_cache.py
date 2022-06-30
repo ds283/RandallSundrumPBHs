@@ -2,6 +2,8 @@ from functools import partial
 from pathlib import Path
 from itertools import product
 from typing import List, Callable, Dict, Tuple
+from datetime import datetime
+
 
 import ray
 from ray.data import Dataset
@@ -16,6 +18,8 @@ WorkGridItemType = Tuple[WorkElementType, WorkElementType, WorkElementType, Work
 BatchItemType = Tuple[int, WorkGridItemType]
 BatchListType = List[BatchItemType]
 
+GIT_HASH_LENGTH = 40
+
 def _is_valid_batch(validator, batch: List[WorkGridItemType]) -> List[Tuple[bool, WorkGridItemType]]:
     batch_out = []
 
@@ -29,7 +33,7 @@ def _is_valid_batch(validator, batch: List[WorkGridItemType]) -> List[Tuple[bool
 @ray.remote
 class Cache:
     def __init__(self, histories: List[str], label_maker: Callable[[str], Dict[str, str]],
-                 standard_columns: List[str]=None):
+                 git_hash: str, standard_columns: List[str]=None):
         self._engine = None
         self._metadata: sqla.MetaData = None
 
@@ -38,6 +42,8 @@ class Cache:
 
         self._standard_columns = standard_columns
 
+        self._git_hash = git_hash
+        self._version_serial = None
 
     def _get_engine(self, db_name: str, expect_exists: bool=False):
         db_file = Path(db_name).resolve()
@@ -58,6 +64,10 @@ class Cache:
 
         self._engine = sqla.create_engine('sqlite:///{name}'.format(name=str(db_name)), future=True)
         self._metadata = sqla.MetaData()
+
+        self._version_table = sqla.Table('versions', self._metadata,
+                                         sqla.Column('serial', sqla.Integer, primary_key=True),
+                                         sqla.Column('git_hash', sqla.String(GIT_HASH_LENGTH)))
 
         self._M5_table = sqla.Table('M5_grid', self._metadata,
                                     sqla.Column('serial', sqla.Integer, primary_key=True),
@@ -92,7 +102,9 @@ class Cache:
                                       sqla.Column('collapse_f_serial', sqla.Integer, sqla.ForeignKey('collapse_f_grid.serial')))
 
         self._data_table = sqla.Table('data', self._metadata,
-                                      sqla.Column('serial', sqla.Integer, sqla.ForeignKey('work_grid.serial'), primary_key=True))
+                                      sqla.Column('serial', sqla.Integer, sqla.ForeignKey('work_grid.serial'), primary_key=True),
+                                      sqla.Column('version', sqla.Integer, sqla.ForeignKey('versions.serial')),
+                                      sqla.Column('timestamp', sqla.DateTime()))
 
         if self._standard_columns is not None:
             for clabel in self._standard_columns:
@@ -123,6 +135,10 @@ class Cache:
         self._get_engine(db_name, expect_exists=False)
 
         print('-- creating database tables')
+
+        self._version_table.create(self._engine)
+        self._version_serial = self._get_version_serial()
+
         M5s = self._create_M5_table(M5_grid)
         Tinits = self._create_Tinit_table(Tinit_grid)
         Tfinals = self._create_Tfinal_table(Tfinal_grid)
@@ -152,6 +168,27 @@ class Cache:
         count = self._write_work_table(work_filtered)
 
         print('## wrote {sz} work items'.format(sz=count))
+
+    def _get_version_serial(self):
+        if self._engine is None:
+            raise RuntimeError('No database connection exists in _get_version_serial()')
+
+        with self._engine.begin() as conn:
+            result = conn.execute(
+                sqla.select(self._version_table.c.serial).filter(self._version_table.c.git_hash == self._git_hash)
+            )
+
+            x = result.first()
+
+            if x is not None:
+                return x
+
+            serial = conn.execute(sqla.select(sqla.func.count()).select_from(self._version_table)).scalar()
+            conn.execute(sqla.insert(self._version_table), {'serial': serial, 'git_hash': self._git_hash})
+
+            conn.commit()
+
+        return serial
 
     def _write_work_table(self, work_filtered):
         self._work_table.create(self._engine)
@@ -304,6 +341,7 @@ class Cache:
             raise RuntimeError('open_database() called when a database engine already exists')
 
         self._get_engine(db_name, expect_exists=True)
+        self._version_serial = self._get_version_serial()
 
     def get_total_work_size(self) -> int:
         if self._engine is None:
@@ -359,9 +397,12 @@ class Cache:
         # insert this batch of outputs, using .on_conflict_do_nothing() so that multiple entries are not
         # written into the database
         # (e.g. if a ray processes a batch item multiple times, perhaps due to a worker failure)
+
+        now = datetime.now()
+        versioned_data = [x | {'version': self._version_serial, 'timestamp': now} for x in data]
         with self._engine.begin() as conn:
             conn.execute(
-                insert(self._data_table).on_conflict_do_nothing(), data
+                insert(self._data_table).on_conflict_do_nothing(), versioned_data
             )
 
             conn.commit()

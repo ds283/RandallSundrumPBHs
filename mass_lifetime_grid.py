@@ -1,6 +1,6 @@
 import argparse
+import subprocess
 import sys
-from datetime import datetime
 from functools import partial
 from typing import List
 
@@ -108,7 +108,6 @@ def compute_lifetime(cache: ActorHandle, serial_batch: List[int]) -> List[float]
                                         accretion_efficiency_F=F, collapse_fraction_f=f)
 
             data = {'serial': serial,
-                    'timestamp': datetime.now(),
                     'Trad_final_GeV': Tfinal,
                     'Trad_final_Kelvin': Tfinal/lkit.Kelvin,
                     'Minit_5D_GeV': solution.M_init_5D,
@@ -190,10 +189,12 @@ def _test_valid(data) -> bool:
 
     return True
 
+def get_git_revision_hash() -> str:
+    return subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
 
 cache: ckit.Cache = \
-    ckit.Cache.remote(list(histories.keys()), _build_labels,
-                      standard_columns=['timestamp', 'Trad_final_GeV', 'Trad_final_Kelvin',
+    ckit.Cache.remote(list(histories.keys()), _build_labels, get_git_revision_hash(),
+                      standard_columns=['Trad_final_GeV', 'Trad_final_Kelvin',
                                         'Minit_5D_GeV', 'Minit_5D_Gram', 'Minit_4D_GeV', 'Minit_4D_Gram'])
 
 if args.create_database is not None:
@@ -205,14 +206,14 @@ if args.create_database is not None:
     # lower limit 2E8 GeV roughly corresponds to experimental constraint T_crossover = 1E3 GeV suggested by Guedens et al.
     # TODO: Itzi suggests this has since been improved, so that may need changing
     # upper limit 5E17 GeV is close to 4D Planck scale, with just a bit of headroom
-    M5_grid = np.geomspace(2E8, 5E17, 500)
+    M5_grid = np.geomspace(2E8, 5E17, 10)
 
     # lower limit 1E5 GeV is arbitrary; black holes that form at these low temperatures are always in the 4D regime
     # with the linear Hubble equation, so there is not much need to compute their properties in detail.
     # upper limit matches upper limit on M5 grid
-    Tinit_grid = np.geomspace(1E5, 5E17, 500)
+    Tinit_grid = np.geomspace(1E5, 5E17, 10)
 
-    F_grid = np.geomspace(0.001, 1.0, 50)
+    F_grid = np.geomspace(0.001, 1.0, 10)
 
     # f = 0.395 is just under Zel'dovich-Novikov limit for Ff = 32/81
     f_grid = [0.395]

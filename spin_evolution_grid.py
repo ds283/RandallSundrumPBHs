@@ -1,6 +1,6 @@
 import argparse
+import subprocess
 import sys
-from datetime import datetime
 from functools import partial
 from typing import List
 
@@ -110,7 +110,6 @@ def compute_lifetime(cache: ActorHandle, serial_batch: List[int]) -> List[float]
                                                  collapse_fraction_f=f)
 
             data = {'serial': serial,
-                    'timestamp': datetime.now(),
                     'Trad_final_GeV': Tfinal,
                     'Trad_final_Kelvin': Tfinal/lkit.Kelvin,
                     'Minit_5D_GeV': solution_spin0.M_init_5D,
@@ -201,9 +200,12 @@ def _test_valid(data) -> bool:
 
     return True
 
+def get_git_revision_hash() -> str:
+    return subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
+
 cache: ckit.Cache = \
-    ckit.Cache.remote(list(histories.keys()), _build_labels,
-                      standard_columns=['timestamp', 'Trad_final_GeV', 'Trad_final_Kelvin',
+    ckit.Cache.remote(list(histories.keys()), _build_labels, get_git_revision_hash(),
+                      standard_columns=['Trad_final_GeV', 'Trad_final_Kelvin',
                                         'Minit_5D_GeV', 'Minit_5D_Gram', 'Minit_4D_GeV', 'Minit_4D_Gram'])
 
 if args.create_database is not None:
