@@ -68,7 +68,7 @@ class BaseCosmology(ABC):
     Defines interface and common infrastructure for a cosmology engine
     """
     # conversion factors into GeV for mass units we understand
-    _mass_conversions = {'gram': Gram, 'kilogram': Kilogram, 'SolarMass': SolarMass, 'GeV': 1.0}
+    _mass_conversions = {'gram': Gram, 'kilogram': Kilogram, 'solarmass': SolarMass, 'gev': 1.0}
 
     def __init__(self, params, fixed_g=None) -> None:
         super().__init__()
@@ -166,10 +166,11 @@ class BaseCosmology(ABC):
         :param units:
         :return:
         """
-        if units not in self._mass_conversions:
+        units_lower = units.lower()
+        if units_lower not in self._mass_conversions:
             raise RuntimeError('BaseCosmology.find_Tinit_from_Minit: unit "{unit}" not understood in constructor'.format(unit=units))
 
-        units_to_GeV = self._mass_conversions[units]
+        units_to_GeV = self._mass_conversions[units_lower]
         M_target = M * units_to_GeV
         log_M_target = math.log(M_target)
 
@@ -805,7 +806,7 @@ class BaseBlackHole(ABC):
     This is an abstract base class that specifies the minimal interface a black hole model should provide.
     """
 
-    _mass_conversions = {'gram': Gram, 'kilogram': Kilogram, 'GeV': 1.0}
+    _mass_conversions = {'gram': Gram, 'kilogram': Kilogram, 'gev': 1.0}
 
     def __init__(self, params, M: float, units='GeV', strict=True) -> None:
         """
@@ -845,10 +846,11 @@ class BaseBlackHole(ABC):
         :param M: black hole mass, measured in units specified by 'units'
         :param units: units used to measure the black hole mass
         """
-        if units not in self._mass_conversions:
+        units_lower = units.lower()
+        if units_lower not in self._mass_conversions:
             raise RuntimeError('Standard4D.Schwarzschild: unit "{unit}" not understood in constructor'.format(unit=units))
 
-        units_to_GeV = self._mass_conversions[units]
+        units_to_GeV = self._mass_conversions[units_lower]
         self.M = M * units_to_GeV
 
     @property

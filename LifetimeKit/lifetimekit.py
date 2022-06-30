@@ -217,10 +217,10 @@ class PBHLifetimeModel:
     """
 
     # conversion factors into GeV for mass units we understand
-    _mass_conversions = {'gram': Gram, 'kilogram': Kilogram, 'SolarMass': SolarMass, 'GeV': 1.0}
+    _mass_conversions = {'gram': Gram, 'kilogram': Kilogram, 'solarmass': SolarMass, 'gev': 1.0}
 
     # conversion factors into GeV for temperature units we understand
-    _temperature_conversions = {'Kelvin': Kelvin, 'GeV': 1.0}
+    _temperature_conversions = {'kelvin': Kelvin, 'gev': 1.0}
 
     # conversion factors into GeV for time units
     _time_conversions = {'second': 1.0, 'year': 60.0*60.0*24.0*365.0}
@@ -247,10 +247,12 @@ class PBHLifetimeModel:
         # print verbose debugging/information messages
         self._verbose = verbose
 
-        self._validate_units(mass_units=M_units, temperature_units=T_units)
+        M_units_lower = M_units.lower()
+        T_units_lower = T_units.lower()
+        self._validate_units(mass_units=M_units_lower, temperature_units=T_units_lower)
 
-        temperature_units_to_GeV = self._temperature_conversions[T_units]
-        mass_units_to_GeV = self._mass_conversions[M_units]
+        temperature_units_to_GeV = self._temperature_conversions[T_units_lower]
+        mass_units_to_GeV = self._mass_conversions[M_units_lower]
 
         M_init_GeV = M_init * mass_units_to_GeV
         T_rad_init_GeV = T_rad_init * temperature_units_to_GeV
@@ -596,15 +598,20 @@ class PBHLifetimeModel:
             raise RuntimeError(_UNIT_ERROR_MESSAGE.format(unit=temperature_units))
 
     def dMdt_plot(self, filename, show_rates=None, mass_units='gram', time_units='year', temperature_units='Kelvin'):
-        self._validate_units(mass_units=mass_units, time_units=time_units, temperature_units=temperature_units)
+        mass_units_lower = mass_units.lower()
+        time_units_lower = time_units.lower()
+        temperature_units_lower = temperature_units.lower()
+
+        self._validate_units(mass_units=mass_units_lower, time_units=time_units_lower,
+                             temperature_units=temperature_units_lower)
 
         # if no models specified, plot them all
         if show_rates is None or not isinstance(show_rates, list):
             show_rates = self.dMdt.keys()
 
-        mass_units_to_GeV = self._mass_conversions[mass_units]
-        temperature_units_to_GeV = self._temperature_conversions[temperature_units]
-        time_units_to_seconds = self._time_conversions[time_units]
+        mass_units_to_GeV = self._mass_conversions[mass_units_lower]
+        temperature_units_to_GeV = self._temperature_conversions[temperature_units_lower]
+        time_units_to_seconds = self._time_conversions[time_units_lower]
 
         plt.figure()
 
@@ -628,7 +635,8 @@ class PBHLifetimeModel:
         if show_rates is None or not isinstance(show_rates, list):
             show_rates = self.dMdt.keys()
 
-        temperature_units_to_GeV = self._temperature_conversions[temperature_units]
+        temperature_units_lower = temperature_units.lower()
+        temperature_units_to_GeV = self._temperature_conversions[temperature_units_lower]
 
         plt.figure()
 
@@ -656,15 +664,20 @@ class PBHLifetimeModel:
 
 
     def rates_csv(self, filename, show_rates=None, mass_units='gram', time_units='year', temperature_units='Kelvin'):
-        self._validate_units(mass_units=mass_units, time_units=time_units, temperature_units=temperature_units)
+        mass_units_lower = mass_units.lower()
+        time_units_lower = time_units.lower()
+        temperature_units_lower = temperature_units.lower()
+
+        self._validate_units(mass_units=mass_units_lower, time_units=time_units_lower,
+                             temperature_units=temperature_units_lower)
 
         # if no models specified, plot them all
         if show_rates is None or not isinstance(show_rates, list):
             show_rates = self.dMdt.keys()
 
-        mass_units_to_GeV = self._mass_conversions[mass_units]
-        temperature_units_to_GeV = self._temperature_conversions[temperature_units]
-        time_units_to_seconds = self._time_conversions[time_units]
+        mass_units_to_GeV = self._mass_conversions[mass_units_lower]
+        temperature_units_to_GeV = self._temperature_conversions[temperature_units_lower]
+        time_units_to_seconds = self._time_conversions[time_units_lower]
 
         T_values = self.T_sample_points / temperature_units_to_GeV
         data = {'T_rad': T_values}
@@ -683,14 +696,17 @@ class PBHLifetimeModel:
         df.to_csv(filename)
 
     def dJdt_plot(self, filename, show_rates=None, time_units='year', temperature_units='Kelvin'):
-        self._validate_units(time_units=time_units, temperature_units=temperature_units)
+        time_units_lower = time_units.lower()
+        temperature_units_lower = temperature_units.lower()
+
+        self._validate_units(time_units=time_units_lower, temperature_units=temperature_units_lower)
 
         # if no models specified, plot them all
         if show_rates is None or not isinstance(show_rates, list):
             show_rates = self.dJdt.keys()
 
-        temperature_units_to_GeV = self._temperature_conversions[temperature_units]
-        time_units_to_seconds = self._time_conversions[time_units]
+        temperature_units_to_GeV = self._temperature_conversions[temperature_units_lower]
+        time_units_to_seconds = self._time_conversions[time_units_lower]
 
         plt.figure()
 
@@ -714,10 +730,10 @@ class PBHLifetimeModel:
 # (which we can map to an initial mass and a lengthscale)
 class PBHInstance:
     # conversion factors into GeV for mass units we understand
-    _mass_conversions = {'gram': Gram, 'kilogram': Kilogram, 'SolarMass': SolarMass, 'GeV': 1.0}
+    _mass_conversions = {'gram': Gram, 'kilogram': Kilogram, 'solarmass': SolarMass, 'gev': 1.0}
 
     # conversion factors into GeV for temperature units we understand
-    _temperature_conversions = {'Kelvin': Kelvin, 'GeV': 1.0}
+    _temperature_conversions = {'kelvin': Kelvin, 'gev': 1.0}
 
     def __init__(self, params, T_rad_init: float, T_rad_final: float=None, J_over_Jmax: float=None, J: float=None,
                  models=_DEFAULT_MODEL_SET, accretion_efficiency_F: float=0.5, collapse_fraction_f: float=0.5,
@@ -735,11 +751,12 @@ class PBHInstance:
         :param num_samples: number of T_rad samples to take
         :param compute_rates: compute dM/dt and dJ/dt rates for different species groups
         """
-        if units not in self._temperature_conversions:
+        units_lower = units.lower()
+        if units_lower not in self._temperature_conversions:
             raise RuntimeError('PBHLifetimeModel: unit "{unit}" not understood in '
                                'constructor'.format(unit=units))
 
-        temperature_units_to_GeV = self._temperature_conversions[units]
+        temperature_units_to_GeV = self._temperature_conversions[units_lower]
 
         T_rad_init_GeV = T_rad_init * temperature_units_to_GeV
         T_rad_final_GeV = T_rad_final * temperature_units_to_GeV if T_rad_final is not None \
@@ -936,11 +953,14 @@ class PBHInstance:
         :return:
         """
         # check desired units are sensible
-        if mass_units not in self._mass_conversions:
+        mass_units_lower = mass_units.lower()
+        temperature_units_lower = temperature_units.lower()
+
+        if mass_units_lower not in self._mass_conversions:
             raise RuntimeError('PBHLifetimeModel.lifetime_plot(): unit "{unit}" not understood in '
                                'constructor'.format(unit=mass_units))
 
-        if temperature_units not in self._temperature_conversions:
+        if temperature_units_lower not in self._temperature_conversions:
             raise RuntimeError('PBHLifetimeModel.lifetime_plot: unit "{unit}" not understood in '
                                'constructor'.format(unit=temperature_units))
 
@@ -948,8 +968,8 @@ class PBHInstance:
         if models is None or not isinstance(models, list):
             models = self.lifetimes.keys()
 
-        mass_units_to_GeV = self._mass_conversions[mass_units]
-        temperature_units_to_GeV = self._temperature_conversions[temperature_units]
+        mass_units_to_GeV = self._mass_conversions[mass_units_lower]
+        temperature_units_to_GeV = self._temperature_conversions[temperature_units_lower]
 
         plt.figure()
 
@@ -976,7 +996,9 @@ class PBHInstance:
         :param type:
         :return:
         """
-        if temperature_units not in self._temperature_conversions:
+        temperature_units_lower = temperature_units.lower()
+
+        if temperature_units_lower not in self._temperature_conversions:
             raise RuntimeError('PBHLifetimeModel.angular_momentum_plot: unit "{unit}" not understood in '
                                'constructor'.format(unit=temperature_units))
 
@@ -986,7 +1008,7 @@ class PBHInstance:
         if models is None or not isinstance(models, list):
             models = self.lifetimes.keys()
 
-        temperature_units_to_GeV = self._temperature_conversions[temperature_units]
+        temperature_units_to_GeV = self._temperature_conversions[temperature_units_lower]
 
         plt.figure()
 
@@ -1021,7 +1043,9 @@ class PBHInstance:
         :return:
         """
         # check desired units are sensible
-        if temperature_units not in self._temperature_conversions:
+        temperature_units_lower = temperature_units.lower()
+
+        if temperature_units_lower not in self._temperature_conversions:
             raise RuntimeError('PBHLifetimeModel.lifetime_plot: unit "{unit}" not understood in '
                                'constructor'.format(unit=temperature_units))
 
@@ -1029,7 +1053,7 @@ class PBHInstance:
         if models is None or not isinstance(models, list):
             models = self.lifetimes.keys()
 
-        temperature_units_to_GeV = self._temperature_conversions[temperature_units]
+        temperature_units_to_GeV = self._temperature_conversions[temperature_units_lower]
 
         plt.figure()
 

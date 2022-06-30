@@ -11,15 +11,16 @@ NumPoints = 200
 
 # generate a plot of PBH formation mass vs. formation temperature
 def PBHMassPlot(M5, Tlo=1E3, Thi=None, units='gram', collapse_fraction_f=0.5):
+    # build a dictionary of unit conversion coefficients
+    units_conversion = {'gram': lkit.Gram, 'kilogram': lkit.Kilogram, 'gev': 1.0}
+
     # check desired units are sensible
-    if units not in ['gram', 'kilogram', 'GeV']:
+    units_lower = units.lower()
+    if units_lower not in units_conversion:
         raise RuntimeError('PBHMassPlot: unit "{unit}" not understood in constructor'.format(unit=units))
 
     if Thi is None:
         Thi = M5
-
-    # build a dictionary of unit conversion coefficients
-    units_conversion = {'gram': lkit.Gram, 'kilogram': lkit.Kilogram, 'GeV': 1.0}
 
     params = lkit.RS5D.Parameters(M5)
     engine_RS = lkit.RS5D.Model(params)
@@ -27,7 +28,7 @@ def PBHMassPlot(M5, Tlo=1E3, Thi=None, units='gram', collapse_fraction_f=0.5):
 
     T_range = np.geomspace(Tlo, Thi, num=NumPoints)
 
-    unit = units_conversion[units]
+    unit = units_conversion[units_lower]
 
     M_values = [collapse_fraction_f * engine_RS.M_Hubble(T=T) / unit for T in T_range]
     M4_values = [collapse_fraction_f * engine_4D.M_Hubble(T=T) / unit for T in T_range]
@@ -43,15 +44,16 @@ def PBHMassPlot(M5, Tlo=1E3, Thi=None, units='gram', collapse_fraction_f=0.5):
 
 # generate a plot of PBH formation lengthscale vs. formation temperature
 def PBHLengthscalePlot(M5, Tlo=4E3, Thi=None, units='kilometre'):
+    # build a dictionary of unit conversion coefficients
+    units_conversion = {'metre': lkit.Metre, 'kilometre': lkit.Kilometre, 'mpc': lkit.Mpc}
+
     # check desired units are sensible
-    if units not in ['metre', 'kilometre', 'Mpc']:
+    units_lower = units.lower()
+    if units_lower not in units_conversion:
         raise RuntimeError('PBHLengthscalePlot: unit "{unit}" not understood in constructor'.format(unit=units))
 
     if Thi is None:
         Thi = M5
-
-    # build a dictionary of unit conversion coefficients
-    units_conversion = {'metre': lkit.Metre, 'kilometre': lkit.Kilometre, 'Mpc': lkit.Mpc}
 
     params = lkit.RS5D.Parameters(M5)
     engine_RS = lkit.RS5D.Model(params)
@@ -59,7 +61,7 @@ def PBHLengthscalePlot(M5, Tlo=4E3, Thi=None, units='kilometre'):
 
     T_range = np.geomspace(Tlo, Thi, num=NumPoints)
 
-    unit = units_conversion[units]
+    unit = units_conversion[units_lower]
 
     R_values = [engine_RS.R_Hubble(T=T) / unit for T in T_range]
     R4_values = [engine_4D.R_Hubble(T=T) / unit for T in T_range]
@@ -75,19 +77,22 @@ def PBHLengthscalePlot(M5, Tlo=4E3, Thi=None, units='kilometre'):
 
 # generate a plot of PBH formation mass vs. formation lengthscale
 def PBHMassScaleRelation(M5, Tlo=4E3, Thi=None, length_units='kilometre', mass_units='gram', collapse_fraction_f=0.5):
+    # build a dictionary of unit conversion coefficients
+    length_conversion = {'metre': lkit.Metre, 'kilometre': lkit.Kilometre, 'mpc': lkit.Mpc}
+    mass_conversion = {'gram': lkit.Gram, 'kilogram': lkit.Kilogram, 'gev': 1.0}
+
     # check desired units are sensible
-    if length_units not in ['metre', 'kilometre', 'Mpc']:
+    length_units_lower = length_units.lower()
+    mass_units_lower = mass_units.lower()
+
+    if length_units_lower not in length_conversion:
         raise RuntimeError('PBHLengthscalePlot: unit "{unit}" not understood in constructor'.format(unit=length_units))
 
-    if mass_units not in ['gram', 'kilogram', 'GeV']:
+    if mass_units not in mass_conversion:
         raise RuntimeError('PBHMassPlot: unit "{unit}" not understood in constructor'.format(unit=mass_units))
 
     if Thi is None:
         Thi = M5
-
-    # build a dictionary of unit conversion coefficients
-    length_conversion = {'metre': lkit.Metre, 'kilometre': lkit.Kilometre, 'Mpc': lkit.Mpc}
-    mass_conversion = {'gram': lkit.Gram, 'kilogram': lkit.Kilogram, 'GeV': 1.0}
 
     params = lkit.RS5D.Parameters(M5)
     engine_RS = lkit.RS5D.Model(params)
@@ -95,8 +100,8 @@ def PBHMassScaleRelation(M5, Tlo=4E3, Thi=None, length_units='kilometre', mass_u
 
     T_range = np.geomspace(Tlo, Thi, num=NumPoints)
 
-    length_unit = length_conversion[length_units]
-    mass_unit = mass_conversion[mass_units]
+    length_unit = length_conversion[length_units_lower]
+    mass_unit = mass_conversion[mass_units_lower]
 
     R_values = [engine_RS.R_Hubble(T=T) / length_unit for T in reversed(T_range)]
     R4_values = [engine_4D.R_Hubble(T=T) / length_unit for T in reversed(T_range)]
