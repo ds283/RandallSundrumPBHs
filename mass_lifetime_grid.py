@@ -142,7 +142,13 @@ def compute_lifetime(cache: ActorHandle, serial_batch: List[int]) -> List[float]
         batch.append(data)
         times.append(timer.interval)
 
-    cache.write_work_item.remote(batch)
+    # send these results to the database
+    future = cache.write_work_item.remote(batch)
+
+    # we want to ensure the results actually get written before we move on, so block until this has happened.
+    # Otherwise, we don't get the benefits from checkpointing results into the database - if the job crashes,
+    # everything will still be lost
+    out = ray.get(future)
 
     return times
 
@@ -206,12 +212,12 @@ if args.create_database is not None:
     # lower limit 2E8 GeV roughly corresponds to experimental constraint T_crossover = 1E3 GeV suggested by Guedens et al.
     # TODO: Itzi suggests this has since been improved, so that may need changing
     # upper limit 5E17 GeV is close to 4D Planck scale, with just a bit of headroom
-    M5_grid = np.geomspace(2E8, 5E17, 500)
+    M5_grid = np.geomspace(2E8, 5E17, 50)
 
     # lower limit 1E5 GeV is arbitrary; black holes that form at these low temperatures are always in the 4D regime
     # with the linear Hubble equation, so there is not much need to compute their properties in detail.
     # upper limit matches upper limit on M5 grid
-    Tinit_grid = np.geomspace(1E5, 5E17, 500)
+    Tinit_grid = np.geomspace(1E5, 5E17, 50)
 
     F_grid = np.geomspace(0.001, 1.0, 10)
 

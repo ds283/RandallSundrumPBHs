@@ -178,7 +178,7 @@ class Cache:
                 sqla.select(self._version_table.c.serial).filter(self._version_table.c.git_hash == self._git_hash)
             )
 
-            x = result.first()
+            x = result.scalar()
 
             if x is not None:
                 return x

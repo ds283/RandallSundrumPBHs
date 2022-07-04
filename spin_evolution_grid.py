@@ -151,7 +151,13 @@ def compute_lifetime(cache: ActorHandle, serial_batch: List[int]) -> List[float]
         batch.append(data)
         times.append(timer.interval)
 
-    cache.write_work_item.remote(batch)
+    # send these results to the database
+    future = cache.write_work_item.remote(batch)
+
+    # we want to ensure the results actually get written before we move on, so block until this has happened.
+    # Otherwise, we don't get the benefits from checkpointing results into the database - if the job crashes,
+    # everything will still be lost
+    out = ray.get(future)
 
     return times
 
