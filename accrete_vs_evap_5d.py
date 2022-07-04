@@ -68,7 +68,8 @@ Trad_final_GeV = Trad_final * temperature_to_GeV
 histories = {'GB_5D': 'GreybodyRS5D'}
 
 def _build_labels(h: str):
-    return {'evap_faster': '{h}_evap_faster'.format(h=h),
+    return {'is_5D': '{h}_is_5D'.format(h=h),
+            'evap_faster': '{h}_evap_faster'.format(h=h),
             'net_evap_rate_GeV_sq': '{h}_net_evap_rate_GeV_sq'.format(h=h),
             'net_evap_rate_Gram_Yr': '{h}_net_evap_rate_Gram_Yr'.format(h=h)}
 
@@ -102,6 +103,7 @@ def compute_lifetime(cache: ActorHandle, serial_batch: List[int]) -> List[float]
             data = {'serial': serial,
                     'Minit_5D_GeV': M_init,
                     'Minit_5D_Gram': M_init/lkit.Gram,
+                    'GB_5D_is_5D': PBH.is_5D,
                     'GB_5D_evap_faster': math.fabs(evap_rate) > math.fabs(accrete_rate),
                     'GB_5D_net_evap_rate_GeV_sq': net_evap_rate,
                     'GB_5D_net_evap_rate_Gram_Yr': net_evap_rate / (lkit.Gram / lkit.Year)}
@@ -158,10 +160,6 @@ def _test_valid(data) -> bool:
         # constructing a PBHModel with this mass will raise an exception if the mass is out of bounds
         # could possibly just write in the test here, but this way we abstract it into the PBHModel class
         PBH = lkit.RS5D.SpinlessBlackHole(params, M=M_init, units='GeV')
-
-        # reject if not a 5D black hole at formation
-        if not PBH.is_5D:
-            return False
     except RuntimeError:
         return False
 
