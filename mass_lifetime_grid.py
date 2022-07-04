@@ -108,8 +108,6 @@ def compute_lifetime(cache: ActorHandle, serial_batch: List[int]) -> List[float]
                                         accretion_efficiency_F=F, collapse_fraction_f=f)
 
             data = {'serial': serial,
-                    'Trad_final_GeV': Tfinal,
-                    'Trad_final_Kelvin': Tfinal/lkit.Kelvin,
                     'Minit_5D_GeV': solution.M_init_5D,
                     'Minit_5D_Gram': solution.M_init_5D/lkit.Gram,
                     'Minit_4D_GeV': solution.M_init_4D,
@@ -200,8 +198,7 @@ def get_git_revision_hash() -> str:
 
 cache: ckit.Cache = \
     ckit.Cache.remote(list(histories.keys()), _build_labels, get_git_revision_hash(),
-                      standard_columns=['Trad_final_GeV', 'Trad_final_Kelvin',
-                                        'Minit_5D_GeV', 'Minit_5D_Gram', 'Minit_4D_GeV', 'Minit_4D_Gram'])
+                      standard_columns=['Minit_5D_GeV', 'Minit_5D_Gram', 'Minit_4D_GeV', 'Minit_4D_Gram'])
 
 if args.create_database is not None:
     print('mass_lifetime_grid.py: target radiation temperature T_rad = {Trad_GeV:.5} GeV = {Trad_K:.5} '
