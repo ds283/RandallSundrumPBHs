@@ -139,7 +139,7 @@ def compute_lifetime(cache: ActorHandle, serial_batch: List[int]) -> List[float]
                           labels['compute']: history.compute_time}
                 data = data | h_data
 
-        batch.append(data)
+            batch.append(data)
         times.append(timer.interval)
 
     # send these results to the database
