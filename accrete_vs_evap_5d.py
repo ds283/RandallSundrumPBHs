@@ -68,7 +68,9 @@ Trad_final_GeV = Trad_final * temperature_to_GeV
 histories = {'GB_5D': 'GreybodyRS5D'}
 
 def _build_labels(h: str):
-    return {'evap_faster': '{h}_evap_faster'.format(h=h)}
+    return {'evap_faster': '{h}_evap_faster'.format(h=h),
+            'net_evap_rate_GeV_sq': '{h}_net_evap_rate_GeV_sq'.format(h=h),
+            'net_evap_rate_Gram_Yr': '{h}_net_evap_rate_Gram_Yr'.format(h=h)}
 
 
 def compute_lifetime(cache: ActorHandle, serial_batch: List[int]) -> List[float]:
@@ -95,12 +97,14 @@ def compute_lifetime(cache: ActorHandle, serial_batch: List[int]) -> List[float]
             evap_rate = model._dMdt_evaporation(Tinit, PBH)
             accrete_rate = model._dMdt_accretion(Tinit, PBH)
 
+            net_evap_rate = -(evap_rate + accrete_rate)
+
             data = {'serial': serial,
-                    'Trad_final_GeV': Tfinal,
-                    'Trad_final_Kelvin': Tfinal/lkit.Kelvin,
                     'Minit_5D_GeV': M_init,
                     'Minit_5D_Gram': M_init/lkit.Gram,
-                    'GB_5D_evap_faster': math.fabs(evap_rate) > math.fabs(accrete_rate)}
+                    'GB_5D_evap_faster': math.fabs(evap_rate) > math.fabs(accrete_rate),
+                    'GB_5D_net_evap_rate_GeV_sq': net_evap_rate,
+                    'GB_5D_net_evap_rate_Gram_Yr': net_evap_rate / (lkit.Gram / lkit.Year)}
 
             batch.append(data)
 
@@ -168,8 +172,7 @@ def get_git_revision_hash() -> str:
 
 cache: ckit.Cache = \
     ckit.Cache.remote(list(histories.keys()), _build_labels, get_git_revision_hash(),
-                      standard_columns=['Trad_final_GeV', 'Trad_final_Kelvin',
-                                        'Minit_5D_GeV', 'Minit_5D_Gram'])
+                      standard_columns=['Minit_5D_GeV', 'Minit_5D_Gram'])
 
 if args.create_database is not None:
     print('mass_lifetime_grid.py: target radiation temperature T_rad = {Trad_GeV:.5} GeV = {Trad_K:.5} '
