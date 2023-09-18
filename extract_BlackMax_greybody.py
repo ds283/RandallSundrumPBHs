@@ -45,12 +45,12 @@ class BlackMaxSpectrum:
     # set up x sample points
     x_samples = np.linspace(start=max_x/num_x_samples, stop=max_x, num=num_x_samples)
 
-    # how many (elll,m) modes are needed for the spin-0, spin-1/2 and spin-1 greybody factors?
+    # how many (ell, m) modes are needed for the spin-0, spin-1/2 and spin-1 greybody factors?
     # for the spin-0 mode this is easy; the representation label ell runs over all integer representations
     # from 0 to l_max, and m labels a basis for this representation (of dimension 2ell+1).
-    # Hence we have a total of Sum (2ell+1) modes, for elll between 0 and l_max = (1+l_max)^2.
+    # Hence we have a total of \aum (2ell+1) modes, for ell between 0 and l_max = (1+l_max)^2.
     # For the spin-1 representation the counting is the same, but the (0,0) representation is excluded,
-    # so there is one fewer elements.
+    # so there is one fewer element.
     # Finally, for spin-1/2 we have half-integer ell and l_max. We have a total of Sum (2ell+1) modes, but now
     # for ell between 0.5 and l_max-0.5. Shifting the summation index to ell' = ekl + 0.5 we get
     # Sum 2ell' for ell' between 1 and l_max = l_max(1+l_max).
@@ -110,7 +110,7 @@ class BlackMaxSpectrum:
 
             # compute BlackMax Omega value
             # this seems to be the angular velocity of the horizon, Omega_H, as defined below Eq. (5.16) of
-            # the Marco Sampaio thesis (https://inspirehep.net/literature/1306434), in untis of 1/r_h
+            # the Marco Sampaio thesis (https://inspirehep.net/literature/1306434), in units of 1/r_h
             # (note that in the thesis, he uses units of the horizon radius so that r_h = 1; this
             # is spelled out above Eq. (3.53) on p.48).
             # This equation also matches Eq. (51) of the BlackMax paper (http://arxiv.org/abs/0711.3012v4)

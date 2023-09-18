@@ -254,7 +254,7 @@ class BondiHoyleLyttletonAccretionModel:
 
         # if using Page suppression, divide by Page suppression factor since presumably
         # this affects accretion equally to radiation by a detailed balance argument
-        # in equilibrium
+        # in equilibrium.
         return dM_dt / (Page_suppression_factor if self._use_Page_suppression else 1.0)
 
 
